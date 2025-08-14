@@ -16,11 +16,13 @@ export function HabitVisibilityProvider({ children }: { children: React.ReactNod
   };
 
   return (
-    <HabitVisibilityContext.Provider value={{
-      showCheckedHabits,
-      setShowCheckedHabits,
-      toggleCheckedHabits,
-    }}>
+    <HabitVisibilityContext.Provider
+      value={{
+        showCheckedHabits,
+        setShowCheckedHabits,
+        toggleCheckedHabits,
+      }}
+    >
       {children}
     </HabitVisibilityContext.Provider>
   );

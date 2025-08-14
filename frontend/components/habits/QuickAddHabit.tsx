@@ -1,11 +1,5 @@
 import React, { useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import { View, StyleSheet, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { ThemedTextInput } from '../ThemedTextInput';
 import { HabitService } from '@/lib/services/habitService';
 import { useAuth } from '@/auth/AuthContext';
@@ -41,15 +35,15 @@ export function QuickAddHabit({ onHabitAdded }: QuickAddHabitProps) {
         is_weight: false,
         reward_settings: {
           success_points: 10,
-          penalty_points: 5
+          penalty_points: 5,
         },
         display_settings: {
-          order: Date.now() // Use timestamp for simple ordering
-        }
+          order: Date.now(), // Use timestamp for simple ordering
+        },
       };
 
       const response = await HabitService.createHabit(habitData, token);
-      
+
       if (response.data) {
         setHabitName('');
         onHabitAdded?.();
@@ -66,7 +60,7 @@ export function QuickAddHabit({ onHabitAdded }: QuickAddHabitProps) {
   };
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >

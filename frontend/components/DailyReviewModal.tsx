@@ -36,7 +36,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
 
   const loadUncheckedHabits = async () => {
     if (!token || !visible) return;
-    
+
     setLoading(true);
     try {
       // Get all habits
@@ -48,12 +48,12 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
 
       const reviewDateStr = reviewDate.toISOString().split('T')[0];
       console.log('DailyReview: Review date string:', reviewDateStr);
-      
+
       // Get all types of activity data for the review date
       const [checksResponse, countsResponse, weightsResponse] = await Promise.all([
         HabitService.getChecks(token),
-        HabitService.getCounts(token), 
-        HabitService.getWeightUpdates(token, {})
+        HabitService.getCounts(token),
+        HabitService.getWeightUpdates(token, {}),
       ]);
 
       console.log('DailyReview: All checks:', checksResponse.data);
@@ -91,12 +91,24 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
 
       // Filter to ALL habits that weren't tracked
       const allHabits = habitsResponse.data;
-      console.log('DailyReview: All habits:', allHabits.map(h => ({ id: h.id, name: h.name, type: h.has_counts ? 'count' : h.is_weight ? 'weight' : 'normal' })));
-      
-      const unchecked = allHabits.filter(habit => 
-        !trackedHabitIds.has(habit.id)
+      console.log(
+        'DailyReview: All habits:',
+        allHabits.map(h => ({
+          id: h.id,
+          name: h.name,
+          type: h.has_counts ? 'count' : h.is_weight ? 'weight' : 'normal',
+        }))
       );
-      console.log('DailyReview: Untracked habits:', unchecked.map(h => ({ id: h.id, name: h.name, type: h.has_counts ? 'count' : h.is_weight ? 'weight' : 'normal' })));
+
+      const unchecked = allHabits.filter(habit => !trackedHabitIds.has(habit.id));
+      console.log(
+        'DailyReview: Untracked habits:',
+        unchecked.map(h => ({
+          id: h.id,
+          name: h.name,
+          type: h.has_counts ? 'count' : h.is_weight ? 'weight' : 'normal',
+        }))
+      );
 
       setOriginallyUncheckedHabits(unchecked);
       setCurrentlyCheckedHabits(new Set()); // Reset checked status
@@ -115,7 +127,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
     setApplying(true);
     try {
       let totalPenalty = 0;
-      
+
       for (const habit of originallyUncheckedHabits) {
         const penaltyPoints = habit.reward_settings?.penalty_points || 0;
         if (penaltyPoints > 0) {
@@ -131,11 +143,9 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
           [{ text: 'OK', onPress: onClose }]
         );
       } else {
-        Alert.alert(
-          'No Penalties',
-          'No penalty points were configured for these habits.',
-          [{ text: 'OK', onPress: onClose }]
-        );
+        Alert.alert('No Penalties', 'No penalty points were configured for these habits.', [
+          { text: 'OK', onPress: onClose },
+        ]);
       }
     } catch (error) {
       console.error('Error applying penalties:', error);
@@ -161,7 +171,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
       weekday: 'long',
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
     });
   };
 
@@ -203,21 +213,16 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
   const currentDate = missedDays[currentDayIndex] || reviewDate;
   const isLastDay = currentDayIndex === missedDays.length - 1;
   const hasMoreDays = missedDays.length > 1;
-  const allHabitsCompleted = originallyUncheckedHabits.every(habit => currentlyCheckedHabits.has(habit.id));
+  const allHabitsCompleted = originallyUncheckedHabits.every(habit =>
+    currentlyCheckedHabits.has(habit.id)
+  );
 
   return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} transparent={true} animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <ThemedView style={[styles.modal, { borderColor }]}>
           <ThemedText style={styles.title}>Daily Review</ThemedText>
-          <ThemedText style={styles.subtitle}>
-            {formatDate(currentDate)}
-          </ThemedText>
+          <ThemedText style={styles.subtitle}>{formatDate(currentDate)}</ThemedText>
 
           {hasMoreDays && (
             <View style={[styles.dayCounter, { backgroundColor: '#ff4444' }]}>
@@ -234,9 +239,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
           ) : originallyUncheckedHabits.length === 0 ? (
             <View style={styles.centerContent}>
               <ThemedText style={styles.successText}>🎉 Perfect day!</ThemedText>
-              <ThemedText style={styles.successSubtext}>
-                All habits were completed
-              </ThemedText>
+              <ThemedText style={styles.successSubtext}>All habits were completed</ThemedText>
             </View>
           ) : (
             <>
@@ -247,15 +250,15 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
                   </ThemedText>
                 </View>
               )}
-              
+
               <ThemedText style={styles.sectionTitle}>
                 Complete These Habits ({originallyUncheckedHabits.length})
               </ThemedText>
-              
+
               <ScrollView style={styles.habitsList} showsVerticalScrollIndicator={false}>
                 {originallyUncheckedHabits.map(habit => {
                   const isChecked = currentlyCheckedHabits.has(habit.id);
-                  
+
                   if (habit.has_counts) {
                     return (
                       <CountHabitCard
@@ -343,9 +346,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
                   onPress={onClose}
                   disabled={applying}
                 >
-                  <ThemedText style={[styles.buttonText, { color: 'white' }]}>
-                    Close
-                  </ThemedText>
+                  <ThemedText style={[styles.buttonText, { color: 'white' }]}>Close</ThemedText>
                 </TouchableOpacity>
               </>
             )}

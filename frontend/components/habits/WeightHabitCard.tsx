@@ -34,7 +34,20 @@ interface WeightHabitCardProps {
   isActive?: boolean;
 }
 
-export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit, isEditing, onChecked, onUnchecked, isCheckedToday, isDraggable, onDrag, isActive }: WeightHabitCardProps) {
+export function WeightHabitCard({
+  habit,
+  onUpdate,
+  onDelete,
+  onEdit,
+  onCancelEdit,
+  isEditing,
+  onChecked,
+  onUnchecked,
+  isCheckedToday,
+  isDraggable,
+  onDrag,
+  isActive,
+}: WeightHabitCardProps) {
   const [currentWeight, setCurrentWeight] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [showWeightInput, setShowWeightInput] = useState(false);
@@ -55,22 +68,38 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
   const unit = habit.weight_settings?.unit || 'kg';
   const goalType = habit.weight_settings?.goal_type || 'maintain';
   const stepSize = habit.weight_settings?.step_size || 0.1;
-  
+
   // Editing state
   const [editName, setEditName] = useState(habit.name);
   const [editDescription, setEditDescription] = useState(habit.description || '');
-  const [editTarget, setEditTarget] = useState(habit.weight_settings?.target_weight?.toString() || '');
+  const [editTarget, setEditTarget] = useState(
+    habit.weight_settings?.target_weight?.toString() || ''
+  );
   const [editUnit, setEditUnit] = useState(habit.weight_settings?.unit || 'kg');
   const [editGoalType, setEditGoalType] = useState(habit.weight_settings?.goal_type || 'maintain');
-  const [editHabitType, setEditHabitType] = useState(habit.has_counts ? 'count' : habit.is_weight ? 'weight' : 'normal');
-  
+  const [editHabitType, setEditHabitType] = useState(
+    habit.has_counts ? 'count' : habit.is_weight ? 'weight' : 'normal'
+  );
+
   // Reward settings
-  const [editSuccessReward, setEditSuccessReward] = useState(habit.reward_settings?.success_points?.toString() || '1');
-  const [editFailureReward, setEditFailureReward] = useState(habit.reward_settings?.penalty_points?.toString() || '0');
-  const [editCountReward, setEditCountReward] = useState(habit.reward_settings?.count_reward?.toString() || '0.1');
-  const [editWeightReward, setEditWeightReward] = useState(habit.reward_settings?.weight_reward?.toString() || '1');
-  const [editTrackingBonus, setEditTrackingBonus] = useState(habit.reward_settings?.tracking_bonus?.toString() || '5');
-  const [editTrackingPenalty, setEditTrackingPenalty] = useState(habit.reward_settings?.tracking_penalty?.toString() || '2');
+  const [editSuccessReward, setEditSuccessReward] = useState(
+    habit.reward_settings?.success_points?.toString() || '1'
+  );
+  const [editFailureReward, setEditFailureReward] = useState(
+    habit.reward_settings?.penalty_points?.toString() || '0'
+  );
+  const [editCountReward, setEditCountReward] = useState(
+    habit.reward_settings?.count_reward?.toString() || '0.1'
+  );
+  const [editWeightReward, setEditWeightReward] = useState(
+    habit.reward_settings?.weight_reward?.toString() || '1'
+  );
+  const [editTrackingBonus, setEditTrackingBonus] = useState(
+    habit.reward_settings?.tracking_bonus?.toString() || '5'
+  );
+  const [editTrackingPenalty, setEditTrackingPenalty] = useState(
+    habit.reward_settings?.tracking_penalty?.toString() || '2'
+  );
 
   const loadCurrentWeight = async () => {
     if (!token) return;
@@ -115,14 +144,14 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
       if (response.data) {
         const oldWeight = currentWeight || 0;
         setCurrentWeight(weight);
-        
+
         // Calculate reward based on weight movement
         if (targetWeight && oldWeight > 0) {
           const weightReward = habit.reward_settings?.weight_reward || 0;
           if (weightReward > 0) {
             const oldDistance = Math.abs(oldWeight - targetWeight);
             const newDistance = Math.abs(weight - targetWeight);
-            
+
             if (newDistance < oldDistance) {
               // Moving closer to target - reward
               const improvement = oldDistance - newDistance;
@@ -134,7 +163,7 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
             }
           }
         }
-        
+
         if (!newWeight) {
           setNewWeight('');
           setShowWeightInput(false);
@@ -151,13 +180,13 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
       setUpdating(false);
     }
   };
-  
+
   const updateWeight = async (increment: boolean) => {
     if (!token || updating || !currentWeight) return;
 
     const change = increment ? stepSize : -stepSize;
     const newWeight = Math.max(0, currentWeight + change);
-    
+
     await handleWeightUpdate(newWeight);
   };
 
@@ -167,7 +196,7 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
     setChecking(true);
     try {
       const successReward = habit.reward_settings?.success_points || 0;
-      
+
       if (isCheckedToday) {
         // Uncheck the habit - subtract success reward
         await HabitService.uncheckHabitToday(habit.id, token);
@@ -204,7 +233,7 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
       setChecking(false);
     }
   };
-  
+
   const handleSave = async () => {
     if (!token) return;
 
@@ -214,22 +243,28 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
         description: editDescription,
         has_counts: editHabitType === 'count',
         is_weight: editHabitType === 'weight',
-        count_settings: editHabitType === 'count' ? {
-          target: parseInt(editTarget) || 0,
-          unit: editUnit,
-          step_size: parseInt('1') || 1,
-          count_is_good: true,
-        } : null,
-        weight_settings: editHabitType === 'weight' ? {
-          target_weight: parseFloat(editTarget) || 0,
-          unit: editUnit,
-          step_size: 0.1,
-        } : null,
+        count_settings:
+          editHabitType === 'count'
+            ? {
+                target: parseInt(editTarget) || 0,
+                unit: editUnit,
+                step_size: parseInt('1') || 1,
+                count_is_good: true,
+              }
+            : null,
+        weight_settings:
+          editHabitType === 'weight'
+            ? {
+                target_weight: parseFloat(editTarget) || 0,
+                unit: editUnit,
+                step_size: 0.1,
+              }
+            : null,
         reward_settings: {
           success_points: parseFloat(editSuccessReward) || 0,
           penalty_points: parseFloat(editFailureReward) || 0,
           ...(editHabitType === 'count' && { count_reward: parseFloat(editCountReward) || 0 }),
-          ...(editHabitType === 'weight' && { 
+          ...(editHabitType === 'weight' && {
             weight_reward: parseFloat(editWeightReward) || 0,
             tracking_bonus: parseFloat(editTrackingBonus) || 0,
             tracking_penalty: parseFloat(editTrackingPenalty) || 0,
@@ -259,13 +294,13 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
     setEditUnit(habit.weight_settings?.unit || 'kg');
     setEditGoalType(habit.weight_settings?.goal_type || 'maintain');
     setEditHabitType(habit.has_counts ? 'count' : habit.is_weight ? 'weight' : 'normal');
-    
+
     // Reset reward settings
     setEditSuccessReward(habit.reward_settings?.success_points?.toString() || '1');
     setEditFailureReward(habit.reward_settings?.penalty_points?.toString() || '0');
     setEditCountReward(habit.reward_settings?.count_reward?.toString() || '0.1');
     setEditWeightReward(habit.reward_settings?.weight_reward?.toString() || '1');
-    
+
     onCancelEdit?.();
   };
 
@@ -314,10 +349,15 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
   if (isEditing) {
     // Preview what the edited habit will look like
     const previewTarget = parseFloat(editTarget) || 0;
-    
+
     return (
       <>
-        <ThemedView style={[styles.container, { borderColor: habitColor, borderLeftWidth: 4, borderLeftColor: habitColor }]}>
+        <ThemedView
+          style={[
+            styles.container,
+            { borderColor: habitColor, borderLeftWidth: 4, borderLeftColor: habitColor },
+          ]}
+        >
           {/* Main row similar to normal view but with editable fields */}
           <View style={styles.mainRow}>
             {/* Keep the check button visible but disabled */}
@@ -329,13 +369,13 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
                   borderColor: habitColor,
                   borderWidth: 2,
                   opacity: 0.5,
-                }
+                },
               ]}
               disabled={true}
             >
               <ThemedText style={[styles.checkButtonText, { color: habitColor }]}>✓</ThemedText>
             </TouchableOpacity>
-            
+
             <View style={styles.leftSection}>
               {/* Editable name in place */}
               <TextInput
@@ -345,7 +385,7 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
                 placeholder="Habit name"
                 placeholderTextColor={textColor + '80'}
               />
-              
+
               {/* Editable description */}
               <TextInput
                 style={[styles.descriptionInput, { color: textColor }]}
@@ -365,20 +405,30 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
                   </ThemedText>
                   <ThemedText style={styles.unit}>{editUnit}</ThemedText>
                 </View>
-                
+
                 <View style={styles.controls}>
                   <TouchableOpacity
-                    style={[styles.controlButton, { backgroundColor: '#ff4444', borderColor: '#ff4444' }]}
+                    style={[
+                      styles.controlButton,
+                      { backgroundColor: '#ff4444', borderColor: '#ff4444' },
+                    ]}
                     disabled={true}
                   >
-                    <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>-</ThemedText>
+                    <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>
+                      -
+                    </ThemedText>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.controlButton, { backgroundColor: '#4CAF50', borderColor: '#4CAF50' }]}
+                    style={[
+                      styles.controlButton,
+                      { backgroundColor: '#4CAF50', borderColor: '#4CAF50' },
+                    ]}
                     disabled={true}
                   >
-                    <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>+</ThemedText>
+                    <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>
+                      +
+                    </ThemedText>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -390,22 +440,24 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
         <ThemedView style={[styles.editSettingsBar, { backgroundColor, borderColor }]}>
           {/* Type selector */}
           <View style={styles.typeSelectorCompact}>
-            {['normal', 'count', 'weight'].map((type) => (
+            {['normal', 'count', 'weight'].map(type => (
               <TouchableOpacity
                 key={type}
                 style={[
                   styles.typeButtonCompact,
-                  { 
+                  {
                     backgroundColor: editHabitType === type ? tintColor : 'transparent',
                     borderColor: tintColor,
-                  }
+                  },
                 ]}
                 onPress={() => setEditHabitType(type)}
               >
-                <ThemedText style={[
-                  styles.typeButtonTextCompact,
-                  { color: editHabitType === type ? backgroundColor : tintColor }
-                ]}>
+                <ThemedText
+                  style={[
+                    styles.typeButtonTextCompact,
+                    { color: editHabitType === type ? backgroundColor : tintColor },
+                  ]}
+                >
                   {type === 'normal' ? '✓' : type === 'count' ? '#' : 'kg'}
                 </ThemedText>
               </TouchableOpacity>
@@ -426,7 +478,7 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
                   placeholderTextColor={textColor + '80'}
                 />
               </View>
-              
+
               <View style={styles.rewardContainer}>
                 <ThemedText style={styles.miniLabel}>Failure: $</ThemedText>
                 <TextInput
@@ -454,7 +506,7 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
                   placeholderTextColor={textColor + '80'}
                 />
               </View>
-              
+
               <View style={styles.rewardContainer}>
                 <ThemedText style={styles.miniLabel}>Unit:</ThemedText>
                 <TextInput
@@ -506,18 +558,19 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
 
           {/* Action buttons */}
           <View style={styles.editActions}>
-            <TouchableOpacity
-              style={styles.cancelButtonCompact}
-              onPress={handleCancel}
-            >
-              <ThemedText style={[styles.actionButtonTextCompact, { color: '#ff4444' }]}>✕</ThemedText>
+            <TouchableOpacity style={styles.cancelButtonCompact} onPress={handleCancel}>
+              <ThemedText style={[styles.actionButtonTextCompact, { color: '#ff4444' }]}>
+                ✕
+              </ThemedText>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={[styles.saveButtonCompact, { backgroundColor: tintColor }]}
               onPress={handleSave}
             >
-              <ThemedText style={[styles.actionButtonTextCompact, { color: backgroundColor }]}>✓</ThemedText>
+              <ThemedText style={[styles.actionButtonTextCompact, { color: backgroundColor }]}>
+                ✓
+              </ThemedText>
             </TouchableOpacity>
           </View>
         </ThemedView>
@@ -527,18 +580,24 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
 
   return (
     <>
-      <ThemedView style={[styles.container, { borderColor: habitColor, borderLeftWidth: 4, borderLeftColor: habitColor, opacity: isActive ? 0.7 : 1 }]}>
+      <ThemedView
+        style={[
+          styles.container,
+          {
+            borderColor: habitColor,
+            borderLeftWidth: 4,
+            borderLeftColor: habitColor,
+            opacity: isActive ? 0.7 : 1,
+          },
+        ]}
+      >
         <View style={styles.mainRow}>
           {isDraggable && (
-            <TouchableOpacity
-              style={styles.dragHandle}
-              onLongPress={onDrag}
-              delayLongPress={100}
-            >
+            <TouchableOpacity style={styles.dragHandle} onLongPress={onDrag} delayLongPress={100}>
               <ThemedText style={[styles.dragHandleText, { color: textColor }]}>⋮⋮</ThemedText>
             </TouchableOpacity>
           )}
-          
+
           <TouchableOpacity
             style={[
               styles.checkButton,
@@ -546,21 +605,23 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
                 backgroundColor: isCheckedToday ? habitColor : 'transparent',
                 borderColor: habitColor,
                 borderWidth: isCheckedToday ? 0 : 2,
-              }
+              },
             ]}
             onPress={handleCheck}
             disabled={checking}
           >
-            <ThemedText style={[
-              styles.checkButtonText,
-              {
-                color: isCheckedToday ? backgroundColor : habitColor,
-              }
-            ]}>
+            <ThemedText
+              style={[
+                styles.checkButtonText,
+                {
+                  color: isCheckedToday ? backgroundColor : habitColor,
+                },
+              ]}
+            >
               {checking ? '...' : '✓'}
             </ThemedText>
           </TouchableOpacity>
-          
+
           <View style={styles.leftSection}>
             <ThemedText style={styles.habitName} numberOfLines={1} ellipsizeMode="tail">
               {habit.name}
@@ -595,7 +656,10 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
             {currentWeight && (
               <View style={styles.controls}>
                 <TouchableOpacity
-                  style={[styles.controlButton, { backgroundColor: '#ff4444', borderColor: '#ff4444' }]}
+                  style={[
+                    styles.controlButton,
+                    { backgroundColor: '#ff4444', borderColor: '#ff4444' },
+                  ]}
                   onPress={() => updateWeight(false)}
                   disabled={updating}
                 >
@@ -603,7 +667,10 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.controlButton, { backgroundColor: '#4CAF50', borderColor: '#4CAF50' }]}
+                  style={[
+                    styles.controlButton,
+                    { backgroundColor: '#4CAF50', borderColor: '#4CAF50' },
+                  ]}
                   onPress={() => updateWeight(true)}
                   disabled={updating}
                 >
@@ -611,7 +678,7 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
                 </TouchableOpacity>
               </View>
             )}
-            
+
             {!currentWeight && (
               <TouchableOpacity
                 style={[styles.updateButton, { backgroundColor: tintColor }]}
@@ -626,7 +693,7 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
 
           <TouchableOpacity
             style={styles.menuButton}
-            onPress={(event) => {
+            onPress={event => {
               event.currentTarget.measure((x, y, width, height, pageX, pageY) => {
                 setDropdownPosition({ x: pageX - 80, y: pageY + height });
                 setShowDropdown(true);
@@ -635,7 +702,6 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
           >
             <ThemedText style={[styles.menuDots, { color: textColor }]}>⋮</ThemedText>
           </TouchableOpacity>
-          
         </View>
       </ThemedView>
 
@@ -646,19 +712,18 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
         animationType="fade"
         onRequestClose={() => setShowDropdown(false)}
       >
-        <Pressable 
-          style={styles.dropdownOverlay} 
-          onPress={() => setShowDropdown(false)}
-        >
-          <ThemedView style={[
-            styles.dropdownMenu,
-            {
-              position: 'absolute',
-              top: dropdownPosition.y,
-              left: dropdownPosition.x,
-              borderColor: borderColor,
-            }
-          ]}>
+        <Pressable style={styles.dropdownOverlay} onPress={() => setShowDropdown(false)}>
+          <ThemedView
+            style={[
+              styles.dropdownMenu,
+              {
+                position: 'absolute',
+                top: dropdownPosition.y,
+                left: dropdownPosition.x,
+                borderColor: borderColor,
+              },
+            ]}
+          >
             <TouchableOpacity
               style={styles.dropdownItem}
               onPress={() => {
@@ -668,7 +733,7 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
             >
               <ThemedText style={styles.dropdownText}>Edit</ThemedText>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={styles.dropdownItem}
               onPress={() => {
@@ -692,7 +757,7 @@ export function WeightHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdi
         <View style={styles.modalOverlay}>
           <ThemedView style={styles.modalContent}>
             <ThemedText style={styles.modalTitle}>Update Weight</ThemedText>
-            
+
             <ThemedTextInput
               style={styles.weightInput}
               value={newWeight}

@@ -33,12 +33,14 @@ export function DevDateProvider({ children }: DevDateProviderProps) {
   };
 
   return (
-    <DevDateContext.Provider value={{
-      currentDate,
-      advanceDay,
-      resetToToday,
-      setDate,
-    }}>
+    <DevDateContext.Provider
+      value={{
+        currentDate,
+        advanceDay,
+        resetToToday,
+        setDate,
+      }}
+    >
       {children}
     </DevDateContext.Provider>
   );
@@ -55,11 +57,12 @@ export function useDevDate() {
 // Helper function to get the current date (either real or simulated)
 export function getCurrentDate(): Date {
   // In production, always return real date (unless dev tools are force enabled)
-  const isDevelopment = process.env.NODE_ENV !== 'production' || process.env.EXPO_PUBLIC_FORCE_DEV_TOOLS === 'true';
+  const isDevelopment =
+    process.env.NODE_ENV !== 'production' || process.env.EXPO_PUBLIC_FORCE_DEV_TOOLS === 'true';
   if (!isDevelopment) {
     return new Date();
   }
-  
+
   // In development, try to use the dev date context if available
   try {
     const { currentDate } = useDevDate();
@@ -74,30 +77,33 @@ export function getCurrentDate(): Date {
 // This considers the day rollover hour (e.g., 3am) instead of midnight
 export function getLogicalDate(rolloverHour: number = 3, currentDate?: Date): string {
   const now = currentDate || getCurrentDate();
-  
+
   // If it's before the rollover hour, use the previous day
   const adjustedDate = new Date(now);
   if (now.getHours() < rolloverHour) {
     adjustedDate.setDate(adjustedDate.getDate() - 1);
   }
-  
+
   // Return in YYYY-MM-DD format
   return adjustedDate.toISOString().split('T')[0];
 }
 
 // Helper function to get date range for API calls
-export function getLogicalDateRange(rolloverHour: number = 3, currentDate?: Date): { startDate: string; endDate: string } {
+export function getLogicalDateRange(
+  rolloverHour: number = 3,
+  currentDate?: Date
+): { startDate: string; endDate: string } {
   const now = currentDate || getCurrentDate();
   const logicalDate = getLogicalDate(rolloverHour, now);
-  
+
   // Create start and end times for the logical day
   const startDate = new Date(logicalDate + 'T00:00:00.000Z');
   startDate.setHours(startDate.getHours() + rolloverHour); // Add rollover hour
-  
+
   const endDate = new Date(startDate);
   endDate.setDate(endDate.getDate() + 1);
   endDate.setSeconds(endDate.getSeconds() - 1); // End at 2:59:59
-  
+
   return {
     startDate: startDate.toISOString(),
     endDate: endDate.toISOString(),
@@ -109,16 +115,16 @@ export function getLogicalDateRange(rolloverHour: number = 3, currentDate?: Date
 export function getLogicalDateTimestamp(rolloverHour: number = 3, currentDate?: Date): string {
   const now = currentDate || getCurrentDate();
   const logicalDate = getLogicalDate(rolloverHour, now);
-  
+
   // Create timestamp using logical date but current time
   // This ensures the date part matches what getLogicalDate() returns
   const timestamp = new Date(now);
   const logicalDateObj = new Date(logicalDate + 'T00:00:00.000');
-  
+
   // Set the date part to match the logical date, keep the time part from now
   timestamp.setFullYear(logicalDateObj.getFullYear());
   timestamp.setMonth(logicalDateObj.getMonth());
   timestamp.setDate(logicalDateObj.getDate());
-  
+
   return timestamp.toISOString();
 }

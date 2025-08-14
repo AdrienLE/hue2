@@ -20,15 +20,15 @@ export function DevTools({ onAdvanceDay, onTriggerDailyReview, onResetDay }: Dev
   // Always show in development mode or when dev tools are force enabled
   const forceDevTools = process.env.EXPO_PUBLIC_FORCE_DEV_TOOLS === 'true';
   const isDev = process.env.NODE_ENV !== 'production';
-  
+
   console.log('DevTools debug:', {
     NODE_ENV: process.env.NODE_ENV,
     EXPO_PUBLIC_FORCE_DEV_TOOLS: process.env.EXPO_PUBLIC_FORCE_DEV_TOOLS,
     forceDevTools,
     isDev,
-    shouldShow: isDev || forceDevTools
+    shouldShow: isDev || forceDevTools,
   });
-  
+
   if (!isDev && !forceDevTools) {
     return null;
   }
@@ -41,9 +41,7 @@ export function DevTools({ onAdvanceDay, onTriggerDailyReview, onResetDay }: Dev
           style={[styles.devButtonInner, { backgroundColor: tintColor }]}
           onPress={() => setShowDevTools(true)}
         >
-          <ThemedText style={[styles.devButtonText, { color: backgroundColor }]}>
-            🛠️
-          </ThemedText>
+          <ThemedText style={[styles.devButtonText, { color: backgroundColor }]}>🛠️</ThemedText>
         </TouchableOpacity>
       </View>
 
@@ -54,13 +52,10 @@ export function DevTools({ onAdvanceDay, onTriggerDailyReview, onResetDay }: Dev
         animationType="fade"
         onRequestClose={() => setShowDevTools(false)}
       >
-        <Pressable 
-          style={styles.overlay} 
-          onPress={() => setShowDevTools(false)}
-        >
+        <Pressable style={styles.overlay} onPress={() => setShowDevTools(false)}>
           <ThemedView style={[styles.modal, { borderColor }]}>
             <ThemedText style={styles.title}>Dev Tools</ThemedText>
-            
+
             <View style={styles.section}>
               <ThemedText style={styles.sectionTitle}>Time Travel</ThemedText>
               <TouchableOpacity
@@ -74,7 +69,7 @@ export function DevTools({ onAdvanceDay, onTriggerDailyReview, onResetDay }: Dev
                   Advance Day (+1)
                 </ThemedText>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 style={[styles.button, { backgroundColor: '#ff6b6b' }]}
                 onPress={() => {
@@ -107,9 +102,7 @@ export function DevTools({ onAdvanceDay, onTriggerDailyReview, onResetDay }: Dev
               style={[styles.closeButton, { borderColor }]}
               onPress={() => setShowDevTools(false)}
             >
-              <ThemedText style={[styles.closeButtonText, { color: textColor }]}>
-                Close
-              </ThemedText>
+              <ThemedText style={[styles.closeButtonText, { color: textColor }]}>Close</ThemedText>
             </TouchableOpacity>
           </ThemedView>
         </Pressable>

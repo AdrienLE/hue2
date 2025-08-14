@@ -57,7 +57,11 @@ export class HabitService {
     return api.post<SubHabit>('/api/sub-habits', subHabitData, token);
   }
 
-  static async updateSubHabit(subHabitId: number, subHabitData: Partial<SubHabitCreate>, token: string) {
+  static async updateSubHabit(
+    subHabitId: number,
+    subHabitData: Partial<SubHabitCreate>,
+    token: string
+  ) {
     return api.put<SubHabit>(`/api/sub-habits/${subHabitId}`, subHabitData, token);
   }
 
@@ -104,13 +108,13 @@ export class HabitService {
       startDate: today,
       endDate: today + 'T23:59:59.999Z',
     });
-    
+
     // Delete all checks for today
     if (checks.data && checks.data.length > 0) {
       const deletePromises = checks.data.map(check => this.deleteCheck(check.id, token));
       return Promise.all(deletePromises);
     }
-    
+
     return [];
   }
 

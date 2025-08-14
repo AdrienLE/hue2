@@ -17,7 +17,20 @@ interface HabitItemProps {
   onCancelEditing?: () => void;
 }
 
-export function HabitItem({ habit, onUpdate, onDelete, onChecked, onUnchecked, isCheckedToday, isDraggable, onDrag, isActive, isEditing, onStartEditing, onCancelEditing }: HabitItemProps) {
+export function HabitItem({
+  habit,
+  onUpdate,
+  onDelete,
+  onChecked,
+  onUnchecked,
+  isCheckedToday,
+  isDraggable,
+  onDrag,
+  isActive,
+  isEditing,
+  onStartEditing,
+  onCancelEditing,
+}: HabitItemProps) {
   return (
     <HabitCard
       habit={habit}

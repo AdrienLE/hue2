@@ -46,13 +46,13 @@ export function ProfileMenu() {
 
   return (
     <>
-      <TouchableOpacity 
-        onPress={(event) => {
+      <TouchableOpacity
+        onPress={event => {
           event.currentTarget.measure((x, y, width, height, pageX, pageY) => {
             setDropdownPosition({ x: pageX - 80, y: pageY + height });
             setOpen(true);
           });
-        }} 
+        }}
         hitSlop={8}
       >
         {profileImageUrl ? (
@@ -74,18 +74,17 @@ export function ProfileMenu() {
         animationType="fade"
         onRequestClose={() => setOpen(false)}
       >
-        <Pressable 
-          style={styles.dropdownOverlay} 
-          onPress={() => setOpen(false)}
-        >
-          <ThemedView style={[
-            styles.dropdownMenu,
-            {
-              position: 'absolute',
-              top: dropdownPosition.y,
-              left: dropdownPosition.x,
-            }
-          ]}>
+        <Pressable style={styles.dropdownOverlay} onPress={() => setOpen(false)}>
+          <ThemedView
+            style={[
+              styles.dropdownMenu,
+              {
+                position: 'absolute',
+                top: dropdownPosition.y,
+                left: dropdownPosition.x,
+              },
+            ]}
+          >
             <TouchableOpacity
               style={styles.dropdownItem}
               onPress={() => {
@@ -95,7 +94,7 @@ export function ProfileMenu() {
             >
               <ThemedText style={styles.dropdownText}>Settings</ThemedText>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={styles.dropdownItem}
               onPress={() => {

@@ -190,8 +190,10 @@ class HabitBase(BaseModel):
     reward_settings: Optional[Dict[str, Any]] = None
     display_settings: Optional[Dict[str, Any]] = None
 
+
 class HabitCreate(HabitBase):
     pass
+
 
 class HabitUpdate(BaseModel):
     name: Optional[str] = None
@@ -205,6 +207,7 @@ class HabitUpdate(BaseModel):
     display_settings: Optional[Dict[str, Any]] = None
     deleted_at: Optional[datetime] = None
 
+
 class HabitResponse(HabitBase):
     id: int
     user_id: str
@@ -215,20 +218,24 @@ class HabitResponse(HabitBase):
     class Config:
         from_attributes = True
 
+
 class SubHabitBase(BaseModel):
     name: str
     description: Optional[str] = None
     order_index: int = 0
     reward_settings: Optional[Dict[str, Any]] = None
 
+
 class SubHabitCreate(SubHabitBase):
     parent_habit_id: int
+
 
 class SubHabitUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     order_index: Optional[int] = None
     reward_settings: Optional[Dict[str, Any]] = None
+
 
 class SubHabitResponse(SubHabitBase):
     id: int
@@ -240,12 +247,14 @@ class SubHabitResponse(SubHabitBase):
     class Config:
         from_attributes = True
 
+
 class CheckCreate(BaseModel):
     habit_id: Optional[int] = None
     sub_habit_id: Optional[int] = None
     checked: bool = True
     check_date: datetime
     metadata_json: Optional[Dict[str, Any]] = None
+
 
 class CheckResponse(BaseModel):
     id: int
@@ -261,11 +270,13 @@ class CheckResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class CountCreate(BaseModel):
     habit_id: int
     value: float
     count_date: datetime
     metadata_json: Optional[Dict[str, Any]] = None
+
 
 class CountResponse(BaseModel):
     id: int
@@ -280,11 +291,13 @@ class CountResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class WeightUpdateCreate(BaseModel):
     habit_id: int
     weight: float
     update_date: datetime
     metadata_json: Optional[Dict[str, Any]] = None
+
 
 class WeightUpdateResponse(BaseModel):
     id: int
@@ -299,10 +312,12 @@ class WeightUpdateResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class ActiveDayCreate(BaseModel):
     date: datetime
     validated: bool = False
     summary_data: Optional[Dict[str, Any]] = None
+
 
 class ActiveDayResponse(BaseModel):
     id: int
@@ -316,6 +331,7 @@ class ActiveDayResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class UserCreate(BaseModel):
     email: str
     name: Optional[str] = None
@@ -323,12 +339,14 @@ class UserCreate(BaseModel):
     image_url: Optional[str] = None
     settings: Optional[Dict[str, Any]] = None
 
+
 class UserUpdate(BaseModel):
     email: Optional[str] = None
     name: Optional[str] = None
     nickname: Optional[str] = None
     image_url: Optional[str] = None
     settings: Optional[Dict[str, Any]] = None
+
 
 class UserResponse(BaseModel):
     id: str
@@ -355,14 +373,14 @@ def create_user(
     existing_user = db.query(models.User).filter(models.User.id == current_user["sub"]).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="User already exists")
-    
+
     db_user = models.User(
         id=current_user["sub"],
         email=user_data.email,
         name=user_data.name,
         nickname=user_data.nickname,
         image_url=user_data.image_url,
-        settings=user_data.settings
+        settings=user_data.settings,
     )
     db.add(db_user)
     db.commit()
@@ -383,7 +401,7 @@ def get_current_user(
             email=current_user.get("email", ""),
             name=current_user.get("name"),
             nickname=current_user.get("nickname"),
-            image_url=current_user.get("picture")
+            image_url=current_user.get("picture"),
         )
         db.add(user)
         db.commit()
@@ -400,10 +418,10 @@ def update_current_user(
     user = db.query(models.User).filter(models.User.id == current_user["sub"]).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
     for field, value in user_data.dict(exclude_unset=True).items():
         setattr(user, field, value)
-    
+
     db.commit()
     db.refresh(user)
     return user
@@ -431,10 +449,7 @@ def create_habit(
     db: Session = Depends(get_db),
     current_user=Depends(verify_jwt),
 ):
-    db_habit = models.Habit(
-        user_id=current_user["sub"],
-        **habit.dict()
-    )
+    db_habit = models.Habit(user_id=current_user["sub"], **habit.dict())
     db.add(db_habit)
     db.commit()
     db.refresh(db_habit)
@@ -447,10 +462,11 @@ def get_habit(
     db: Session = Depends(get_db),
     current_user=Depends(verify_jwt),
 ):
-    habit = db.query(models.Habit).filter(
-        models.Habit.id == habit_id,
-        models.Habit.user_id == current_user["sub"]
-    ).first()
+    habit = (
+        db.query(models.Habit)
+        .filter(models.Habit.id == habit_id, models.Habit.user_id == current_user["sub"])
+        .first()
+    )
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found")
     return habit
@@ -463,16 +479,17 @@ def update_habit(
     db: Session = Depends(get_db),
     current_user=Depends(verify_jwt),
 ):
-    habit = db.query(models.Habit).filter(
-        models.Habit.id == habit_id,
-        models.Habit.user_id == current_user["sub"]
-    ).first()
+    habit = (
+        db.query(models.Habit)
+        .filter(models.Habit.id == habit_id, models.Habit.user_id == current_user["sub"])
+        .first()
+    )
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found")
-    
+
     for field, value in habit_update.dict(exclude_unset=True).items():
         setattr(habit, field, value)
-    
+
     db.commit()
     db.refresh(habit)
     return habit
@@ -485,18 +502,19 @@ def delete_habit(
     db: Session = Depends(get_db),
     current_user=Depends(verify_jwt),
 ):
-    habit = db.query(models.Habit).filter(
-        models.Habit.id == habit_id,
-        models.Habit.user_id == current_user["sub"]
-    ).first()
+    habit = (
+        db.query(models.Habit)
+        .filter(models.Habit.id == habit_id, models.Habit.user_id == current_user["sub"])
+        .first()
+    )
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found")
-    
+
     if hard_delete:
         db.delete(habit)
     else:
         habit.deleted_at = datetime.utcnow()
-    
+
     db.commit()
     return {"ok": True}
 
@@ -509,17 +527,23 @@ def get_sub_habits(
     current_user=Depends(verify_jwt),
 ):
     # Verify habit ownership
-    habit = db.query(models.Habit).filter(
-        models.Habit.id == habit_id,
-        models.Habit.user_id == current_user["sub"]
-    ).first()
+    habit = (
+        db.query(models.Habit)
+        .filter(models.Habit.id == habit_id, models.Habit.user_id == current_user["sub"])
+        .first()
+    )
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found")
-    
-    sub_habits = db.query(models.SubHabit).filter(
-        models.SubHabit.parent_habit_id == habit_id,
-        models.SubHabit.user_id == current_user["sub"]
-    ).order_by(models.SubHabit.order_index).all()
+
+    sub_habits = (
+        db.query(models.SubHabit)
+        .filter(
+            models.SubHabit.parent_habit_id == habit_id,
+            models.SubHabit.user_id == current_user["sub"],
+        )
+        .order_by(models.SubHabit.order_index)
+        .all()
+    )
     return sub_habits
 
 
@@ -530,17 +554,18 @@ def create_sub_habit(
     current_user=Depends(verify_jwt),
 ):
     # Verify parent habit ownership
-    habit = db.query(models.Habit).filter(
-        models.Habit.id == sub_habit.parent_habit_id,
-        models.Habit.user_id == current_user["sub"]
-    ).first()
+    habit = (
+        db.query(models.Habit)
+        .filter(
+            models.Habit.id == sub_habit.parent_habit_id,
+            models.Habit.user_id == current_user["sub"],
+        )
+        .first()
+    )
     if not habit:
         raise HTTPException(status_code=404, detail="Parent habit not found")
-    
-    db_sub_habit = models.SubHabit(
-        user_id=current_user["sub"],
-        **sub_habit.dict()
-    )
+
+    db_sub_habit = models.SubHabit(user_id=current_user["sub"], **sub_habit.dict())
     db.add(db_sub_habit)
     db.commit()
     db.refresh(db_sub_habit)
@@ -554,16 +579,17 @@ def update_sub_habit(
     db: Session = Depends(get_db),
     current_user=Depends(verify_jwt),
 ):
-    sub_habit = db.query(models.SubHabit).filter(
-        models.SubHabit.id == sub_habit_id,
-        models.SubHabit.user_id == current_user["sub"]
-    ).first()
+    sub_habit = (
+        db.query(models.SubHabit)
+        .filter(models.SubHabit.id == sub_habit_id, models.SubHabit.user_id == current_user["sub"])
+        .first()
+    )
     if not sub_habit:
         raise HTTPException(status_code=404, detail="Sub-habit not found")
-    
+
     for field, value in sub_habit_update.dict(exclude_unset=True).items():
         setattr(sub_habit, field, value)
-    
+
     db.commit()
     db.refresh(sub_habit)
     return sub_habit
@@ -575,13 +601,14 @@ def delete_sub_habit(
     db: Session = Depends(get_db),
     current_user=Depends(verify_jwt),
 ):
-    sub_habit = db.query(models.SubHabit).filter(
-        models.SubHabit.id == sub_habit_id,
-        models.SubHabit.user_id == current_user["sub"]
-    ).first()
+    sub_habit = (
+        db.query(models.SubHabit)
+        .filter(models.SubHabit.id == sub_habit_id, models.SubHabit.user_id == current_user["sub"])
+        .first()
+    )
     if not sub_habit:
         raise HTTPException(status_code=404, detail="Sub-habit not found")
-    
+
     db.delete(sub_habit)
     db.commit()
     return {"ok": True}
@@ -600,7 +627,7 @@ def get_checks(
     current_user=Depends(verify_jwt),
 ):
     query = db.query(models.Check).filter(models.Check.user_id == current_user["sub"])
-    
+
     if habit_id:
         query = query.filter(models.Check.habit_id == habit_id)
     if sub_habit_id:
@@ -609,7 +636,7 @@ def get_checks(
         query = query.filter(models.Check.check_date >= start_date)
     if end_date:
         query = query.filter(models.Check.check_date <= end_date)
-    
+
     checks = query.order_by(models.Check.check_date.desc()).offset(skip).limit(limit).all()
     return checks
 
@@ -622,25 +649,27 @@ def create_check(
 ):
     # Verify ownership of habit or sub-habit
     if check.habit_id:
-        habit = db.query(models.Habit).filter(
-            models.Habit.id == check.habit_id,
-            models.Habit.user_id == current_user["sub"]
-        ).first()
+        habit = (
+            db.query(models.Habit)
+            .filter(models.Habit.id == check.habit_id, models.Habit.user_id == current_user["sub"])
+            .first()
+        )
         if not habit:
             raise HTTPException(status_code=404, detail="Habit not found")
-    
+
     if check.sub_habit_id:
-        sub_habit = db.query(models.SubHabit).filter(
-            models.SubHabit.id == check.sub_habit_id,
-            models.SubHabit.user_id == current_user["sub"]
-        ).first()
+        sub_habit = (
+            db.query(models.SubHabit)
+            .filter(
+                models.SubHabit.id == check.sub_habit_id,
+                models.SubHabit.user_id == current_user["sub"],
+            )
+            .first()
+        )
         if not sub_habit:
             raise HTTPException(status_code=404, detail="Sub-habit not found")
-    
-    db_check = models.Check(
-        user_id=current_user["sub"],
-        **check.dict()
-    )
+
+    db_check = models.Check(user_id=current_user["sub"], **check.dict())
     db.add(db_check)
     db.commit()
     db.refresh(db_check)
@@ -653,13 +682,14 @@ def delete_check(
     db: Session = Depends(get_db),
     current_user=Depends(verify_jwt),
 ):
-    check = db.query(models.Check).filter(
-        models.Check.id == check_id,
-        models.Check.user_id == current_user["sub"]
-    ).first()
+    check = (
+        db.query(models.Check)
+        .filter(models.Check.id == check_id, models.Check.user_id == current_user["sub"])
+        .first()
+    )
     if not check:
         raise HTTPException(status_code=404, detail="Check not found")
-    
+
     db.delete(check)
     db.commit()
     return {"ok": True}
@@ -677,14 +707,14 @@ def get_counts(
     current_user=Depends(verify_jwt),
 ):
     query = db.query(models.Count).filter(models.Count.user_id == current_user["sub"])
-    
+
     if habit_id:
         query = query.filter(models.Count.habit_id == habit_id)
     if start_date:
         query = query.filter(models.Count.count_date >= start_date)
     if end_date:
         query = query.filter(models.Count.count_date <= end_date)
-    
+
     counts = query.order_by(models.Count.count_date.desc()).offset(skip).limit(limit).all()
     return counts
 
@@ -696,17 +726,15 @@ def create_count(
     current_user=Depends(verify_jwt),
 ):
     # Verify habit ownership
-    habit = db.query(models.Habit).filter(
-        models.Habit.id == count.habit_id,
-        models.Habit.user_id == current_user["sub"]
-    ).first()
+    habit = (
+        db.query(models.Habit)
+        .filter(models.Habit.id == count.habit_id, models.Habit.user_id == current_user["sub"])
+        .first()
+    )
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found")
-    
-    db_count = models.Count(
-        user_id=current_user["sub"],
-        **count.dict()
-    )
+
+    db_count = models.Count(user_id=current_user["sub"], **count.dict())
     db.add(db_count)
     db.commit()
     db.refresh(db_count)
@@ -725,15 +753,17 @@ def get_weight_updates(
     current_user=Depends(verify_jwt),
 ):
     query = db.query(models.WeightUpdate).filter(models.WeightUpdate.user_id == current_user["sub"])
-    
+
     if habit_id:
         query = query.filter(models.WeightUpdate.habit_id == habit_id)
     if start_date:
         query = query.filter(models.WeightUpdate.update_date >= start_date)
     if end_date:
         query = query.filter(models.WeightUpdate.update_date <= end_date)
-    
-    weight_updates = query.order_by(models.WeightUpdate.update_date.desc()).offset(skip).limit(limit).all()
+
+    weight_updates = (
+        query.order_by(models.WeightUpdate.update_date.desc()).offset(skip).limit(limit).all()
+    )
     return weight_updates
 
 
@@ -744,17 +774,17 @@ def create_weight_update(
     current_user=Depends(verify_jwt),
 ):
     # Verify habit ownership
-    habit = db.query(models.Habit).filter(
-        models.Habit.id == weight_update.habit_id,
-        models.Habit.user_id == current_user["sub"]
-    ).first()
+    habit = (
+        db.query(models.Habit)
+        .filter(
+            models.Habit.id == weight_update.habit_id, models.Habit.user_id == current_user["sub"]
+        )
+        .first()
+    )
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found")
-    
-    db_weight_update = models.WeightUpdate(
-        user_id=current_user["sub"],
-        **weight_update.dict()
-    )
+
+    db_weight_update = models.WeightUpdate(user_id=current_user["sub"], **weight_update.dict())
     db.add(db_weight_update)
     db.commit()
     db.refresh(db_weight_update)
@@ -772,12 +802,12 @@ def get_active_days(
     current_user=Depends(verify_jwt),
 ):
     query = db.query(models.ActiveDay).filter(models.ActiveDay.user_id == current_user["sub"])
-    
+
     if start_date:
         query = query.filter(models.ActiveDay.date >= start_date)
     if end_date:
         query = query.filter(models.ActiveDay.date <= end_date)
-    
+
     active_days = query.order_by(models.ActiveDay.date.desc()).offset(skip).limit(limit).all()
     return active_days
 
@@ -788,10 +818,7 @@ def create_active_day(
     db: Session = Depends(get_db),
     current_user=Depends(verify_jwt),
 ):
-    db_active_day = models.ActiveDay(
-        user_id=current_user["sub"],
-        **active_day.dict()
-    )
+    db_active_day = models.ActiveDay(user_id=current_user["sub"], **active_day.dict())
     db.add(db_active_day)
     db.commit()
     db.refresh(db_active_day)
@@ -806,18 +833,21 @@ def update_active_day(
     db: Session = Depends(get_db),
     current_user=Depends(verify_jwt),
 ):
-    active_day = db.query(models.ActiveDay).filter(
-        models.ActiveDay.id == active_day_id,
-        models.ActiveDay.user_id == current_user["sub"]
-    ).first()
+    active_day = (
+        db.query(models.ActiveDay)
+        .filter(
+            models.ActiveDay.id == active_day_id, models.ActiveDay.user_id == current_user["sub"]
+        )
+        .first()
+    )
     if not active_day:
         raise HTTPException(status_code=404, detail="Active day not found")
-    
+
     if validated is not None:
         active_day.validated = validated
     if summary_data is not None:
         active_day.summary_data = summary_data
-    
+
     db.commit()
     db.refresh(active_day)
     return active_day

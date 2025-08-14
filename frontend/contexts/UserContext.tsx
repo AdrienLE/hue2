@@ -32,7 +32,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const loadUserData = async () => {
     if (!token) return;
-    
+
     try {
       const response = await HabitService.getCurrentUser(token);
       if (response.data && response.data.settings) {
@@ -54,10 +54,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const updatedSettings = { ...userSettings, ...newSettings };
-      
-      const response = await HabitService.updateCurrentUser({
-        settings: updatedSettings
-      }, token);
+
+      const response = await HabitService.updateCurrentUser(
+        {
+          settings: updatedSettings,
+        },
+        token
+      );
 
       if (response.data) {
         setUserSettings(updatedSettings);
@@ -85,14 +88,16 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, [token]);
 
   return (
-    <UserContext.Provider value={{
-      userSettings,
-      totalRewards,
-      updateUserSettings,
-      addReward,
-      subtractReward,
-      loadUserData,
-    }}>
+    <UserContext.Provider
+      value={{
+        userSettings,
+        totalRewards,
+        updateUserSettings,
+        addReward,
+        subtractReward,
+        loadUserData,
+      }}
+    >
       {children}
     </UserContext.Provider>
   );

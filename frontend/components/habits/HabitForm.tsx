@@ -1,18 +1,17 @@
 import React, { useState } from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  Alert,
-  Switch,
-  TouchableOpacity,
-} from 'react-native';
+import { ScrollView, StyleSheet, Alert, Switch, TouchableOpacity } from 'react-native';
 import { ThemedView } from '../ThemedView';
 import { ThemedText } from '../ThemedText';
 import { ThemedTextInput } from '../ThemedTextInput';
 import { HabitService } from '@/lib/services/habitService';
 import { useAuth } from '@/auth/AuthContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
-import type { HabitCreate, CountSettings, WeightSettings, RewardSettings } from '@/lib/types/habits';
+import type {
+  HabitCreate,
+  CountSettings,
+  WeightSettings,
+  RewardSettings,
+} from '@/lib/types/habits';
 
 interface HabitFormProps {
   onHabitCreated?: () => void;
@@ -88,11 +87,11 @@ export function HabitForm({ onHabitCreated }: HabitFormProps) {
           unit: countUnit.trim() || undefined,
           step_size: parseFloat(countStepSize) || 1,
         };
-        
+
         if (countTarget.trim()) {
           countSettings.target = parseFloat(countTarget);
         }
-        
+
         habitData.count_settings = countSettings;
       }
 
@@ -101,11 +100,11 @@ export function HabitForm({ onHabitCreated }: HabitFormProps) {
         const weightSettings: WeightSettings = {
           unit: weightUnit as 'kg' | 'lbs',
         };
-        
+
         if (weightTarget.trim()) {
           weightSettings.target_weight = parseFloat(weightTarget);
         }
-        
+
         habitData.weight_settings = weightSettings;
       }
 
@@ -117,7 +116,7 @@ export function HabitForm({ onHabitCreated }: HabitFormProps) {
       habitData.reward_settings = rewardSettings;
 
       const response = await HabitService.createHabit(habitData, token);
-      
+
       if (response.data) {
         Alert.alert('Success', 'Habit created successfully!');
         resetForm();
@@ -166,7 +165,7 @@ export function HabitForm({ onHabitCreated }: HabitFormProps) {
           <ThemedText style={styles.label}>Count-based habit</ThemedText>
           <Switch
             value={hasCount}
-            onValueChange={(value) => {
+            onValueChange={value => {
               setHasCount(value);
               if (value) setIsWeight(false);
             }}
@@ -187,7 +186,7 @@ export function HabitForm({ onHabitCreated }: HabitFormProps) {
                 keyboardType="numeric"
               />
             </ThemedView>
-            
+
             <ThemedView style={styles.inputGroup}>
               <ThemedText style={styles.label}>Unit</ThemedText>
               <ThemedTextInput
@@ -197,7 +196,7 @@ export function HabitForm({ onHabitCreated }: HabitFormProps) {
                 placeholder="e.g., pushups, glasses"
               />
             </ThemedView>
-            
+
             <ThemedView style={styles.inputGroup}>
               <ThemedText style={styles.label}>Step Size</ThemedText>
               <ThemedTextInput
@@ -215,7 +214,7 @@ export function HabitForm({ onHabitCreated }: HabitFormProps) {
           <ThemedText style={styles.label}>Weight tracking habit</ThemedText>
           <Switch
             value={isWeight}
-            onValueChange={(value) => {
+            onValueChange={value => {
               setIsWeight(value);
               if (value) setHasCount(false);
             }}
@@ -236,12 +235,12 @@ export function HabitForm({ onHabitCreated }: HabitFormProps) {
                 keyboardType="numeric"
               />
             </ThemedView>
-            
+
             <ThemedView style={styles.switchGroup}>
               <ThemedText style={styles.label}>Unit: kg</ThemedText>
               <Switch
                 value={weightUnit === 'lbs'}
-                onValueChange={(value) => setWeightUnit(value ? 'lbs' : 'kg')}
+                onValueChange={value => setWeightUnit(value ? 'lbs' : 'kg')}
                 trackColor={{ false: '#767577', true: tintColor }}
                 thumbColor={weightUnit === 'lbs' ? backgroundColor : '#f4f3f4'}
               />
@@ -252,7 +251,7 @@ export function HabitForm({ onHabitCreated }: HabitFormProps) {
 
         <ThemedView style={styles.subSection}>
           <ThemedText style={styles.sectionTitle}>Rewards</ThemedText>
-          
+
           <ThemedView style={styles.inputGroup}>
             <ThemedText style={styles.label}>Success Points ($)</ThemedText>
             <ThemedTextInput
@@ -263,7 +262,7 @@ export function HabitForm({ onHabitCreated }: HabitFormProps) {
               keyboardType="numeric"
             />
           </ThemedView>
-          
+
           <ThemedView style={styles.inputGroup}>
             <ThemedText style={styles.label}>Penalty Points ($)</ThemedText>
             <ThemedTextInput

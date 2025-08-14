@@ -1,19 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Alert,
-  Switch,
-  TouchableOpacity,
-} from 'react-native';
+import { Modal, ScrollView, StyleSheet, Alert, Switch, TouchableOpacity } from 'react-native';
 import { ThemedView } from '../ThemedView';
 import { ThemedText } from '../ThemedText';
 import { ThemedTextInput } from '../ThemedTextInput';
 import { HabitService } from '@/lib/services/habitService';
 import { useAuth } from '@/auth/AuthContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
-import type { Habit, HabitUpdate, CountSettings, WeightSettings, RewardSettings } from '@/lib/types/habits';
+import type {
+  Habit,
+  HabitUpdate,
+  CountSettings,
+  WeightSettings,
+  RewardSettings,
+} from '@/lib/types/habits';
 
 interface HabitSettingsModalProps {
   habit: Habit;
@@ -32,15 +31,23 @@ export function HabitSettingsModal({ habit, visible, onClose, onUpdate }: HabitS
   // Count settings
   const [countTarget, setCountTarget] = useState(habit.count_settings?.target?.toString() || '');
   const [countUnit, setCountUnit] = useState(habit.count_settings?.unit || '');
-  const [countStepSize, setCountStepSize] = useState(habit.count_settings?.step_size?.toString() || '1');
+  const [countStepSize, setCountStepSize] = useState(
+    habit.count_settings?.step_size?.toString() || '1'
+  );
 
   // Weight settings
-  const [weightTarget, setWeightTarget] = useState(habit.weight_settings?.target_weight?.toString() || '');
+  const [weightTarget, setWeightTarget] = useState(
+    habit.weight_settings?.target_weight?.toString() || ''
+  );
   const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>(habit.weight_settings?.unit || 'kg');
 
   // Reward settings
-  const [successPoints, setSuccessPoints] = useState(habit.reward_settings?.success_points?.toString() || '10');
-  const [penaltyPoints, setPenaltyPoints] = useState(habit.reward_settings?.penalty_points?.toString() || '5');
+  const [successPoints, setSuccessPoints] = useState(
+    habit.reward_settings?.success_points?.toString() || '10'
+  );
+  const [penaltyPoints, setPenaltyPoints] = useState(
+    habit.reward_settings?.penalty_points?.toString() || '5'
+  );
 
   const { token } = useAuth();
   const tintColor = useThemeColor({}, 'tint');
@@ -92,11 +99,11 @@ export function HabitSettingsModal({ habit, visible, onClose, onUpdate }: HabitS
           unit: countUnit.trim() || undefined,
           step_size: parseFloat(countStepSize) || 1,
         };
-        
+
         if (countTarget.trim()) {
           countSettings.target = parseFloat(countTarget);
         }
-        
+
         updateData.count_settings = countSettings;
       }
 
@@ -105,11 +112,11 @@ export function HabitSettingsModal({ habit, visible, onClose, onUpdate }: HabitS
         const weightSettings: WeightSettings = {
           unit: weightUnit,
         };
-        
+
         if (weightTarget.trim()) {
           weightSettings.target_weight = parseFloat(weightTarget);
         }
-        
+
         updateData.weight_settings = weightSettings;
       }
 
@@ -121,7 +128,7 @@ export function HabitSettingsModal({ habit, visible, onClose, onUpdate }: HabitS
       updateData.reward_settings = rewardSettings;
 
       const response = await HabitService.updateHabit(habit.id, updateData, token);
-      
+
       if (response.data) {
         onUpdate(response.data);
         onClose();
@@ -149,10 +156,10 @@ export function HabitSettingsModal({ habit, visible, onClose, onUpdate }: HabitS
           <TouchableOpacity onPress={onClose} style={styles.cancelButton}>
             <ThemedText style={styles.cancelText}>Cancel</ThemedText>
           </TouchableOpacity>
-          
+
           <ThemedText style={styles.title}>Edit Habit</ThemedText>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             onPress={handleSave}
             style={[styles.saveButton, { backgroundColor: tintColor }]}
             disabled={saving}
@@ -192,7 +199,7 @@ export function HabitSettingsModal({ habit, visible, onClose, onUpdate }: HabitS
               <ThemedText style={styles.label}>Count-based habit</ThemedText>
               <Switch
                 value={hasCount}
-                onValueChange={(value) => {
+                onValueChange={value => {
                   setHasCount(value);
                   if (value) setIsWeight(false);
                 }}
@@ -213,7 +220,7 @@ export function HabitSettingsModal({ habit, visible, onClose, onUpdate }: HabitS
                     keyboardType="numeric"
                   />
                 </ThemedView>
-                
+
                 <ThemedView style={styles.inputGroup}>
                   <ThemedText style={styles.sublabel}>Unit</ThemedText>
                   <ThemedTextInput
@@ -223,7 +230,7 @@ export function HabitSettingsModal({ habit, visible, onClose, onUpdate }: HabitS
                     placeholder="e.g., pushups, glasses"
                   />
                 </ThemedView>
-                
+
                 <ThemedView style={styles.inputGroup}>
                   <ThemedText style={styles.sublabel}>Step Size</ThemedText>
                   <ThemedTextInput
@@ -243,7 +250,7 @@ export function HabitSettingsModal({ habit, visible, onClose, onUpdate }: HabitS
               <ThemedText style={styles.label}>Weight tracking habit</ThemedText>
               <Switch
                 value={isWeight}
-                onValueChange={(value) => {
+                onValueChange={value => {
                   setIsWeight(value);
                   if (value) setHasCount(false);
                 }}
@@ -264,12 +271,12 @@ export function HabitSettingsModal({ habit, visible, onClose, onUpdate }: HabitS
                     keyboardType="numeric"
                   />
                 </ThemedView>
-                
+
                 <ThemedView style={styles.switchRow}>
                   <ThemedText style={styles.sublabel}>Unit: kg</ThemedText>
                   <Switch
                     value={weightUnit === 'lbs'}
-                    onValueChange={(value) => setWeightUnit(value ? 'lbs' : 'kg')}
+                    onValueChange={value => setWeightUnit(value ? 'lbs' : 'kg')}
                     trackColor={{ false: '#767577', true: tintColor }}
                     thumbColor={weightUnit === 'lbs' ? backgroundColor : '#f4f3f4'}
                   />
@@ -281,7 +288,7 @@ export function HabitSettingsModal({ habit, visible, onClose, onUpdate }: HabitS
 
           <ThemedView style={styles.section}>
             <ThemedText style={styles.label}>Rewards</ThemedText>
-            
+
             <ThemedView style={styles.inputGroup}>
               <ThemedText style={styles.sublabel}>Success Points</ThemedText>
               <ThemedTextInput
@@ -292,7 +299,7 @@ export function HabitSettingsModal({ habit, visible, onClose, onUpdate }: HabitS
                 keyboardType="numeric"
               />
             </ThemedView>
-            
+
             <ThemedView style={styles.inputGroup}>
               <ThemedText style={styles.sublabel}>Penalty Points</ThemedText>
               <ThemedTextInput

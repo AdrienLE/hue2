@@ -39,17 +39,17 @@ describe('Weight Habit Logic', () => {
       if (goalType === 'lose') {
         return {
           decreaseColor: '#4CAF50', // Green for decreasing (good)
-          increaseColor: '#ff4444'  // Red for increasing (bad)
+          increaseColor: '#ff4444', // Red for increasing (bad)
         };
       } else if (goalType === 'gain') {
         return {
           decreaseColor: '#ff4444', // Red for decreasing (bad)
-          increaseColor: '#4CAF50'  // Green for increasing (good)
+          increaseColor: '#4CAF50', // Green for increasing (good)
         };
       } else {
         return {
           decreaseColor: '#ff4444', // Red for both when maintaining
-          increaseColor: '#ff4444'
+          increaseColor: '#ff4444',
         };
       }
     };
@@ -57,7 +57,7 @@ describe('Weight Habit Logic', () => {
     it('should return correct colors for losing weight', () => {
       const colors = getWeightButtonColors('lose');
       expect(colors.decreaseColor).toBe('#4CAF50'); // Green for decrease
-      expect(colors.increaseColor).toBe('#ff4444');  // Red for increase
+      expect(colors.increaseColor).toBe('#ff4444'); // Red for increase
     });
 
     it('should return correct colors for gaining weight', () => {
@@ -86,12 +86,12 @@ describe('Weight Habit Logic', () => {
 
     it('should handle weight updates correctly', () => {
       let currentWeight = 175.0;
-      
+
       // Simulate multiple +0.1 updates
       for (let i = 0; i < 10; i++) {
         currentWeight = roundWeight(currentWeight + 0.1);
       }
-      
+
       expect(currentWeight).toBe(176.0);
       expect(currentWeight.toString()).not.toContain('0000000');
     });

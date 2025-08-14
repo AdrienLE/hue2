@@ -1,4 +1,8 @@
-import { getLogicalDate, getLogicalDateTimestamp, getLogicalDateRange } from '@/contexts/DevDateContext';
+import {
+  getLogicalDate,
+  getLogicalDateTimestamp,
+  getLogicalDateRange,
+} from '@/contexts/DevDateContext';
 
 describe('DevDateContext', () => {
   describe('getLogicalDate', () => {
@@ -36,7 +40,7 @@ describe('DevDateContext', () => {
       // 2am on Jan 15th should create timestamp for Jan 14th at 2am
       const testDate = new Date('2024-01-15T02:30:45.123Z');
       const result = getLogicalDateTimestamp(3, testDate);
-      
+
       const resultDate = new Date(result);
       expect(resultDate.getUTCDate()).toBe(14); // Logical date
       expect(resultDate.getUTCHours()).toBe(2); // Current time
@@ -47,7 +51,7 @@ describe('DevDateContext', () => {
       // 4am on Jan 15th should create timestamp for Jan 15th at 4am
       const testDate = new Date('2024-01-15T04:30:45.123Z');
       const result = getLogicalDateTimestamp(3, testDate);
-      
+
       const resultDate = new Date(result);
       expect(resultDate.getUTCDate()).toBe(15);
       expect(resultDate.getUTCHours()).toBe(4);
@@ -58,13 +62,13 @@ describe('DevDateContext', () => {
     it('should create range from rollover hour to next rollover hour', () => {
       const testDate = new Date('2024-01-15T02:00:00.000Z'); // 2am
       const { startDate, endDate } = getLogicalDateRange(3, testDate);
-      
+
       const start = new Date(startDate);
       const end = new Date(endDate);
-      
+
       // Should start at 3am on logical date (Jan 14th)
       expect(start.toISOString()).toContain('2024-01-14T03:00:00');
-      
+
       // Should end at 2:59:59 on next day (Jan 15th)
       expect(end.toISOString()).toContain('2024-01-15T02:59:59');
     });

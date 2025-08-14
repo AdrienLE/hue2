@@ -83,8 +83,8 @@ function RootLayoutNav() {
       >
         <View style={{ flex: 1, width: '100%', maxWidth: 800 }}>
           {token && (
-            <ThemedHeader 
-              title="Hue 2" 
+            <ThemedHeader
+              title="Hue 2"
               showCheckedHabits={showCheckedHabits}
               onToggleCheckedHabits={toggleCheckedHabits}
               onAdvanceDay={handleAdvanceDay}
@@ -105,14 +105,14 @@ function RootLayoutNav() {
           </Stack>
         </View>
       </View>
-      
+
       {/* Global Daily Review Modal */}
       <DailyReviewModal
         visible={showDailyReview}
         onClose={() => setShowDailyReview(false)}
         reviewDate={reviewDate}
       />
-      
+
       <StatusBar style="auto" />
     </ThemeProvider>
   );

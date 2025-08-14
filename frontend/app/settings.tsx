@@ -28,11 +28,15 @@ export default function SettingsScreen() {
   const router = useRouter();
   const hasLoaded = useRef(false);
   const { userSettings, updateUserSettings } = useUser();
-  
+
   // Local state for reward settings
   const [rewardUnit, setRewardUnit] = useState(userSettings.reward_unit || '$');
-  const [rewardPosition, setRewardPosition] = useState(userSettings.reward_unit_position || 'before');
-  const [rolloverHour, setRolloverHour] = useState(userSettings.day_rollover_hour?.toString() || '3');
+  const [rewardPosition, setRewardPosition] = useState(
+    userSettings.reward_unit_position || 'before'
+  );
+  const [rolloverHour, setRolloverHour] = useState(
+    userSettings.day_rollover_hour?.toString() || '3'
+  );
 
   // Compress image to reduce file size
   const compressImage = async (uri: string, fileName: string, mimeType: string) => {
@@ -273,12 +277,12 @@ export default function SettingsScreen() {
                 autoCapitalize="none"
               />
             </View>
-            
+
             {/* Reward Settings Section */}
             <View style={styles.sectionHeader}>
               <ThemedText style={styles.sectionTitle}>Reward Settings</ThemedText>
             </View>
-            
+
             <View style={styles.row}>
               <ThemedText style={styles.label}>Reward Unit</ThemedText>
               <ThemedTextInput
@@ -288,7 +292,7 @@ export default function SettingsScreen() {
                 placeholder="$"
               />
             </View>
-            
+
             <View style={styles.row}>
               <ThemedText style={styles.label}>Unit Position</ThemedText>
               <View style={styles.toggleRow}>
@@ -296,48 +300,64 @@ export default function SettingsScreen() {
                   style={[
                     styles.toggleButton,
                     {
-                      backgroundColor: rewardPosition === 'before' ? Colors[colorScheme ?? 'light'].tint : 'transparent',
+                      backgroundColor:
+                        rewardPosition === 'before'
+                          ? Colors[colorScheme ?? 'light'].tint
+                          : 'transparent',
                       borderColor: Colors[colorScheme ?? 'light'].tint,
-                    }
+                    },
                   ]}
                   onPress={() => setRewardPosition('before')}
                 >
-                  <ThemedText style={[
-                    styles.toggleText,
-                    {
-                      color: rewardPosition === 'before' 
-                        ? (colorScheme === 'light' ? '#fff' : Colors.dark.background)
-                        : Colors[colorScheme ?? 'light'].tint
-                    }
-                  ]}>
+                  <ThemedText
+                    style={[
+                      styles.toggleText,
+                      {
+                        color:
+                          rewardPosition === 'before'
+                            ? colorScheme === 'light'
+                              ? '#fff'
+                              : Colors.dark.background
+                            : Colors[colorScheme ?? 'light'].tint,
+                      },
+                    ]}
+                  >
                     Before ({rewardUnit}100)
                   </ThemedText>
                 </TouchableOpacity>
-                
+
                 <TouchableOpacity
                   style={[
                     styles.toggleButton,
                     {
-                      backgroundColor: rewardPosition === 'after' ? Colors[colorScheme ?? 'light'].tint : 'transparent',
+                      backgroundColor:
+                        rewardPosition === 'after'
+                          ? Colors[colorScheme ?? 'light'].tint
+                          : 'transparent',
                       borderColor: Colors[colorScheme ?? 'light'].tint,
-                    }
+                    },
                   ]}
                   onPress={() => setRewardPosition('after')}
                 >
-                  <ThemedText style={[
-                    styles.toggleText,
-                    {
-                      color: rewardPosition === 'after' 
-                        ? (colorScheme === 'light' ? '#fff' : Colors.dark.background)
-                        : Colors[colorScheme ?? 'light'].tint
-                    }
-                  ]}>
+                  <ThemedText
+                    style={[
+                      styles.toggleText,
+                      {
+                        color:
+                          rewardPosition === 'after'
+                            ? colorScheme === 'light'
+                              ? '#fff'
+                              : Colors.dark.background
+                            : Colors[colorScheme ?? 'light'].tint,
+                      },
+                    ]}
+                  >
                     After (100{rewardUnit})
                   </ThemedText>
                 </TouchableOpacity>
               </View>
             </View>
-            
+
             <View style={styles.row}>
               <ThemedText style={styles.label}>Day Rollover Time</ThemedText>
               <ThemedTextInput
@@ -352,7 +372,7 @@ export default function SettingsScreen() {
             <ThemedText style={styles.helpText}>
               Habits reset at this time each day. Default is 3 AM.
             </ThemedText>
-            
+
             <View style={styles.buttonRow}>
               <Button
                 title="Cancel"

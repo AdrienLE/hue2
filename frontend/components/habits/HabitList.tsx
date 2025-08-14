@@ -1,11 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  ActivityIndicator,
-  RefreshControl,
-  Alert,
-} from 'react-native';
+import { ScrollView, StyleSheet, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
 import { ThemedView } from '../ThemedView';
 import { ThemedText } from '../ThemedText';
@@ -76,29 +70,23 @@ export function HabitList() {
 
   const loadTodaysChecks = async () => {
     if (!token) return;
-    
+
     try {
       const rolloverHour = userSettings.day_rollover_hour || 3;
       const today = getLogicalDate(rolloverHour); // Uses logical day with rollover hour
       const response = await HabitService.getChecks(token);
       if (response.data) {
-        const todaysChecks = response.data.filter(check => 
-          check.check_date.startsWith(today)
-        );
+        const todaysChecks = response.data.filter(check => check.check_date.startsWith(today));
         const checkedHabitIds = new Set(todaysChecks.map(check => check.habit_id));
         setCheckedHabitsToday(checkedHabitIds);
       }
     } catch (error) {
-      console.error('Error loading today\'s checks:', error);
+      console.error("Error loading today's checks:", error);
     }
   };
 
   const handleHabitUpdate = (updatedHabit: Habit) => {
-    setHabits(prev => 
-      prev.map(habit => 
-        habit.id === updatedHabit.id ? updatedHabit : habit
-      )
-    );
+    setHabits(prev => prev.map(habit => (habit.id === updatedHabit.id ? updatedHabit : habit)));
   };
 
   const handleHabitDelete = (habitId: number) => {
@@ -127,26 +115,26 @@ export function HabitList() {
 
   const handleHabitReorder = async (data: Habit[]) => {
     setHabits(data);
-    
+
     // Update the order in the backend
     try {
       const updatePromises = data.map(async (habit, index) => {
         const currentOrder = habit.display_settings?.order ?? 999;
         if (currentOrder !== index) {
-          const updatedDisplaySettings = { 
-            ...(habit.display_settings || {}), 
-            order: index 
+          const updatedDisplaySettings = {
+            ...(habit.display_settings || {}),
+            order: index,
           };
-          
+
           return await HabitService.updateHabit(
-            habit.id, 
-            { display_settings: updatedDisplaySettings }, 
+            habit.id,
+            { display_settings: updatedDisplaySettings },
             token!
           );
         }
         return null;
       });
-      
+
       await Promise.all(updatePromises);
     } catch (error) {
       console.error('Error updating habit order:', error);
@@ -156,8 +144,8 @@ export function HabitList() {
   };
 
   // Filter habits based on visibility setting
-  const visibleHabits = showCheckedHabits 
-    ? habits 
+  const visibleHabits = showCheckedHabits
+    ? habits
     : habits.filter(habit => !checkedHabitsToday.has(habit.id));
 
   useEffect(() => {
@@ -177,7 +165,7 @@ export function HabitList() {
   return (
     <ThemedView style={styles.fullContainer}>
       <QuickAddHabit onHabitAdded={() => loadHabits(true)} />
-      
+
       {habits.length === 0 ? (
         <ThemedView style={styles.centerContainer}>
           <ThemedText style={styles.emptyText}>No habits yet!</ThemedText>
@@ -188,16 +176,14 @@ export function HabitList() {
       ) : visibleHabits.length === 0 ? (
         <ThemedView style={styles.centerContainer}>
           <ThemedText style={styles.emptyText}>All habits completed! 🎉</ThemedText>
-          <ThemedText style={styles.emptySubtext}>
-            Great job staying on track today
-          </ThemedText>
+          <ThemedText style={styles.emptySubtext}>Great job staying on track today</ThemedText>
         </ThemedView>
       ) : showCheckedHabits ? (
         // Draggable mode when all habits are visible
         <DraggableFlatList
           data={visibleHabits}
           onDragEnd={({ data }) => handleHabitReorder(data)}
-          keyExtractor={(item) => item.id.toString()}
+          keyExtractor={item => item.id.toString()}
           renderItem={({ item, drag, isActive }) => (
             <ScaleDecorator activeScale={1.05}>
               <HabitItem

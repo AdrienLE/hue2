@@ -33,7 +33,20 @@ interface CountHabitCardProps {
   isActive?: boolean;
 }
 
-export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit, isEditing, onChecked, onUnchecked, isCheckedToday, isDraggable, onDrag, isActive }: CountHabitCardProps) {
+export function CountHabitCard({
+  habit,
+  onUpdate,
+  onDelete,
+  onEdit,
+  onCancelEdit,
+  isEditing,
+  onChecked,
+  onUnchecked,
+  isCheckedToday,
+  isDraggable,
+  onDrag,
+  isActive,
+}: CountHabitCardProps) {
   const [todayCount, setTodayCount] = useState(0);
   const [updating, setUpdating] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -58,8 +71,16 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
     setLoading(true);
     try {
       const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
-      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
+      const startOfDay = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate()
+      ).toISOString();
+      const endOfDay = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate() + 1
+      ).toISOString();
 
       const response = await HabitService.getCounts(token, {
         habitId: habit.id,
@@ -88,7 +109,7 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
     try {
       const change = increment ? stepSize : -stepSize;
       const newValue = Math.max(0, todayCount + change);
-      
+
       const countData = {
         habit_id: habit.id,
         value: change,
@@ -98,12 +119,12 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
       const response = await HabitService.createCount(countData, token);
       if (response.data) {
         setTodayCount(newValue);
-        
+
         // Calculate reward based on count logic
         const countReward = habit.reward_settings?.count_reward || 0;
         if (countReward > 0) {
           const rewardAmount = countReward * Math.abs(stepSize);
-          
+
           if (countIsGood) {
             // If count is good, always reward for increment
             if (increment) {
@@ -139,7 +160,7 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
     setChecking(true);
     try {
       const successReward = habit.reward_settings?.success_points || 0;
-      
+
       if (isCheckedToday) {
         // Uncheck the habit - subtract success reward
         await HabitService.uncheckHabitToday(habit.id, token);
@@ -179,24 +200,44 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
 
   const [showDropdown, setShowDropdown] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
-  
+
   // Editing state
   const [editName, setEditName] = useState(habit.name);
   const [editDescription, setEditDescription] = useState(habit.description || '');
   const [editTarget, setEditTarget] = useState(habit.count_settings?.target?.toString() || '');
   const [editUnit, setEditUnit] = useState(habit.count_settings?.unit || '');
-  const [editStepSize, setEditStepSize] = useState(habit.count_settings?.step_size?.toString() || '1');
-  const [editCountIsGood, setEditCountIsGood] = useState(habit.count_settings?.count_is_good ?? true);
-  const [editHabitType, setEditHabitType] = useState(habit.has_counts ? 'count' : habit.is_weight ? 'weight' : 'normal');
-  
+  const [editStepSize, setEditStepSize] = useState(
+    habit.count_settings?.step_size?.toString() || '1'
+  );
+  const [editCountIsGood, setEditCountIsGood] = useState(
+    habit.count_settings?.count_is_good ?? true
+  );
+  const [editHabitType, setEditHabitType] = useState(
+    habit.has_counts ? 'count' : habit.is_weight ? 'weight' : 'normal'
+  );
+
   // Reward settings
-  const [editSuccessReward, setEditSuccessReward] = useState(habit.reward_settings?.success_points?.toString() || '1');
-  const [editFailureReward, setEditFailureReward] = useState(habit.reward_settings?.penalty_points?.toString() || '0');
-  const [editCountReward, setEditCountReward] = useState(habit.reward_settings?.count_reward?.toString() || '0.1');
-  const [editTrackingBonus, setEditTrackingBonus] = useState(habit.reward_settings?.tracking_bonus?.toString() || '5');
-  const [editTrackingPenalty, setEditTrackingPenalty] = useState(habit.reward_settings?.tracking_penalty?.toString() || '2');
-  const [editWeightReward, setEditWeightReward] = useState(habit.reward_settings?.weight_reward?.toString() || '1');
-  const [editWeightTarget, setEditWeightTarget] = useState(habit.weight_settings?.target_weight?.toString() || '');
+  const [editSuccessReward, setEditSuccessReward] = useState(
+    habit.reward_settings?.success_points?.toString() || '1'
+  );
+  const [editFailureReward, setEditFailureReward] = useState(
+    habit.reward_settings?.penalty_points?.toString() || '0'
+  );
+  const [editCountReward, setEditCountReward] = useState(
+    habit.reward_settings?.count_reward?.toString() || '0.1'
+  );
+  const [editTrackingBonus, setEditTrackingBonus] = useState(
+    habit.reward_settings?.tracking_bonus?.toString() || '5'
+  );
+  const [editTrackingPenalty, setEditTrackingPenalty] = useState(
+    habit.reward_settings?.tracking_penalty?.toString() || '2'
+  );
+  const [editWeightReward, setEditWeightReward] = useState(
+    habit.reward_settings?.weight_reward?.toString() || '1'
+  );
+  const [editWeightTarget, setEditWeightTarget] = useState(
+    habit.weight_settings?.target_weight?.toString() || ''
+  );
   const [editWeightUnit, setEditWeightUnit] = useState(habit.weight_settings?.unit || 'kg');
   const [editWeightStep, setEditWeightStep] = useState('0.1');
 
@@ -209,21 +250,27 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
         description: editDescription,
         has_counts: editHabitType === 'count',
         is_weight: editHabitType === 'weight',
-        count_settings: editHabitType === 'count' ? {
-          target: parseInt(editTarget) || 0,
-          unit: editUnit,
-          step_size: parseInt(editStepSize) || 1,
-          count_is_good: editCountIsGood,
-        } : null,
-        weight_settings: editHabitType === 'weight' ? {
-          target_weight: parseFloat(editWeightTarget) || 0,
-          unit: editWeightUnit,
-          step_size: parseFloat(editWeightStep) || 0.1,
-        } : null,
+        count_settings:
+          editHabitType === 'count'
+            ? {
+                target: parseInt(editTarget) || 0,
+                unit: editUnit,
+                step_size: parseInt(editStepSize) || 1,
+                count_is_good: editCountIsGood,
+              }
+            : null,
+        weight_settings:
+          editHabitType === 'weight'
+            ? {
+                target_weight: parseFloat(editWeightTarget) || 0,
+                unit: editWeightUnit,
+                step_size: parseFloat(editWeightStep) || 0.1,
+              }
+            : null,
         reward_settings: {
           success_points: parseFloat(editSuccessReward) || 0,
           penalty_points: parseFloat(editFailureReward) || 0,
-          ...(editHabitType === 'count' && { 
+          ...(editHabitType === 'count' && {
             count_reward: parseFloat(editCountReward) || 0,
             tracking_bonus: parseFloat(editTrackingBonus) || 0,
             tracking_penalty: parseFloat(editTrackingPenalty) || 0,
@@ -255,7 +302,7 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
     setEditStepSize(habit.count_settings?.step_size?.toString() || '1');
     setEditCountIsGood(habit.count_settings?.count_is_good ?? true);
     setEditHabitType(habit.has_counts ? 'count' : habit.is_weight ? 'weight' : 'normal');
-    
+
     // Reset reward settings
     setEditSuccessReward(habit.reward_settings?.success_points?.toString() || '1');
     setEditFailureReward(habit.reward_settings?.penalty_points?.toString() || '0');
@@ -265,7 +312,7 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
     setEditWeightReward(habit.reward_settings?.weight_reward?.toString() || '1');
     setEditWeightTarget(habit.weight_settings?.target_weight?.toString() || '');
     setEditWeightUnit(habit.weight_settings?.unit || 'kg');
-    
+
     onCancelEdit?.();
   };
 
@@ -296,10 +343,15 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
     // Preview what the edited habit will look like
     const previewTarget = parseInt(editTarget) || 0;
     const previewStepSize = parseInt(editStepSize) || 1;
-    
+
     return (
       <>
-        <ThemedView style={[styles.container, { borderColor: habitColor, borderLeftWidth: 4, borderLeftColor: habitColor }]}>
+        <ThemedView
+          style={[
+            styles.container,
+            { borderColor: habitColor, borderLeftWidth: 4, borderLeftColor: habitColor },
+          ]}
+        >
           {/* Main row similar to normal view but with editable fields */}
           <View style={styles.mainRow}>
             {/* Keep the check button visible but disabled */}
@@ -311,13 +363,13 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
                   borderColor: habitColor,
                   borderWidth: 2,
                   opacity: 0.5,
-                }
+                },
               ]}
               disabled={true}
             >
               <ThemedText style={[styles.checkButtonText, { color: habitColor }]}>✓</ThemedText>
             </TouchableOpacity>
-            
+
             <View style={styles.leftSection}>
               {/* Editable name in place */}
               <TextInput
@@ -327,7 +379,7 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
                 placeholder="Habit name"
                 placeholderTextColor={textColor + '80'}
               />
-              
+
               {/* Editable description */}
               <TextInput
                 style={[styles.descriptionInput, { color: textColor }]}
@@ -336,7 +388,7 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
                 placeholder="Add description (optional)"
                 placeholderTextColor={textColor + '60'}
               />
-              
+
               {/* Show progress bar if count type with target */}
               {editHabitType === 'count' && previewTarget > 0 && (
                 <View style={styles.progressContainer}>
@@ -379,32 +431,36 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
                   <ThemedText style={styles.currentCount}>0</ThemedText>
                   <ThemedText style={styles.unit}>{editUnit}</ThemedText>
                 </View>
-                
+
                 <View style={styles.controls}>
                   <TouchableOpacity
                     style={[
                       styles.controlButton,
-                      { 
+                      {
                         backgroundColor: editCountIsGood ? '#ff4444' : '#4CAF50',
                         borderColor: editCountIsGood ? '#ff4444' : '#4CAF50',
-                      }
+                      },
                     ]}
                     disabled={true}
                   >
-                    <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>-</ThemedText>
+                    <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>
+                      -
+                    </ThemedText>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={[
                       styles.controlButton,
-                      { 
+                      {
                         backgroundColor: editCountIsGood ? '#4CAF50' : '#ff4444',
                         borderColor: editCountIsGood ? '#4CAF50' : '#ff4444',
-                      }
+                      },
                     ]}
                     disabled={true}
                   >
-                    <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>+</ThemedText>
+                    <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>
+                      +
+                    </ThemedText>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -416,22 +472,24 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
         <ThemedView style={[styles.editSettingsBar, { backgroundColor, borderColor }]}>
           {/* Type selector */}
           <View style={styles.typeSelectorCompact}>
-            {['normal', 'count', 'weight'].map((type) => (
+            {['normal', 'count', 'weight'].map(type => (
               <TouchableOpacity
                 key={type}
                 style={[
                   styles.typeButtonCompact,
-                  { 
+                  {
                     backgroundColor: editHabitType === type ? tintColor : 'transparent',
                     borderColor: tintColor,
-                  }
+                  },
                 ]}
                 onPress={() => setEditHabitType(type)}
               >
-                <ThemedText style={[
-                  styles.typeButtonTextCompact,
-                  { color: editHabitType === type ? backgroundColor : tintColor }
-                ]}>
+                <ThemedText
+                  style={[
+                    styles.typeButtonTextCompact,
+                    { color: editHabitType === type ? backgroundColor : tintColor },
+                  ]}
+                >
                   {type === 'normal' ? '✓' : type === 'count' ? '#' : 'kg'}
                 </ThemedText>
               </TouchableOpacity>
@@ -452,7 +510,7 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
                   placeholderTextColor={textColor + '80'}
                 />
               </View>
-              
+
               <View style={styles.rewardContainer}>
                 <ThemedText style={styles.miniLabel}>Failure: $</ThemedText>
                 <TextInput
@@ -520,9 +578,9 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
               <TouchableOpacity
                 style={[
                   styles.goodBadToggle,
-                  { 
+                  {
                     backgroundColor: editCountIsGood ? '#4CAF50' : '#ff4444',
-                  }
+                  },
                 ]}
                 onPress={() => setEditCountIsGood(!editCountIsGood)}
               >
@@ -546,7 +604,7 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
                   placeholderTextColor={textColor + '80'}
                 />
               </View>
-              
+
               <View style={styles.rewardContainer}>
                 <ThemedText style={styles.miniLabel}>Unit:</ThemedText>
                 <TextInput
@@ -574,18 +632,19 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
 
           {/* Action buttons */}
           <View style={styles.editActions}>
-            <TouchableOpacity
-              style={styles.cancelButtonCompact}
-              onPress={handleCancel}
-            >
-              <ThemedText style={[styles.actionButtonTextCompact, { color: '#ff4444' }]}>✕</ThemedText>
+            <TouchableOpacity style={styles.cancelButtonCompact} onPress={handleCancel}>
+              <ThemedText style={[styles.actionButtonTextCompact, { color: '#ff4444' }]}>
+                ✕
+              </ThemedText>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={[styles.saveButtonCompact, { backgroundColor: tintColor }]}
               onPress={handleSave}
             >
-              <ThemedText style={[styles.actionButtonTextCompact, { color: backgroundColor }]}>✓</ThemedText>
+              <ThemedText style={[styles.actionButtonTextCompact, { color: backgroundColor }]}>
+                ✓
+              </ThemedText>
             </TouchableOpacity>
           </View>
         </ThemedView>
@@ -595,18 +654,24 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
 
   return (
     <>
-      <ThemedView style={[styles.container, { borderColor: habitColor, borderLeftWidth: 4, borderLeftColor: habitColor, opacity: isActive ? 0.7 : 1 }]}>
+      <ThemedView
+        style={[
+          styles.container,
+          {
+            borderColor: habitColor,
+            borderLeftWidth: 4,
+            borderLeftColor: habitColor,
+            opacity: isActive ? 0.7 : 1,
+          },
+        ]}
+      >
         <View style={styles.mainRow}>
           {isDraggable && (
-            <TouchableOpacity
-              style={styles.dragHandle}
-              onLongPress={onDrag}
-              delayLongPress={100}
-            >
+            <TouchableOpacity style={styles.dragHandle} onLongPress={onDrag} delayLongPress={100}>
               <ThemedText style={[styles.dragHandleText, { color: textColor }]}>⋮⋮</ThemedText>
             </TouchableOpacity>
           )}
-          
+
           <TouchableOpacity
             style={[
               styles.checkButton,
@@ -614,21 +679,23 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
                 backgroundColor: isCheckedToday ? habitColor : 'transparent',
                 borderColor: habitColor,
                 borderWidth: isCheckedToday ? 0 : 2,
-              }
+              },
             ]}
             onPress={handleCheck}
             disabled={checking}
           >
-            <ThemedText style={[
-              styles.checkButtonText,
-              {
-                color: isCheckedToday ? backgroundColor : habitColor,
-              }
-            ]}>
+            <ThemedText
+              style={[
+                styles.checkButtonText,
+                {
+                  color: isCheckedToday ? backgroundColor : habitColor,
+                },
+              ]}
+            >
               {checking ? '...' : '✓'}
             </ThemedText>
           </TouchableOpacity>
-          
+
           <View style={styles.leftSection}>
             <ThemedText style={styles.habitName} numberOfLines={1} ellipsizeMode="tail">
               {habit.name}
@@ -660,21 +727,19 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
 
           <View style={styles.rightSection}>
             <View style={styles.countDisplay}>
-              <ThemedText style={styles.currentCount}>
-                {loading ? '...' : todayCount}
-              </ThemedText>
+              <ThemedText style={styles.currentCount}>{loading ? '...' : todayCount}</ThemedText>
               <ThemedText style={styles.unit}>{unit}</ThemedText>
             </View>
 
             <View style={styles.controls}>
               <TouchableOpacity
                 style={[
-                  styles.controlButton, 
+                  styles.controlButton,
                   styles.decrementButton,
-                  { 
+                  {
                     backgroundColor: countIsGood ? '#ff4444' : '#4CAF50',
                     borderColor: countIsGood ? '#ff4444' : '#4CAF50',
-                  }
+                  },
                 ]}
                 onPress={() => updateCount(false)}
                 disabled={updating || todayCount <= 0}
@@ -684,26 +749,24 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
 
               <TouchableOpacity
                 style={[
-                  styles.controlButton, 
-                  styles.incrementButton, 
-                  { 
+                  styles.controlButton,
+                  styles.incrementButton,
+                  {
                     backgroundColor: countIsGood ? '#4CAF50' : '#ff4444',
                     borderColor: countIsGood ? '#4CAF50' : '#ff4444',
-                  }
+                  },
                 ]}
                 onPress={() => updateCount(true)}
                 disabled={updating}
               >
-                <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>
-                  +
-                </ThemedText>
+                <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>+</ThemedText>
               </TouchableOpacity>
             </View>
           </View>
 
           <TouchableOpacity
             style={styles.menuButton}
-            onPress={(event) => {
+            onPress={event => {
               event.currentTarget.measure((x, y, width, height, pageX, pageY) => {
                 setDropdownPosition({ x: pageX - 80, y: pageY + height });
                 setShowDropdown(true);
@@ -712,7 +775,6 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
           >
             <ThemedText style={[styles.menuDots, { color: textColor }]}>⋮</ThemedText>
           </TouchableOpacity>
-          
         </View>
       </ThemedView>
 
@@ -723,19 +785,18 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
         animationType="fade"
         onRequestClose={() => setShowDropdown(false)}
       >
-        <Pressable 
-          style={styles.dropdownOverlay} 
-          onPress={() => setShowDropdown(false)}
-        >
-          <ThemedView style={[
-            styles.dropdownMenu,
-            {
-              position: 'absolute',
-              top: dropdownPosition.y,
-              left: dropdownPosition.x,
-              borderColor: borderColor,
-            }
-          ]}>
+        <Pressable style={styles.dropdownOverlay} onPress={() => setShowDropdown(false)}>
+          <ThemedView
+            style={[
+              styles.dropdownMenu,
+              {
+                position: 'absolute',
+                top: dropdownPosition.y,
+                left: dropdownPosition.x,
+                borderColor: borderColor,
+              },
+            ]}
+          >
             <TouchableOpacity
               style={styles.dropdownItem}
               onPress={() => {
@@ -745,7 +806,7 @@ export function CountHabitCard({ habit, onUpdate, onDelete, onEdit, onCancelEdit
             >
               <ThemedText style={styles.dropdownText}>Edit</ThemedText>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={styles.dropdownItem}
               onPress={() => {

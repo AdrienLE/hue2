@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Image, TouchableOpacity, Modal, Pressable, TextInput, Alert } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  Modal,
+  Pressable,
+  TextInput,
+  Alert,
+} from 'react-native';
 import { ThemedText } from './ThemedText';
 import { ProfileMenu } from './ProfileMenu';
 import { useThemeColor } from '@/hooks/useThemeColor';
@@ -17,14 +26,14 @@ interface ThemedHeaderProps {
   onResetDay?: () => void;
 }
 
-export function ThemedHeader({ 
-  title, 
-  showIcon = true, 
-  showCheckedHabits, 
+export function ThemedHeader({
+  title,
+  showIcon = true,
+  showCheckedHabits,
   onToggleCheckedHabits,
   onAdvanceDay,
   onTriggerDailyReview,
-  onResetDay
+  onResetDay,
 }: ThemedHeaderProps) {
   const [showDevTools, setShowDevTools] = useState(false);
   const [showSpendInput, setShowSpendInput] = useState(false);
@@ -57,8 +66,8 @@ export function ThemedHeader({
         `This will take your balance to ${formatReward(totalRewards - amount)}. Make sure you\'re not cheating your targets!`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Spend Anyway', 
+          {
+            text: 'Spend Anyway',
             style: 'destructive',
             onPress: async () => {
               setSpending(true);
@@ -73,8 +82,8 @@ export function ThemedHeader({
               } finally {
                 setSpending(false);
               }
-            }
-          }
+            },
+          },
         ]
       );
     } else {
@@ -109,9 +118,9 @@ export function ThemedHeader({
           resizeMode="contain"
         />
       </View>
-      
+
       <View style={styles.rightSection}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.rewardDisplay, { borderColor: tintColor }]}
           onPress={() => {
             console.log('Reward clicked, current showSpendInput:', showSpendInput);
@@ -126,36 +135,38 @@ export function ThemedHeader({
         <TouchableOpacity
           style={[
             styles.visibilityButton,
-            { 
+            {
               backgroundColor: showCheckedHabits ? tintColor : 'transparent',
               borderColor: tintColor,
-            }
+            },
           ]}
           onPress={onToggleCheckedHabits}
         >
-          <ThemedText style={[
-            styles.visibilityButtonText,
-            { 
-              color: showCheckedHabits ? backgroundColor : tintColor,
-            }
-          ]}>
+          <ThemedText
+            style={[
+              styles.visibilityButtonText,
+              {
+                color: showCheckedHabits ? backgroundColor : tintColor,
+              },
+            ]}
+          >
             {showCheckedHabits ? '◉' : '◯'}
           </ThemedText>
         </TouchableOpacity>
-        
+
         <ProfileMenu />
-        
+
         {/* Dev mode button */}
-        {(process.env.NODE_ENV !== 'production' || process.env.EXPO_PUBLIC_FORCE_DEV_TOOLS === 'true') && onAdvanceDay && (
-          <TouchableOpacity
-            style={[styles.devIndicator, { backgroundColor: '#ff0000' }]}
-            onPress={() => setShowDevTools(true)}
-          >
-            <ThemedText style={[styles.devIndicatorText, { color: 'white' }]}>
-              DEV
-            </ThemedText>
-          </TouchableOpacity>
-        )}
+        {(process.env.NODE_ENV !== 'production' ||
+          process.env.EXPO_PUBLIC_FORCE_DEV_TOOLS === 'true') &&
+          onAdvanceDay && (
+            <TouchableOpacity
+              style={[styles.devIndicator, { backgroundColor: '#ff0000' }]}
+              onPress={() => setShowDevTools(true)}
+            >
+              <ThemedText style={[styles.devIndicatorText, { color: 'white' }]}>DEV</ThemedText>
+            </TouchableOpacity>
+          )}
       </View>
 
       {/* Spending Modal */}
@@ -168,17 +179,21 @@ export function ThemedHeader({
           setSpendAmount('');
         }}
       >
-        <Pressable 
-          style={styles.modalOverlay} 
+        <Pressable
+          style={styles.modalOverlay}
           onPress={() => {
             setShowSpendInput(false);
             setSpendAmount('');
           }}
         >
           <View style={[styles.spendModalContent, { backgroundColor, borderColor }]}>
-            <ThemedText style={[styles.spendModalTitle, { color: textColor }]}>Spend Rewards</ThemedText>
-            <ThemedText style={[styles.spendModalSubtitle, { color: textColor }]}>Current balance: {formatReward(totalRewards)}</ThemedText>
-            
+            <ThemedText style={[styles.spendModalTitle, { color: textColor }]}>
+              Spend Rewards
+            </ThemedText>
+            <ThemedText style={[styles.spendModalSubtitle, { color: textColor }]}>
+              Current balance: {formatReward(totalRewards)}
+            </ThemedText>
+
             <TextInput
               style={[styles.spendInput, { color: textColor, borderColor }]}
               value={spendAmount}
@@ -188,7 +203,7 @@ export function ThemedHeader({
               keyboardType="numeric"
               autoFocus
             />
-            
+
             <View style={styles.spendButtons}>
               <TouchableOpacity
                 style={[styles.spendButton, styles.cancelSpendButton, { borderColor }]}
@@ -197,10 +212,16 @@ export function ThemedHeader({
                   setSpendAmount('');
                 }}
               >
-                <ThemedText style={[styles.spendButtonText, { color: textColor }]}>Cancel</ThemedText>
+                <ThemedText style={[styles.spendButtonText, { color: textColor }]}>
+                  Cancel
+                </ThemedText>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.spendButton, styles.confirmSpendButton, { backgroundColor: tintColor }]}
+                style={[
+                  styles.spendButton,
+                  styles.confirmSpendButton,
+                  { backgroundColor: tintColor },
+                ]}
                 onPress={handleSpend}
                 disabled={spending}
               >
@@ -221,13 +242,10 @@ export function ThemedHeader({
           animationType="fade"
           onRequestClose={() => setShowDevTools(false)}
         >
-          <Pressable 
-            style={styles.overlay} 
-            onPress={() => setShowDevTools(false)}
-          >
+          <Pressable style={styles.overlay} onPress={() => setShowDevTools(false)}>
             <View style={[styles.modal, { backgroundColor, borderColor }]}>
               <ThemedText style={[styles.modalTitle, { color: textColor }]}>Dev Tools</ThemedText>
-              
+
               <TouchableOpacity
                 style={[styles.devButton, { backgroundColor: tintColor }]}
                 onPress={() => {
@@ -254,7 +272,7 @@ export function ThemedHeader({
                   Advance 3 Days (+3)
                 </ThemedText>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 style={[styles.devButton, { backgroundColor: '#4ecdc4' }]}
                 onPress={() => {
@@ -266,7 +284,7 @@ export function ThemedHeader({
                   Trigger Daily Review
                 </ThemedText>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 style={[styles.devButton, { backgroundColor: '#ff6b6b' }]}
                 onPress={() => {

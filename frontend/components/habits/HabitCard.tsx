@@ -9,7 +9,10 @@ import {
   TextInput,
 } from 'react-native';
 import { getLogicalDateTimestamp } from '@/contexts/DevDateContext';
-import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
+import DraggableFlatList, {
+  ScaleDecorator,
+  RenderItemParams,
+} from 'react-native-draggable-flatlist';
 import { ThemedView } from '../ThemedView';
 import { ThemedText } from '../ThemedText';
 import { ThemedTextInput } from '../ThemedTextInput';
@@ -35,19 +38,19 @@ interface HabitCardProps {
   isActive?: boolean;
 }
 
-export function HabitCard({ 
-  habit, 
-  onUpdate, 
-  onDelete, 
-  onEdit, 
-  onCancelEdit, 
-  isEditing, 
-  onChecked, 
-  onUnchecked, 
-  isCheckedToday, 
-  isDraggable, 
-  onDrag, 
-  isActive 
+export function HabitCard({
+  habit,
+  onUpdate,
+  onDelete,
+  onEdit,
+  onCancelEdit,
+  isEditing,
+  onChecked,
+  onUnchecked,
+  isCheckedToday,
+  isDraggable,
+  onDrag,
+  isActive,
 }: HabitCardProps) {
   // Common state
   const [showDropdown, setShowDropdown] = useState(false);
@@ -55,42 +58,60 @@ export function HabitCard({
   const [checking, setChecking] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [loading, setLoading] = useState(true);
-  
+
   // Count habit state
   const [todayCount, setTodayCount] = useState(0);
-  
+
   // Weight habit state
   const [currentWeight, setCurrentWeight] = useState<number | null>(null);
   const [showWeightInput, setShowWeightInput] = useState(false);
   const [newWeight, setNewWeight] = useState('');
-  
+
   // Sub-habit state (for normal habits only)
   const [subHabits, setSubHabits] = useState<SubHabit[]>([]);
   const [checkedSubHabits, setCheckedSubHabits] = useState<Set<number>>(new Set());
   const [newSubHabitName, setNewSubHabitName] = useState('');
   const [editingSubHabitId, setEditingSubHabitId] = useState<number | null>(null);
   const [editingSubHabitName, setEditingSubHabitName] = useState('');
-  
+
   // Editing state
   const [editName, setEditName] = useState(habit.name);
   const [editDescription, setEditDescription] = useState(habit.description || '');
-  const [editHabitType, setEditHabitType] = useState(habit.has_counts ? 'count' : habit.is_weight ? 'weight' : 'normal');
-  
+  const [editHabitType, setEditHabitType] = useState(
+    habit.has_counts ? 'count' : habit.is_weight ? 'weight' : 'normal'
+  );
+
   // Count settings with defaults
-  const [editCountTarget, setEditCountTarget] = useState(habit.count_settings?.target?.toString() || '10');
+  const [editCountTarget, setEditCountTarget] = useState(
+    habit.count_settings?.target?.toString() || '10'
+  );
   const [editCountUnit, setEditCountUnit] = useState(habit.count_settings?.unit || 'units');
-  const [editCountStepSize, setEditCountStepSize] = useState(habit.count_settings?.step_size?.toString() || '1');
-  const [editCountIsGood, setEditCountIsGood] = useState(habit.count_settings?.count_is_good ?? true);
-  
+  const [editCountStepSize, setEditCountStepSize] = useState(
+    habit.count_settings?.step_size?.toString() || '1'
+  );
+  const [editCountIsGood, setEditCountIsGood] = useState(
+    habit.count_settings?.count_is_good ?? true
+  );
+
   // Weight settings with defaults
-  const [editWeightTarget, setEditWeightTarget] = useState(habit.weight_settings?.target_weight?.toString() || '150');
+  const [editWeightTarget, setEditWeightTarget] = useState(
+    habit.weight_settings?.target_weight?.toString() || '150'
+  );
   const [editWeightUnit, setEditWeightUnit] = useState(habit.weight_settings?.unit || 'lbs');
-  
+
   // Reward settings with defaults
-  const [editSuccessReward, setEditSuccessReward] = useState(habit.reward_settings?.success_points?.toString() || '1');
-  const [editFailureReward, setEditFailureReward] = useState(habit.reward_settings?.penalty_points?.toString() || '0');
-  const [editCountReward, setEditCountReward] = useState(habit.reward_settings?.count_reward?.toString() || '0.1');
-  const [editWeightReward, setEditWeightReward] = useState(habit.reward_settings?.weight_reward?.toString() || '1');
+  const [editSuccessReward, setEditSuccessReward] = useState(
+    habit.reward_settings?.success_points?.toString() || '1'
+  );
+  const [editFailureReward, setEditFailureReward] = useState(
+    habit.reward_settings?.penalty_points?.toString() || '0'
+  );
+  const [editCountReward, setEditCountReward] = useState(
+    habit.reward_settings?.count_reward?.toString() || '0.1'
+  );
+  const [editWeightReward, setEditWeightReward] = useState(
+    habit.reward_settings?.weight_reward?.toString() || '1'
+  );
 
   // Effect to apply defaults when switching habit types
   useEffect(() => {
@@ -127,7 +148,7 @@ export function HabitCard({
   // Load sub-habits (always load them, regardless of habit type, to preserve them)
   const loadSubHabits = async () => {
     if (!token) return;
-    
+
     // Always load sub-habits to preserve them when switching types
     try {
       const response = await HabitService.getSubHabits(habit.id, token);
@@ -186,7 +207,7 @@ export function HabitCard({
       console.log('Calling HabitService.deleteSubHabit...');
       const response = await HabitService.deleteSubHabit(subHabitId, token);
       console.log('Delete response:', response);
-      
+
       if (response.status === 200) {
         console.log('Delete successful, updating local state');
         // Remove from local state
@@ -215,7 +236,7 @@ export function HabitCard({
   useEffect(() => {
     // Always load sub-habits to preserve them
     loadSubHabits();
-    
+
     // Load type-specific data
     if (habit.has_counts) {
       loadTodayCount();
@@ -236,8 +257,16 @@ export function HabitCard({
     setLoading(true);
     try {
       const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
-      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
+      const startOfDay = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate()
+      ).toISOString();
+      const endOfDay = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate() + 1
+      ).toISOString();
 
       const response = await HabitService.getCounts(token, {
         habitId: habit.id,
@@ -288,7 +317,7 @@ export function HabitCard({
     setChecking(true);
     try {
       const successReward = habit.reward_settings?.success_points || 0;
-      
+
       if (isCheckedToday) {
         await HabitService.uncheckHabitToday(habit.id, token);
         if (successReward > 0) {
@@ -332,7 +361,7 @@ export function HabitCard({
     try {
       const change = increment ? stepSize : -stepSize;
       const newValue = Math.max(0, todayCount + change);
-      
+
       const countData = {
         habit_id: habit.id,
         value: change,
@@ -342,12 +371,12 @@ export function HabitCard({
       const response = await HabitService.createCount(countData, token);
       if (response.data) {
         setTodayCount(newValue);
-        
+
         // Calculate reward
         const countReward = habit.reward_settings?.count_reward || 0;
         if (countReward > 0) {
           const rewardAmount = countReward * Math.abs(stepSize);
-          
+
           if (countIsGood) {
             if (increment) {
               await addReward(rewardAmount);
@@ -394,14 +423,14 @@ export function HabitCard({
       if (response.data) {
         const oldWeight = currentWeight || 0;
         setCurrentWeight(weight);
-        
+
         // Calculate reward based on weight movement
         if (targetWeight && oldWeight > 0) {
           const weightReward = habit.reward_settings?.weight_reward || 0;
           if (weightReward > 0) {
             const oldDistance = Math.abs(oldWeight - targetWeight);
             const newDistance = Math.abs(weight - targetWeight);
-            
+
             if (newDistance < oldDistance) {
               const improvement = oldDistance - newDistance;
               await addReward(weightReward * improvement);
@@ -411,7 +440,7 @@ export function HabitCard({
             }
           }
         }
-        
+
         if (!newWeightValue) {
           setNewWeight('');
           setShowWeightInput(false);
@@ -428,14 +457,14 @@ export function HabitCard({
       setUpdating(false);
     }
   };
-  
+
   const updateWeight = async (increment: boolean) => {
     if (!token || updating) return;
 
     const baseWeight = currentWeight || 0;
     const change = increment ? 0.1 : -0.1;
     const newWeight = Math.max(0, Math.round((baseWeight + change) * 10) / 10);
-    
+
     await handleWeightUpdate(newWeight);
   };
 
@@ -455,18 +484,24 @@ export function HabitCard({
         description: editDescription,
         has_counts: editHabitType === 'count',
         is_weight: editHabitType === 'weight',
-        count_settings: editHabitType === 'count' ? {
-          target: parseInt(editCountTarget) || 0,
-          unit: editCountUnit,
-          step_size: parseInt(editCountStepSize) || 1,
-          count_is_good: editCountIsGood,
-        } : null,
-        weight_settings: editHabitType === 'weight' ? {
-          target_weight: parseFloat(editWeightTarget) || 0,
-          starting_weight: currentWeight || 0,
-          unit: editWeightUnit,
-          step_size: 0.1,
-        } : null,
+        count_settings:
+          editHabitType === 'count'
+            ? {
+                target: parseInt(editCountTarget) || 0,
+                unit: editCountUnit,
+                step_size: parseInt(editCountStepSize) || 1,
+                count_is_good: editCountIsGood,
+              }
+            : null,
+        weight_settings:
+          editHabitType === 'weight'
+            ? {
+                target_weight: parseFloat(editWeightTarget) || 0,
+                starting_weight: currentWeight || 0,
+                unit: editWeightUnit,
+                step_size: 0.1,
+              }
+            : null,
         reward_settings: {
           success_points: parseFloat(editSuccessReward) || 0,
           penalty_points: parseFloat(editFailureReward) || 0,
@@ -504,7 +539,7 @@ export function HabitCard({
     setEditFailureReward(habit.reward_settings?.penalty_points?.toString() || '0');
     setEditCountReward(habit.reward_settings?.count_reward?.toString() || '0.1');
     setEditWeightReward(habit.reward_settings?.weight_reward?.toString() || '1');
-    
+
     onCancelEdit?.();
   };
 
@@ -564,17 +599,17 @@ export function HabitCard({
     if (goalType === 'lose') {
       return {
         decreaseColor: '#4CAF50', // Green for decreasing (good)
-        increaseColor: '#ff4444'  // Red for increasing (bad)
+        increaseColor: '#ff4444', // Red for increasing (bad)
       };
     } else if (goalType === 'gain') {
       return {
         decreaseColor: '#ff4444', // Red for decreasing (bad)
-        increaseColor: '#4CAF50'  // Green for increasing (good)
+        increaseColor: '#4CAF50', // Green for increasing (good)
       };
     } else {
       return {
         decreaseColor: '#ff4444', // Red for both when maintaining
-        increaseColor: '#ff4444'
+        increaseColor: '#ff4444',
       };
     }
   };
@@ -583,7 +618,12 @@ export function HabitCard({
     return (
       <>
         {/* Editing View */}
-        <ThemedView style={[styles.container, { borderColor: habitColor, borderLeftWidth: 4, borderLeftColor: habitColor }]}>
+        <ThemedView
+          style={[
+            styles.container,
+            { borderColor: habitColor, borderLeftWidth: 4, borderLeftColor: habitColor },
+          ]}
+        >
           <View style={styles.mainRow}>
             {/* Disabled check button during editing */}
             <TouchableOpacity
@@ -594,13 +634,13 @@ export function HabitCard({
                   borderColor: habitColor,
                   borderWidth: 2,
                   opacity: 0.5,
-                }
+                },
               ]}
               disabled={true}
             >
               <ThemedText style={[styles.checkButtonText, { color: habitColor }]}>✓</ThemedText>
             </TouchableOpacity>
-            
+
             <View style={styles.leftSection}>
               {/* Editable name */}
               <TextInput
@@ -610,7 +650,7 @@ export function HabitCard({
                 placeholder="Habit name"
                 placeholderTextColor={textColor + '80'}
               />
-              
+
               {/* Editable description */}
               <TextInput
                 style={[styles.descriptionInput, { color: textColor }]}
@@ -619,7 +659,7 @@ export function HabitCard({
                 placeholder="Add description (optional)"
                 placeholderTextColor={textColor + '60'}
               />
-              
+
               {/* Progress bar for count habits with better preview */}
               {editHabitType === 'count' && (
                 <View style={styles.progressContainer}>
@@ -673,24 +713,25 @@ export function HabitCard({
                         setSubHabits(data);
                         // TODO: Update order in backend
                       }}
-                      keyExtractor={(item) => item.id.toString()}
+                      keyExtractor={item => item.id.toString()}
                       renderItem={({ item, drag, isActive }: RenderItemParams<SubHabit>) => (
                         <ScaleDecorator activeScale={1.05}>
-                          <View style={[styles.subHabitItemInCard, { opacity: isActive ? 0.8 : 1 }]}>
-                            <TouchableOpacity
-                              style={styles.subHabitCheckbox}
-                              disabled={true}
-                            >
-                              <View style={[
-                                styles.subHabitCheckboxInner,
-                                {
-                                  backgroundColor: 'transparent',
-                                  borderColor: habitColor,
-                                  opacity: 0.5,
-                                }
-                              ]}/>
+                          <View
+                            style={[styles.subHabitItemInCard, { opacity: isActive ? 0.8 : 1 }]}
+                          >
+                            <TouchableOpacity style={styles.subHabitCheckbox} disabled={true}>
+                              <View
+                                style={[
+                                  styles.subHabitCheckboxInner,
+                                  {
+                                    backgroundColor: 'transparent',
+                                    borderColor: habitColor,
+                                    opacity: 0.5,
+                                  },
+                                ]}
+                              />
                             </TouchableOpacity>
-                            
+
                             {editingSubHabitId === item.id ? (
                               <TextInput
                                 style={[styles.subHabitNameEditInput, { color: textColor }]}
@@ -715,24 +756,38 @@ export function HabitCard({
                                   setEditingSubHabitName(item.name);
                                 }}
                               >
-                                <ThemedText style={[styles.subHabitNameInCard, { color: textColor }]}>
+                                <ThemedText
+                                  style={[styles.subHabitNameInCard, { color: textColor }]}
+                                >
                                   {item.name}
                                 </ThemedText>
                               </TouchableOpacity>
                             )}
-                            
+
                             <TouchableOpacity
                               onLongPress={drag}
                               delayLongPress={100}
                               style={styles.dragHandleSubHabitInCard}
                             >
-                              <ThemedText style={[styles.dragHandleText, { color: textColor + '80' }]}>⋮⋮</ThemedText>
+                              <ThemedText
+                                style={[styles.dragHandleText, { color: textColor + '80' }]}
+                              >
+                                ⋮⋮
+                              </ThemedText>
                             </TouchableOpacity>
-                            
+
                             <TouchableOpacity
-                              style={[styles.deleteSubHabitButtonInCard, { borderColor: '#ff4444' }]}
+                              style={[
+                                styles.deleteSubHabitButtonInCard,
+                                { borderColor: '#ff4444' },
+                              ]}
                               onPress={() => {
-                                console.log('Delete button pressed for sub-habit:', item.name, 'ID:', item.id);
+                                console.log(
+                                  'Delete button pressed for sub-habit:',
+                                  item.name,
+                                  'ID:',
+                                  item.id
+                                );
                                 deleteSubHabit(item.id);
                               }}
                             >
@@ -744,20 +799,22 @@ export function HabitCard({
                       scrollEnabled={false}
                     />
                   ) : (
-                    <View/>
+                    <View />
                   )}
-                  
+
                   {/* Add new sub-habit input at the bottom */}
                   <View style={styles.subHabitItemInCard}>
-                    <View style={[
-                      styles.subHabitCheckbox,
-                      {
-                        backgroundColor: 'transparent',
-                        borderColor: habitColor,
-                        opacity: 0.3,
-                        borderStyle: 'dashed',
-                      }
-                    ]}/>
+                    <View
+                      style={[
+                        styles.subHabitCheckbox,
+                        {
+                          backgroundColor: 'transparent',
+                          borderColor: habitColor,
+                          opacity: 0.3,
+                          borderStyle: 'dashed',
+                        },
+                      ]}
+                    />
                     <TextInput
                       style={[styles.subHabitInputInCard, { color: textColor }]}
                       value={newSubHabitName}
@@ -782,32 +839,36 @@ export function HabitCard({
                     </ThemedText>
                     <ThemedText style={styles.unit}>{editCountUnit || 'units'}</ThemedText>
                   </View>
-                  
+
                   <View style={styles.controls}>
                     <TouchableOpacity
                       style={[
                         styles.controlButton,
-                        { 
+                        {
                           backgroundColor: editCountIsGood ? '#ff4444' : '#4CAF50',
                           borderColor: editCountIsGood ? '#ff4444' : '#4CAF50',
-                        }
+                        },
                       ]}
                       disabled={true}
                     >
-                      <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>-</ThemedText>
+                      <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>
+                        -
+                      </ThemedText>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       style={[
                         styles.controlButton,
-                        { 
+                        {
                           backgroundColor: editCountIsGood ? '#4CAF50' : '#ff4444',
                           borderColor: editCountIsGood ? '#4CAF50' : '#ff4444',
-                        }
+                        },
                       ]}
                       disabled={true}
                     >
-                      <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>+</ThemedText>
+                      <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>
+                        +
+                      </ThemedText>
                     </TouchableOpacity>
                   </View>
                 </>
@@ -819,7 +880,7 @@ export function HabitCard({
                     <TextInput
                       style={[styles.currentWeightInput, { color: textColor, borderColor }]}
                       value={currentWeight ? (Math.round(currentWeight * 10) / 10).toString() : ''}
-                      onChangeText={(value) => {
+                      onChangeText={value => {
                         const numValue = parseFloat(value);
                         if (!isNaN(numValue) || value === '') {
                           setCurrentWeight(value === '' ? null : numValue);
@@ -831,20 +892,30 @@ export function HabitCard({
                     />
                     <ThemedText style={styles.unit}>{editWeightUnit || 'kg'}</ThemedText>
                   </View>
-                  
+
                   <View style={styles.controls}>
                     <TouchableOpacity
-                      style={[styles.controlButton, { backgroundColor: '#ff4444', borderColor: '#ff4444' }]}
+                      style={[
+                        styles.controlButton,
+                        { backgroundColor: '#ff4444', borderColor: '#ff4444' },
+                      ]}
                       disabled={true}
                     >
-                      <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>-</ThemedText>
+                      <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>
+                        -
+                      </ThemedText>
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      style={[styles.controlButton, { backgroundColor: '#4CAF50', borderColor: '#4CAF50' }]}
+                      style={[
+                        styles.controlButton,
+                        { backgroundColor: '#4CAF50', borderColor: '#4CAF50' },
+                      ]}
                       disabled={true}
                     >
-                      <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>+</ThemedText>
+                      <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>
+                        +
+                      </ThemedText>
                     </TouchableOpacity>
                   </View>
                 </>
@@ -857,22 +928,24 @@ export function HabitCard({
         <ThemedView style={[styles.editSettingsBar, { backgroundColor, borderColor }]}>
           {/* Type selector */}
           <View style={styles.typeSelectorCompact}>
-            {['normal', 'count', 'weight'].map((type) => (
+            {['normal', 'count', 'weight'].map(type => (
               <TouchableOpacity
                 key={type}
                 style={[
                   styles.typeButtonCompact,
-                  { 
+                  {
                     backgroundColor: editHabitType === type ? tintColor : 'transparent',
                     borderColor: tintColor,
-                  }
+                  },
                 ]}
                 onPress={() => setEditHabitType(type)}
               >
-                <ThemedText style={[
-                  styles.typeButtonTextCompact,
-                  { color: editHabitType === type ? backgroundColor : tintColor }
-                ]}>
+                <ThemedText
+                  style={[
+                    styles.typeButtonTextCompact,
+                    { color: editHabitType === type ? backgroundColor : tintColor },
+                  ]}
+                >
                   {type === 'normal' ? '✓' : type === 'count' ? '#' : '⚖'}
                 </ThemedText>
               </TouchableOpacity>
@@ -893,7 +966,7 @@ export function HabitCard({
                   placeholderTextColor={textColor + '80'}
                 />
               </View>
-              
+
               <View style={styles.rewardContainer}>
                 <ThemedText style={styles.miniLabel}>Failure: $</ThemedText>
                 <TextInput
@@ -905,7 +978,6 @@ export function HabitCard({
                   placeholderTextColor={textColor + '80'}
                 />
               </View>
-
             </>
           )}
 
@@ -938,9 +1010,9 @@ export function HabitCard({
               <TouchableOpacity
                 style={[
                   styles.goodBadToggle,
-                  { 
+                  {
                     backgroundColor: editCountIsGood ? '#4CAF50' : '#ff4444',
-                  }
+                  },
                 ]}
                 onPress={() => setEditCountIsGood(!editCountIsGood)}
               >
@@ -964,7 +1036,7 @@ export function HabitCard({
                   placeholderTextColor={textColor + '80'}
                 />
               </View>
-              
+
               <View style={styles.rewardContainer}>
                 <ThemedText style={styles.miniLabel}>Unit:</ThemedText>
                 <TextInput
@@ -987,24 +1059,24 @@ export function HabitCard({
                   placeholderTextColor={textColor + '80'}
                 />
               </View>
-              
             </>
           )}
 
           {/* Action buttons */}
           <View style={styles.editActions}>
-            <TouchableOpacity
-              style={styles.cancelButtonCompact}
-              onPress={handleCancel}
-            >
-              <ThemedText style={[styles.actionButtonTextCompact, { color: '#ff4444' }]}>✕</ThemedText>
+            <TouchableOpacity style={styles.cancelButtonCompact} onPress={handleCancel}>
+              <ThemedText style={[styles.actionButtonTextCompact, { color: '#ff4444' }]}>
+                ✕
+              </ThemedText>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={[styles.saveButtonCompact, { backgroundColor: tintColor }]}
               onPress={handleSave}
             >
-              <ThemedText style={[styles.actionButtonTextCompact, { color: backgroundColor }]}>✓</ThemedText>
+              <ThemedText style={[styles.actionButtonTextCompact, { color: backgroundColor }]}>
+                ✓
+              </ThemedText>
             </TouchableOpacity>
           </View>
         </ThemedView>
@@ -1015,18 +1087,24 @@ export function HabitCard({
   // Normal view
   return (
     <>
-      <ThemedView style={[styles.container, { borderColor: habitColor, borderLeftWidth: 4, borderLeftColor: habitColor, opacity: isActive ? 0.7 : 1 }]}>
+      <ThemedView
+        style={[
+          styles.container,
+          {
+            borderColor: habitColor,
+            borderLeftWidth: 4,
+            borderLeftColor: habitColor,
+            opacity: isActive ? 0.7 : 1,
+          },
+        ]}
+      >
         <View style={styles.mainRow}>
           {isDraggable && (
-            <TouchableOpacity
-              style={styles.dragHandle}
-              onLongPress={onDrag}
-              delayLongPress={100}
-            >
+            <TouchableOpacity style={styles.dragHandle} onLongPress={onDrag} delayLongPress={100}>
               <ThemedText style={[styles.dragHandleText, { color: textColor }]}>⋮⋮</ThemedText>
             </TouchableOpacity>
           )}
-          
+
           <TouchableOpacity
             style={[
               styles.checkButton,
@@ -1034,21 +1112,23 @@ export function HabitCard({
                 backgroundColor: isCheckedToday ? habitColor : 'transparent',
                 borderColor: habitColor,
                 borderWidth: isCheckedToday ? 0 : 2,
-              }
+              },
             ]}
             onPress={handleCheck}
             disabled={checking}
           >
-            <ThemedText style={[
-              styles.checkButtonText,
-              {
-                color: isCheckedToday ? backgroundColor : habitColor,
-              }
-            ]}>
+            <ThemedText
+              style={[
+                styles.checkButtonText,
+                {
+                  color: isCheckedToday ? backgroundColor : habitColor,
+                },
+              ]}
+            >
               {checking ? '...' : '✓'}
             </ThemedText>
           </TouchableOpacity>
-          
+
           <View style={styles.leftSection}>
             <ThemedText style={styles.habitName} numberOfLines={1} ellipsizeMode="tail">
               {habit.name}
@@ -1058,7 +1138,7 @@ export function HabitCard({
                 {habit.description}
               </ThemedText>
             )}
-            
+
             {/* Count habit progress */}
             {habit.has_counts && target > 0 && (
               <View style={styles.progressContainer}>
@@ -1096,32 +1176,44 @@ export function HabitCard({
             {/* Sub-habits for normal habits - only show in non-edit mode if actually normal type */}
             {!habit.has_counts && !habit.is_weight && subHabits.length > 0 && (
               <View style={styles.subHabitsInCard}>
-                {subHabits.map((subHabit) => (
+                {subHabits.map(subHabit => (
                   <TouchableOpacity
                     key={subHabit.id}
                     style={styles.subHabitItemInCard}
                     onPress={() => toggleSubHabit(subHabit.id)}
                   >
                     <View style={styles.subHabitCheckbox}>
-                      <View style={[
-                        styles.subHabitCheckboxInner,
-                        {
-                          backgroundColor: checkedSubHabits.has(subHabit.id) ? habitColor : 'transparent',
-                          borderColor: habitColor,
-                        }
-                      ]}>
+                      <View
+                        style={[
+                          styles.subHabitCheckboxInner,
+                          {
+                            backgroundColor: checkedSubHabits.has(subHabit.id)
+                              ? habitColor
+                              : 'transparent',
+                            borderColor: habitColor,
+                          },
+                        ]}
+                      >
                         {checkedSubHabits.has(subHabit.id) && (
-                          <ThemedText style={[styles.subHabitCheckmark, { color: backgroundColor }]}>✓</ThemedText>
+                          <ThemedText
+                            style={[styles.subHabitCheckmark, { color: backgroundColor }]}
+                          >
+                            ✓
+                          </ThemedText>
                         )}
                       </View>
                     </View>
-                    <ThemedText style={[
-                      styles.subHabitNameInCard,
-                      {
-                        color: checkedSubHabits.has(subHabit.id) ? textColor + '60' : textColor,
-                        textDecorationLine: checkedSubHabits.has(subHabit.id) ? 'line-through' : 'none',
-                      }
-                    ]}>
+                    <ThemedText
+                      style={[
+                        styles.subHabitNameInCard,
+                        {
+                          color: checkedSubHabits.has(subHabit.id) ? textColor + '60' : textColor,
+                          textDecorationLine: checkedSubHabits.has(subHabit.id)
+                            ? 'line-through'
+                            : 'none',
+                        },
+                      ]}
+                    >
                       {subHabit.name}
                     </ThemedText>
                   </TouchableOpacity>
@@ -1145,29 +1237,33 @@ export function HabitCard({
                   <TouchableOpacity
                     style={[
                       styles.controlButton,
-                      { 
+                      {
                         backgroundColor: countIsGood ? '#ff4444' : '#4CAF50',
                         borderColor: countIsGood ? '#ff4444' : '#4CAF50',
-                      }
+                      },
                     ]}
                     onPress={() => updateCount(false)}
                     disabled={updating || todayCount <= 0}
                   >
-                    <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>-</ThemedText>
+                    <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>
+                      -
+                    </ThemedText>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={[
                       styles.controlButton,
-                      { 
+                      {
                         backgroundColor: countIsGood ? '#4CAF50' : '#ff4444',
                         borderColor: countIsGood ? '#4CAF50' : '#ff4444',
-                      }
+                      },
                     ]}
                     onPress={() => updateCount(true)}
                     disabled={updating}
                   >
-                    <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>+</ThemedText>
+                    <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>
+                      +
+                    </ThemedText>
                   </TouchableOpacity>
                 </View>
               </>
@@ -1177,42 +1273,55 @@ export function HabitCard({
               <>
                 <View style={styles.weightDisplay}>
                   <ThemedText style={styles.currentWeight}>
-                    {loading ? '...' : currentWeight ? `${Math.round(currentWeight * 10) / 10}` : 'No data'}
+                    {loading
+                      ? '...'
+                      : currentWeight
+                        ? `${Math.round(currentWeight * 10) / 10}`
+                        : 'No data'}
                   </ThemedText>
                   <ThemedText style={styles.unit}>{unit}</ThemedText>
                 </View>
 
                 <View style={styles.controls}>
-                    <TouchableOpacity
-                      style={[styles.controlButton, { 
-                        backgroundColor: getWeightButtonColors().decreaseColor, 
-                        borderColor: getWeightButtonColors().decreaseColor 
-                      }]}
-                      onPress={() => updateWeight(false)}
-                      disabled={updating}
-                    >
-                      <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>-</ThemedText>
-                    </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.controlButton,
+                      {
+                        backgroundColor: getWeightButtonColors().decreaseColor,
+                        borderColor: getWeightButtonColors().decreaseColor,
+                      },
+                    ]}
+                    onPress={() => updateWeight(false)}
+                    disabled={updating}
+                  >
+                    <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>
+                      -
+                    </ThemedText>
+                  </TouchableOpacity>
 
-                    <TouchableOpacity
-                      style={[styles.controlButton, { 
-                        backgroundColor: getWeightButtonColors().increaseColor, 
-                        borderColor: getWeightButtonColors().increaseColor 
-                      }]}
-                      onPress={() => updateWeight(true)}
-                      disabled={updating}
-                    >
-                      <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>+</ThemedText>
-                    </TouchableOpacity>
-                  </View>
-                
+                  <TouchableOpacity
+                    style={[
+                      styles.controlButton,
+                      {
+                        backgroundColor: getWeightButtonColors().increaseColor,
+                        borderColor: getWeightButtonColors().increaseColor,
+                      },
+                    ]}
+                    onPress={() => updateWeight(true)}
+                    disabled={updating}
+                  >
+                    <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>
+                      +
+                    </ThemedText>
+                  </TouchableOpacity>
+                </View>
               </>
             )}
           </View>
 
           <TouchableOpacity
             style={styles.menuButton}
-            onPress={(event) => {
+            onPress={event => {
               event.currentTarget.measure((x, y, width, height, pageX, pageY) => {
                 setDropdownPosition({ x: pageX - 80, y: pageY + height });
                 setShowDropdown(true);
@@ -1231,19 +1340,18 @@ export function HabitCard({
         animationType="fade"
         onRequestClose={() => setShowDropdown(false)}
       >
-        <Pressable 
-          style={styles.dropdownOverlay} 
-          onPress={() => setShowDropdown(false)}
-        >
-          <ThemedView style={[
-            styles.dropdownMenu,
-            {
-              position: 'absolute',
-              top: dropdownPosition.y,
-              left: dropdownPosition.x,
-              borderColor: borderColor,
-            }
-          ]}>
+        <Pressable style={styles.dropdownOverlay} onPress={() => setShowDropdown(false)}>
+          <ThemedView
+            style={[
+              styles.dropdownMenu,
+              {
+                position: 'absolute',
+                top: dropdownPosition.y,
+                left: dropdownPosition.x,
+                borderColor: borderColor,
+              },
+            ]}
+          >
             <TouchableOpacity
               style={styles.dropdownItem}
               onPress={() => {
@@ -1253,7 +1361,7 @@ export function HabitCard({
             >
               <ThemedText style={styles.dropdownText}>Edit</ThemedText>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={styles.dropdownItem}
               onPress={() => {
@@ -1278,7 +1386,7 @@ export function HabitCard({
           <View style={styles.modalOverlay}>
             <ThemedView style={styles.modalContent}>
               <ThemedText style={styles.modalTitle}>Update Weight</ThemedText>
-              
+
               <ThemedTextInput
                 style={styles.weightInput}
                 value={newWeight}

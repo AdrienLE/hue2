@@ -7,6 +7,8 @@ from fastapi import (
     Request,
 )
 from pydantic import BaseModel
+from typing import List, Optional, Dict, Any
+from datetime import datetime
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.exception_handlers import http_exception_handler
@@ -169,11 +171,656 @@ def regenerate_nugget(
     return {"text": nugget.text}
 
 
+# Pydantic models for habit tracking
 class SettingsIn(BaseModel):
     name: str | None = None
     nickname: str | None = None
     email: str | None = None
     imageUrl: str | None = None
+
+
+class HabitBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    has_counts: bool = False
+    is_weight: bool = False
+    count_settings: Optional[Dict[str, Any]] = None
+    weight_settings: Optional[Dict[str, Any]] = None
+    schedule_settings: Optional[Dict[str, Any]] = None
+    reward_settings: Optional[Dict[str, Any]] = None
+    display_settings: Optional[Dict[str, Any]] = None
+
+class HabitCreate(HabitBase):
+    pass
+
+class HabitUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    has_counts: Optional[bool] = None
+    is_weight: Optional[bool] = None
+    count_settings: Optional[Dict[str, Any]] = None
+    weight_settings: Optional[Dict[str, Any]] = None
+    schedule_settings: Optional[Dict[str, Any]] = None
+    reward_settings: Optional[Dict[str, Any]] = None
+    display_settings: Optional[Dict[str, Any]] = None
+    deleted_at: Optional[datetime] = None
+
+class HabitResponse(HabitBase):
+    id: int
+    user_id: str
+    deleted_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class SubHabitBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    order_index: int = 0
+    reward_settings: Optional[Dict[str, Any]] = None
+
+class SubHabitCreate(SubHabitBase):
+    parent_habit_id: int
+
+class SubHabitUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    order_index: Optional[int] = None
+    reward_settings: Optional[Dict[str, Any]] = None
+
+class SubHabitResponse(SubHabitBase):
+    id: int
+    parent_habit_id: int
+    user_id: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class CheckCreate(BaseModel):
+    habit_id: Optional[int] = None
+    sub_habit_id: Optional[int] = None
+    checked: bool = True
+    check_date: datetime
+    metadata_json: Optional[Dict[str, Any]] = None
+
+class CheckResponse(BaseModel):
+    id: int
+    user_id: str
+    habit_id: Optional[int] = None
+    sub_habit_id: Optional[int] = None
+    checked: bool
+    check_date: datetime
+    metadata_json: Optional[Dict[str, Any]] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class CountCreate(BaseModel):
+    habit_id: int
+    value: float
+    count_date: datetime
+    metadata_json: Optional[Dict[str, Any]] = None
+
+class CountResponse(BaseModel):
+    id: int
+    user_id: str
+    habit_id: int
+    value: float
+    count_date: datetime
+    metadata_json: Optional[Dict[str, Any]] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class WeightUpdateCreate(BaseModel):
+    habit_id: int
+    weight: float
+    update_date: datetime
+    metadata_json: Optional[Dict[str, Any]] = None
+
+class WeightUpdateResponse(BaseModel):
+    id: int
+    user_id: str
+    habit_id: int
+    weight: float
+    update_date: datetime
+    metadata_json: Optional[Dict[str, Any]] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class ActiveDayCreate(BaseModel):
+    date: datetime
+    validated: bool = False
+    summary_data: Optional[Dict[str, Any]] = None
+
+class ActiveDayResponse(BaseModel):
+    id: int
+    user_id: str
+    date: datetime
+    validated: bool
+    summary_data: Optional[Dict[str, Any]] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class UserCreate(BaseModel):
+    email: str
+    name: Optional[str] = None
+    nickname: Optional[str] = None
+    image_url: Optional[str] = None
+    settings: Optional[Dict[str, Any]] = None
+
+class UserUpdate(BaseModel):
+    email: Optional[str] = None
+    name: Optional[str] = None
+    nickname: Optional[str] = None
+    image_url: Optional[str] = None
+    settings: Optional[Dict[str, Any]] = None
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    name: Optional[str] = None
+    nickname: Optional[str] = None
+    image_url: Optional[str] = None
+    settings: Optional[Dict[str, Any]] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# User management endpoints
+@app.post("/api/users", response_model=UserResponse)
+def create_user(
+    user_data: UserCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(verify_jwt),
+):
+    # Check if user already exists
+    existing_user = db.query(models.User).filter(models.User.id == current_user["sub"]).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="User already exists")
+    
+    db_user = models.User(
+        id=current_user["sub"],
+        email=user_data.email,
+        name=user_data.name,
+        nickname=user_data.nickname,
+        image_url=user_data.image_url,
+        settings=user_data.settings
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+
+@app.get("/api/users/me", response_model=UserResponse)
+def get_current_user(
+    db: Session = Depends(get_db),
+    current_user=Depends(verify_jwt),
+):
+    user = db.query(models.User).filter(models.User.id == current_user["sub"]).first()
+    if not user:
+        # Auto-create user if doesn't exist
+        user = models.User(
+            id=current_user["sub"],
+            email=current_user.get("email", ""),
+            name=current_user.get("name"),
+            nickname=current_user.get("nickname"),
+            image_url=current_user.get("picture")
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    return user
+
+
+@app.put("/api/users/me", response_model=UserResponse)
+def update_current_user(
+    user_data: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(verify_jwt),
+):
+    user = db.query(models.User).filter(models.User.id == current_user["sub"]).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    for field, value in user_data.dict(exclude_unset=True).items():
+        setattr(user, field, value)
+    
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+# Habit management endpoints
+@app.get("/api/habits", response_model=List[HabitResponse])
+def get_habits(
+    skip: int = 0,
+    limit: int = 100,
+    include_deleted: bool = False,
+    db: Session = Depends(get_db),
+    current_user=Depends(verify_jwt),
+):
+    query = db.query(models.Habit).filter(models.Habit.user_id == current_user["sub"])
+    if not include_deleted:
+        query = query.filter(models.Habit.deleted_at.is_(None))
+    habits = query.offset(skip).limit(limit).all()
+    return habits
+
+
+@app.post("/api/habits", response_model=HabitResponse)
+def create_habit(
+    habit: HabitCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(verify_jwt),
+):
+    db_habit = models.Habit(
+        user_id=current_user["sub"],
+        **habit.dict()
+    )
+    db.add(db_habit)
+    db.commit()
+    db.refresh(db_habit)
+    return db_habit
+
+
+@app.get("/api/habits/{habit_id}", response_model=HabitResponse)
+def get_habit(
+    habit_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(verify_jwt),
+):
+    habit = db.query(models.Habit).filter(
+        models.Habit.id == habit_id,
+        models.Habit.user_id == current_user["sub"]
+    ).first()
+    if not habit:
+        raise HTTPException(status_code=404, detail="Habit not found")
+    return habit
+
+
+@app.put("/api/habits/{habit_id}", response_model=HabitResponse)
+def update_habit(
+    habit_id: int,
+    habit_update: HabitUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(verify_jwt),
+):
+    habit = db.query(models.Habit).filter(
+        models.Habit.id == habit_id,
+        models.Habit.user_id == current_user["sub"]
+    ).first()
+    if not habit:
+        raise HTTPException(status_code=404, detail="Habit not found")
+    
+    for field, value in habit_update.dict(exclude_unset=True).items():
+        setattr(habit, field, value)
+    
+    db.commit()
+    db.refresh(habit)
+    return habit
+
+
+@app.delete("/api/habits/{habit_id}")
+def delete_habit(
+    habit_id: int,
+    hard_delete: bool = False,
+    db: Session = Depends(get_db),
+    current_user=Depends(verify_jwt),
+):
+    habit = db.query(models.Habit).filter(
+        models.Habit.id == habit_id,
+        models.Habit.user_id == current_user["sub"]
+    ).first()
+    if not habit:
+        raise HTTPException(status_code=404, detail="Habit not found")
+    
+    if hard_delete:
+        db.delete(habit)
+    else:
+        habit.deleted_at = datetime.utcnow()
+    
+    db.commit()
+    return {"ok": True}
+
+
+# Sub-habit management endpoints
+@app.get("/api/habits/{habit_id}/sub-habits", response_model=List[SubHabitResponse])
+def get_sub_habits(
+    habit_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(verify_jwt),
+):
+    # Verify habit ownership
+    habit = db.query(models.Habit).filter(
+        models.Habit.id == habit_id,
+        models.Habit.user_id == current_user["sub"]
+    ).first()
+    if not habit:
+        raise HTTPException(status_code=404, detail="Habit not found")
+    
+    sub_habits = db.query(models.SubHabit).filter(
+        models.SubHabit.parent_habit_id == habit_id,
+        models.SubHabit.user_id == current_user["sub"]
+    ).order_by(models.SubHabit.order_index).all()
+    return sub_habits
+
+
+@app.post("/api/sub-habits", response_model=SubHabitResponse)
+def create_sub_habit(
+    sub_habit: SubHabitCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(verify_jwt),
+):
+    # Verify parent habit ownership
+    habit = db.query(models.Habit).filter(
+        models.Habit.id == sub_habit.parent_habit_id,
+        models.Habit.user_id == current_user["sub"]
+    ).first()
+    if not habit:
+        raise HTTPException(status_code=404, detail="Parent habit not found")
+    
+    db_sub_habit = models.SubHabit(
+        user_id=current_user["sub"],
+        **sub_habit.dict()
+    )
+    db.add(db_sub_habit)
+    db.commit()
+    db.refresh(db_sub_habit)
+    return db_sub_habit
+
+
+@app.put("/api/sub-habits/{sub_habit_id}", response_model=SubHabitResponse)
+def update_sub_habit(
+    sub_habit_id: int,
+    sub_habit_update: SubHabitUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(verify_jwt),
+):
+    sub_habit = db.query(models.SubHabit).filter(
+        models.SubHabit.id == sub_habit_id,
+        models.SubHabit.user_id == current_user["sub"]
+    ).first()
+    if not sub_habit:
+        raise HTTPException(status_code=404, detail="Sub-habit not found")
+    
+    for field, value in sub_habit_update.dict(exclude_unset=True).items():
+        setattr(sub_habit, field, value)
+    
+    db.commit()
+    db.refresh(sub_habit)
+    return sub_habit
+
+
+@app.delete("/api/sub-habits/{sub_habit_id}")
+def delete_sub_habit(
+    sub_habit_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(verify_jwt),
+):
+    sub_habit = db.query(models.SubHabit).filter(
+        models.SubHabit.id == sub_habit_id,
+        models.SubHabit.user_id == current_user["sub"]
+    ).first()
+    if not sub_habit:
+        raise HTTPException(status_code=404, detail="Sub-habit not found")
+    
+    db.delete(sub_habit)
+    db.commit()
+    return {"ok": True}
+
+
+# Check/uncheck endpoints
+@app.get("/api/checks", response_model=List[CheckResponse])
+def get_checks(
+    habit_id: Optional[int] = None,
+    sub_habit_id: Optional[int] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user=Depends(verify_jwt),
+):
+    query = db.query(models.Check).filter(models.Check.user_id == current_user["sub"])
+    
+    if habit_id:
+        query = query.filter(models.Check.habit_id == habit_id)
+    if sub_habit_id:
+        query = query.filter(models.Check.sub_habit_id == sub_habit_id)
+    if start_date:
+        query = query.filter(models.Check.check_date >= start_date)
+    if end_date:
+        query = query.filter(models.Check.check_date <= end_date)
+    
+    checks = query.order_by(models.Check.check_date.desc()).offset(skip).limit(limit).all()
+    return checks
+
+
+@app.post("/api/checks", response_model=CheckResponse)
+def create_check(
+    check: CheckCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(verify_jwt),
+):
+    # Verify ownership of habit or sub-habit
+    if check.habit_id:
+        habit = db.query(models.Habit).filter(
+            models.Habit.id == check.habit_id,
+            models.Habit.user_id == current_user["sub"]
+        ).first()
+        if not habit:
+            raise HTTPException(status_code=404, detail="Habit not found")
+    
+    if check.sub_habit_id:
+        sub_habit = db.query(models.SubHabit).filter(
+            models.SubHabit.id == check.sub_habit_id,
+            models.SubHabit.user_id == current_user["sub"]
+        ).first()
+        if not sub_habit:
+            raise HTTPException(status_code=404, detail="Sub-habit not found")
+    
+    db_check = models.Check(
+        user_id=current_user["sub"],
+        **check.dict()
+    )
+    db.add(db_check)
+    db.commit()
+    db.refresh(db_check)
+    return db_check
+
+
+@app.delete("/api/checks/{check_id}")
+def delete_check(
+    check_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(verify_jwt),
+):
+    check = db.query(models.Check).filter(
+        models.Check.id == check_id,
+        models.Check.user_id == current_user["sub"]
+    ).first()
+    if not check:
+        raise HTTPException(status_code=404, detail="Check not found")
+    
+    db.delete(check)
+    db.commit()
+    return {"ok": True}
+
+
+# Count tracking endpoints
+@app.get("/api/counts", response_model=List[CountResponse])
+def get_counts(
+    habit_id: Optional[int] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user=Depends(verify_jwt),
+):
+    query = db.query(models.Count).filter(models.Count.user_id == current_user["sub"])
+    
+    if habit_id:
+        query = query.filter(models.Count.habit_id == habit_id)
+    if start_date:
+        query = query.filter(models.Count.count_date >= start_date)
+    if end_date:
+        query = query.filter(models.Count.count_date <= end_date)
+    
+    counts = query.order_by(models.Count.count_date.desc()).offset(skip).limit(limit).all()
+    return counts
+
+
+@app.post("/api/counts", response_model=CountResponse)
+def create_count(
+    count: CountCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(verify_jwt),
+):
+    # Verify habit ownership
+    habit = db.query(models.Habit).filter(
+        models.Habit.id == count.habit_id,
+        models.Habit.user_id == current_user["sub"]
+    ).first()
+    if not habit:
+        raise HTTPException(status_code=404, detail="Habit not found")
+    
+    db_count = models.Count(
+        user_id=current_user["sub"],
+        **count.dict()
+    )
+    db.add(db_count)
+    db.commit()
+    db.refresh(db_count)
+    return db_count
+
+
+# Weight tracking endpoints
+@app.get("/api/weight-updates", response_model=List[WeightUpdateResponse])
+def get_weight_updates(
+    habit_id: Optional[int] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user=Depends(verify_jwt),
+):
+    query = db.query(models.WeightUpdate).filter(models.WeightUpdate.user_id == current_user["sub"])
+    
+    if habit_id:
+        query = query.filter(models.WeightUpdate.habit_id == habit_id)
+    if start_date:
+        query = query.filter(models.WeightUpdate.update_date >= start_date)
+    if end_date:
+        query = query.filter(models.WeightUpdate.update_date <= end_date)
+    
+    weight_updates = query.order_by(models.WeightUpdate.update_date.desc()).offset(skip).limit(limit).all()
+    return weight_updates
+
+
+@app.post("/api/weight-updates", response_model=WeightUpdateResponse)
+def create_weight_update(
+    weight_update: WeightUpdateCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(verify_jwt),
+):
+    # Verify habit ownership
+    habit = db.query(models.Habit).filter(
+        models.Habit.id == weight_update.habit_id,
+        models.Habit.user_id == current_user["sub"]
+    ).first()
+    if not habit:
+        raise HTTPException(status_code=404, detail="Habit not found")
+    
+    db_weight_update = models.WeightUpdate(
+        user_id=current_user["sub"],
+        **weight_update.dict()
+    )
+    db.add(db_weight_update)
+    db.commit()
+    db.refresh(db_weight_update)
+    return db_weight_update
+
+
+# Active day tracking endpoints
+@app.get("/api/active-days", response_model=List[ActiveDayResponse])
+def get_active_days(
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user=Depends(verify_jwt),
+):
+    query = db.query(models.ActiveDay).filter(models.ActiveDay.user_id == current_user["sub"])
+    
+    if start_date:
+        query = query.filter(models.ActiveDay.date >= start_date)
+    if end_date:
+        query = query.filter(models.ActiveDay.date <= end_date)
+    
+    active_days = query.order_by(models.ActiveDay.date.desc()).offset(skip).limit(limit).all()
+    return active_days
+
+
+@app.post("/api/active-days", response_model=ActiveDayResponse)
+def create_active_day(
+    active_day: ActiveDayCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(verify_jwt),
+):
+    db_active_day = models.ActiveDay(
+        user_id=current_user["sub"],
+        **active_day.dict()
+    )
+    db.add(db_active_day)
+    db.commit()
+    db.refresh(db_active_day)
+    return db_active_day
+
+
+@app.put("/api/active-days/{active_day_id}", response_model=ActiveDayResponse)
+def update_active_day(
+    active_day_id: int,
+    validated: Optional[bool] = None,
+    summary_data: Optional[Dict[str, Any]] = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(verify_jwt),
+):
+    active_day = db.query(models.ActiveDay).filter(
+        models.ActiveDay.id == active_day_id,
+        models.ActiveDay.user_id == current_user["sub"]
+    ).first()
+    if not active_day:
+        raise HTTPException(status_code=404, detail="Active day not found")
+    
+    if validated is not None:
+        active_day.validated = validated
+    if summary_data is not None:
+        active_day.summary_data = summary_data
+    
+    db.commit()
+    db.refresh(active_day)
+    return active_day
 
 
 ALLOWED_CONTENT_TYPES = {

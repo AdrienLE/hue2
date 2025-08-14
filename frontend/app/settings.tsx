@@ -1,6 +1,6 @@
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState, useRef } from 'react';
-import { View, Button, StyleSheet, Pressable, Platform } from 'react-native';
+import { View, Button, StyleSheet, Pressable, Platform, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { ThemedText } from '@/components/ThemedText';
@@ -10,6 +10,7 @@ import { api } from '@/lib/api';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/auth/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useUser } from '@/contexts/UserContext';
 
 export default function SettingsScreen() {
   const [name, setName] = useState('');
@@ -26,6 +27,12 @@ export default function SettingsScreen() {
   const colorScheme = useColorScheme();
   const router = useRouter();
   const hasLoaded = useRef(false);
+  const { userSettings, updateUserSettings } = useUser();
+  
+  // Local state for reward settings
+  const [rewardUnit, setRewardUnit] = useState(userSettings.reward_unit || '$');
+  const [rewardPosition, setRewardPosition] = useState(userSettings.reward_unit_position || 'before');
+  const [rolloverHour, setRolloverHour] = useState(userSettings.day_rollover_hour?.toString() || '3');
 
   // Compress image to reduce file size
   const compressImage = async (uri: string, fileName: string, mimeType: string) => {
@@ -133,6 +140,13 @@ export default function SettingsScreen() {
     load();
   }, [!!token]);
 
+  // Update local state when userSettings change
+  useEffect(() => {
+    setRewardUnit(userSettings.reward_unit || '$');
+    setRewardPosition(userSettings.reward_unit_position || 'before');
+    setRolloverHour(userSettings.day_rollover_hour?.toString() || '3');
+  }, [userSettings]);
+
   const save = async () => {
     if (!token) return;
     setSaving(true);
@@ -175,6 +189,13 @@ export default function SettingsScreen() {
 
       // Save settings with the final image URL
       await api.post('/api/settings', { name, nickname, email, imageUrl: finalImageUrl }, token);
+
+      // Save reward settings
+      await updateUserSettings({
+        reward_unit: rewardUnit,
+        reward_unit_position: rewardPosition,
+        day_rollover_hour: parseInt(rolloverHour) || 3,
+      });
 
       router.back();
     } catch (e) {
@@ -252,6 +273,86 @@ export default function SettingsScreen() {
                 autoCapitalize="none"
               />
             </View>
+            
+            {/* Reward Settings Section */}
+            <View style={styles.sectionHeader}>
+              <ThemedText style={styles.sectionTitle}>Reward Settings</ThemedText>
+            </View>
+            
+            <View style={styles.row}>
+              <ThemedText style={styles.label}>Reward Unit</ThemedText>
+              <ThemedTextInput
+                style={styles.input}
+                value={rewardUnit}
+                onChangeText={setRewardUnit}
+                placeholder="$"
+              />
+            </View>
+            
+            <View style={styles.row}>
+              <ThemedText style={styles.label}>Unit Position</ThemedText>
+              <View style={styles.toggleRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.toggleButton,
+                    {
+                      backgroundColor: rewardPosition === 'before' ? Colors[colorScheme ?? 'light'].tint : 'transparent',
+                      borderColor: Colors[colorScheme ?? 'light'].tint,
+                    }
+                  ]}
+                  onPress={() => setRewardPosition('before')}
+                >
+                  <ThemedText style={[
+                    styles.toggleText,
+                    {
+                      color: rewardPosition === 'before' 
+                        ? (colorScheme === 'light' ? '#fff' : Colors.dark.background)
+                        : Colors[colorScheme ?? 'light'].tint
+                    }
+                  ]}>
+                    Before ({rewardUnit}100)
+                  </ThemedText>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.toggleButton,
+                    {
+                      backgroundColor: rewardPosition === 'after' ? Colors[colorScheme ?? 'light'].tint : 'transparent',
+                      borderColor: Colors[colorScheme ?? 'light'].tint,
+                    }
+                  ]}
+                  onPress={() => setRewardPosition('after')}
+                >
+                  <ThemedText style={[
+                    styles.toggleText,
+                    {
+                      color: rewardPosition === 'after' 
+                        ? (colorScheme === 'light' ? '#fff' : Colors.dark.background)
+                        : Colors[colorScheme ?? 'light'].tint
+                    }
+                  ]}>
+                    After (100{rewardUnit})
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+            
+            <View style={styles.row}>
+              <ThemedText style={styles.label}>Day Rollover Time</ThemedText>
+              <ThemedTextInput
+                style={styles.input}
+                value={rolloverHour}
+                onChangeText={setRolloverHour}
+                placeholder="3"
+                keyboardType="numeric"
+              />
+              <ThemedText style={styles.unitText}>:00 AM</ThemedText>
+            </View>
+            <ThemedText style={styles.helpText}>
+              Habits reset at this time each day. Default is 3 AM.
+            </ThemedText>
+            
             <View style={styles.buttonRow}>
               <Button
                 title="Cancel"
@@ -309,5 +410,42 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     gap: 12,
     marginTop: 16,
+  },
+  sectionHeader: {
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flex: 1,
+  },
+  toggleButton: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  toggleText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  unitText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 8,
+    opacity: 0.7,
+  },
+  helpText: {
+    fontSize: 12,
+    opacity: 0.6,
+    marginTop: 4,
+    marginBottom: 8,
   },
 });

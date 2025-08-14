@@ -23,6 +23,7 @@ and prefer configuration over hard-coded app-specific logic.
 - Python: Black (100 chars), PEP 8, 4-space indent; modules/files `snake_case.py`.
 - JS/TS: Prettier (100 cols), 2-space indent; variables `camelCase`, components `PascalCase.tsx`.
 - Lint/format hooks: enable with `pre-commit install` (runs Black, Prettier, and tests on commit).
+- Icons: Use simple Unicode characters instead of colorful emojis when possible (e.g., `✓`, `#`, `⚖` rather than `✅`, `🔢`, `⚖️`). Only use actual image files when explicitly specified.
 
 ## Testing Guidelines
 - Frameworks: Pytest (backend), Jest + RTL (frontend).

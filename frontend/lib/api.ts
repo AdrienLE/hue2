@@ -32,6 +32,7 @@ class BaseApiClient implements ApiClient {
 
     // Log the API call for debugging
     console.log(`🌐 API ${options.method || 'GET'}: ${url}`);
+    console.log(`📋 Headers:`, options.headers);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
@@ -63,6 +64,7 @@ class BaseApiClient implements ApiClient {
       console.log(
         `❌ Error: ${options.method || 'GET'} ${url} - ${error.message || 'Network error'}`
       );
+      console.log(`❌ Full error:`, error);
 
       return {
         status: 0,

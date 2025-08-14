@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Pressable, View, StyleSheet, Platform } from 'react-native';
+import { Pressable, View, StyleSheet, Platform, Modal, TouchableOpacity } from 'react-native';
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
 import { Image } from 'expo-image';
@@ -9,13 +9,17 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { ThemedText } from '@/components/ThemedText';
+import { ThemedView } from '@/components/ThemedView';
 import { api } from '@/lib/api';
+import { useRouter } from 'expo-router';
 
 export function ProfileMenu() {
   const { logout, token } = useAuth();
   const colorScheme = useColorScheme();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [profileImageUrl, setProfileImageUrl] = useState('');
+  const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
 
   const loadProfileImage = async () => {
     if (!token) return;
@@ -42,7 +46,15 @@ export function ProfileMenu() {
 
   return (
     <>
-      <Pressable onPress={() => setOpen(!open)} hitSlop={8}>
+      <TouchableOpacity 
+        onPress={(event) => {
+          event.currentTarget.measure((x, y, width, height, pageX, pageY) => {
+            setDropdownPosition({ x: pageX - 80, y: pageY + height });
+            setOpen(true);
+          });
+        }} 
+        hitSlop={8}
+      >
         {profileImageUrl ? (
           <Image source={{ uri: profileImageUrl }} style={styles.profileImage} />
         ) : (
@@ -53,52 +65,85 @@ export function ProfileMenu() {
             style={{ marginRight: 16 }}
           />
         )}
-      </Pressable>
-      {open && (
-        <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)}>
-          <View
-            style={[
-              styles.menu,
-              {
-                backgroundColor: Colors[colorScheme ?? 'light'].background,
-                top: Platform.OS === 'web' ? 55 : Platform.OS === 'android' ? 52 : 48,
-                right: Platform.OS === 'web' ? 8 : 16,
-              },
-            ]}
-          >
-            <Link href="/settings" asChild>
-              <Pressable onPress={() => setOpen(false)} style={styles.menuItem}>
-                <ThemedText>Settings</ThemedText>
-              </Pressable>
-            </Link>
-            <Pressable onPress={() => logout()} style={styles.menuItem}>
-              <ThemedText>Logout</ThemedText>
-            </Pressable>
-          </View>
+      </TouchableOpacity>
+
+      {/* Profile Dropdown Menu */}
+      <Modal
+        visible={open}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setOpen(false)}
+      >
+        <Pressable 
+          style={styles.dropdownOverlay} 
+          onPress={() => setOpen(false)}
+        >
+          <ThemedView style={[
+            styles.dropdownMenu,
+            {
+              position: 'absolute',
+              top: dropdownPosition.y,
+              left: dropdownPosition.x,
+            }
+          ]}>
+            <TouchableOpacity
+              style={styles.dropdownItem}
+              onPress={() => {
+                setOpen(false);
+                router.push('/settings');
+              }}
+            >
+              <ThemedText style={styles.dropdownText}>Settings</ThemedText>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.dropdownItem}
+              onPress={() => {
+                setOpen(false);
+                logout();
+              }}
+            >
+              <ThemedText style={[styles.dropdownText, styles.logoutText]}>Logout</ThemedText>
+            </TouchableOpacity>
+          </ThemedView>
         </Pressable>
-      )}
+      </Modal>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  menu: {
-    position: 'absolute',
-    borderRadius: 8,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-  },
-  menuItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
   profileImage: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: 14, // Perfect circle
     marginRight: 16,
+  },
+  dropdownOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  dropdownMenu: {
+    borderRadius: 8,
+    paddingVertical: 4,
+    minWidth: 120,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  dropdownItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  dropdownText: {
+    fontSize: 16,
+  },
+  logoutText: {
+    color: '#ff4444',
   },
 });

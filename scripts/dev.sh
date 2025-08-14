@@ -87,7 +87,7 @@ esac
 
 # Build the web version if requested
 if [ "$TARGET" = "web" ]; then
-  (cd frontend && npx expo export --platform web)
+  (cd frontend && EXPO_PUBLIC_FORCE_DEV_TOOLS="true" npx expo export --platform web)
 fi
 
 # Determine API URL and SSL configuration
@@ -155,5 +155,5 @@ else
   # Start the Expo development server for iOS or Android
   echo "Starting Expo development server for $TARGET..."
   echo "Note: This will use Expo Go for managed development."
-  (cd frontend && EXPO_PUBLIC_API_URL="$API_URL" npx expo start --$TARGET)
+  (cd frontend && EXPO_PUBLIC_API_URL="$API_URL" EXPO_PUBLIC_FORCE_DEV_TOOLS="true" npx expo start --$TARGET)
 fi

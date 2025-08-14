@@ -1,0 +1,289 @@
+import React, { useState, useEffect } from 'react';
+import {
+  ScrollView,
+  StyleSheet,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
+} from 'react-native';
+import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
+import { ThemedView } from '../ThemedView';
+import { ThemedText } from '../ThemedText';
+import { HabitService } from '@/lib/services/habitService';
+import { useAuth } from '@/auth/AuthContext';
+import { useUser } from '@/contexts/UserContext';
+import { useHabitVisibility } from '@/contexts/HabitVisibilityContext';
+import { getLogicalDate } from '@/contexts/DevDateContext';
+import { useThemeColor } from '@/hooks/useThemeColor';
+import type { Habit } from '@/lib/types/habits';
+import { HabitItem } from './HabitItem';
+import { QuickAddHabit } from './QuickAddHabit';
+
+export function HabitList() {
+  const [habits, setHabits] = useState<Habit[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [checkedHabitsToday, setCheckedHabitsToday] = useState<Set<number>>(new Set());
+  const [editingHabitId, setEditingHabitId] = useState<number | null>(null);
+  const { token } = useAuth();
+  const { userSettings } = useUser();
+  const { showCheckedHabits } = useHabitVisibility();
+  const textColor = useThemeColor({}, 'text');
+
+  console.log('🔍 HabitList render - token:', token ? 'EXISTS' : 'MISSING', 'loading:', loading);
+
+  const loadHabits = async (isRefresh = false) => {
+    console.log('🚀 loadHabits called - token:', token ? 'EXISTS' : 'MISSING');
+    if (!token) {
+      console.log('❌ No token, exiting loadHabits');
+      setLoading(false); // Important: stop loading state when no token
+      return;
+    }
+
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
+    try {
+      const response = await HabitService.getHabits(token);
+      if (response.data) {
+        // Sort habits by display order, then by creation date
+        const sortedHabits = response.data.sort((a, b) => {
+          const orderA = a.display_settings?.order ?? 999;
+          const orderB = b.display_settings?.order ?? 999;
+          if (orderA !== orderB) {
+            return orderA - orderB;
+          }
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        });
+        setHabits(sortedHabits);
+        // Load today's checks to determine which habits are completed
+        await loadTodaysChecks();
+      } else {
+        console.error('Failed to load habits:', response.error);
+        Alert.alert('Error', 'Failed to load habits');
+      }
+    } catch (error) {
+      console.error('Error loading habits:', error);
+      Alert.alert('Error', 'Failed to load habits');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const loadTodaysChecks = async () => {
+    if (!token) return;
+    
+    try {
+      const rolloverHour = userSettings.day_rollover_hour || 3;
+      const today = getLogicalDate(rolloverHour); // Uses logical day with rollover hour
+      const response = await HabitService.getChecks(token);
+      if (response.data) {
+        const todaysChecks = response.data.filter(check => 
+          check.check_date.startsWith(today)
+        );
+        const checkedHabitIds = new Set(todaysChecks.map(check => check.habit_id));
+        setCheckedHabitsToday(checkedHabitIds);
+      }
+    } catch (error) {
+      console.error('Error loading today\'s checks:', error);
+    }
+  };
+
+  const handleHabitUpdate = (updatedHabit: Habit) => {
+    setHabits(prev => 
+      prev.map(habit => 
+        habit.id === updatedHabit.id ? updatedHabit : habit
+      )
+    );
+  };
+
+  const handleHabitDelete = (habitId: number) => {
+    setHabits(prev => prev.filter(habit => habit.id !== habitId));
+  };
+
+  const handleHabitChecked = (habitId: number) => {
+    setCheckedHabitsToday(prev => new Set([...prev, habitId]));
+  };
+
+  const handleHabitUnchecked = (habitId: number) => {
+    setCheckedHabitsToday(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(habitId);
+      return newSet;
+    });
+  };
+
+  const handleStartEditing = (habitId: number) => {
+    setEditingHabitId(habitId);
+  };
+
+  const handleCancelEditing = () => {
+    setEditingHabitId(null);
+  };
+
+  const handleHabitReorder = async (data: Habit[]) => {
+    setHabits(data);
+    
+    // Update the order in the backend
+    try {
+      const updatePromises = data.map(async (habit, index) => {
+        const currentOrder = habit.display_settings?.order ?? 999;
+        if (currentOrder !== index) {
+          const updatedDisplaySettings = { 
+            ...(habit.display_settings || {}), 
+            order: index 
+          };
+          
+          return await HabitService.updateHabit(
+            habit.id, 
+            { display_settings: updatedDisplaySettings }, 
+            token!
+          );
+        }
+        return null;
+      });
+      
+      await Promise.all(updatePromises);
+    } catch (error) {
+      console.error('Error updating habit order:', error);
+      // Revert to original order if backend update fails
+      await loadHabits();
+    }
+  };
+
+  // Filter habits based on visibility setting
+  const visibleHabits = showCheckedHabits 
+    ? habits 
+    : habits.filter(habit => !checkedHabitsToday.has(habit.id));
+
+  useEffect(() => {
+    console.log('🔄 useEffect triggered - token:', token ? 'EXISTS' : 'MISSING');
+    loadHabits();
+  }, [token]);
+
+  if (loading) {
+    return (
+      <ThemedView style={styles.centerContainer}>
+        <ActivityIndicator size="large" color={textColor} />
+        <ThemedText style={styles.loadingText}>Loading habits...</ThemedText>
+      </ThemedView>
+    );
+  }
+
+  return (
+    <ThemedView style={styles.fullContainer}>
+      <QuickAddHabit onHabitAdded={() => loadHabits(true)} />
+      
+      {habits.length === 0 ? (
+        <ThemedView style={styles.centerContainer}>
+          <ThemedText style={styles.emptyText}>No habits yet!</ThemedText>
+          <ThemedText style={styles.emptySubtext}>
+            Create your first habit to get started
+          </ThemedText>
+        </ThemedView>
+      ) : visibleHabits.length === 0 ? (
+        <ThemedView style={styles.centerContainer}>
+          <ThemedText style={styles.emptyText}>All habits completed! 🎉</ThemedText>
+          <ThemedText style={styles.emptySubtext}>
+            Great job staying on track today
+          </ThemedText>
+        </ThemedView>
+      ) : showCheckedHabits ? (
+        // Draggable mode when all habits are visible
+        <DraggableFlatList
+          data={visibleHabits}
+          onDragEnd={({ data }) => handleHabitReorder(data)}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item, drag, isActive }) => (
+            <ScaleDecorator activeScale={1.05}>
+              <HabitItem
+                key={item.id}
+                habit={item}
+                onUpdate={handleHabitUpdate}
+                onDelete={handleHabitDelete}
+                onChecked={handleHabitChecked}
+                onUnchecked={handleHabitUnchecked}
+                isCheckedToday={checkedHabitsToday.has(item.id)}
+                isDraggable={true}
+                onDrag={drag}
+                isActive={isActive}
+                isEditing={editingHabitId === item.id}
+                onStartEditing={() => handleStartEditing(item.id)}
+                onCancelEditing={handleCancelEditing}
+              />
+            </ScaleDecorator>
+          )}
+          style={styles.container}
+          contentContainerStyle={styles.containerContent}
+        />
+      ) : (
+        // Regular scroll view when some habits are hidden
+        <ScrollView
+          style={styles.container}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => loadHabits(true)}
+              tintColor={textColor}
+            />
+          }
+        >
+          {visibleHabits.map(habit => (
+            <HabitItem
+              key={habit.id}
+              habit={habit}
+              onUpdate={handleHabitUpdate}
+              onDelete={handleHabitDelete}
+              onChecked={handleHabitChecked}
+              onUnchecked={handleHabitUnchecked}
+              isCheckedToday={checkedHabitsToday.has(habit.id)}
+              isEditing={editingHabitId === habit.id}
+              onStartEditing={() => handleStartEditing(habit.id)}
+              onCancelEditing={handleCancelEditing}
+            />
+          ))}
+        </ScrollView>
+      )}
+    </ThemedView>
+  );
+}
+
+const styles = StyleSheet.create({
+  fullContainer: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
+  },
+  containerContent: {
+    paddingVertical: 8,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+  },
+  emptyText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 16,
+    textAlign: 'center',
+    opacity: 0.7,
+  },
+});

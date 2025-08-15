@@ -8,8 +8,6 @@ import { useUser } from '@/contexts/UserContext';
 import { HabitService } from '@/lib/services/habitService';
 import { getHabitColor } from '@/constants/Colors';
 import { HabitCard } from './habits/HabitCard';
-import { CountHabitCard } from './habits/CountHabitCard';
-import { WeightHabitCard } from './habits/WeightHabitCard';
 import type { Habit } from '@/lib/types/habits';
 
 interface DailyReviewModalProps {
@@ -259,43 +257,17 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
                 {originallyUncheckedHabits.map(habit => {
                   const isChecked = currentlyCheckedHabits.has(habit.id);
 
-                  if (habit.has_counts) {
-                    return (
-                      <CountHabitCard
-                        key={habit.id}
-                        habit={habit}
-                        onUpdate={handleHabitUpdate}
-                        onDelete={() => {}}
-                        onChecked={handleHabitChecked}
-                        onUnchecked={handleHabitUnchecked}
-                        isCheckedToday={isChecked}
-                      />
-                    );
-                  } else if (habit.is_weight) {
-                    return (
-                      <WeightHabitCard
-                        key={habit.id}
-                        habit={habit}
-                        onUpdate={handleHabitUpdate}
-                        onDelete={() => {}}
-                        onChecked={handleHabitChecked}
-                        onUnchecked={handleHabitUnchecked}
-                        isCheckedToday={isChecked}
-                      />
-                    );
-                  } else {
-                    return (
-                      <HabitCard
-                        key={habit.id}
-                        habit={habit}
-                        onUpdate={handleHabitUpdate}
-                        onDelete={() => {}}
-                        onChecked={handleHabitChecked}
-                        onUnchecked={handleHabitUnchecked}
-                        isCheckedToday={isChecked}
-                      />
-                    );
-                  }
+                  return (
+                    <HabitCard
+                      key={habit.id}
+                      habit={habit}
+                      onUpdate={handleHabitUpdate}
+                      onDelete={() => {}}
+                      onChecked={handleHabitChecked}
+                      onUnchecked={handleHabitUnchecked}
+                      isCheckedToday={isChecked}
+                    />
+                  );
                 })}
               </ScrollView>
             </>

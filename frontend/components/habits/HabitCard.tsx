@@ -112,8 +112,14 @@ export function HabitCard({
   const [editCountReward, setEditCountReward] = useState(
     habit.reward_settings?.count_reward?.toString() || '0.1'
   );
+  const [editCountCheckBonus, setEditCountCheckBonus] = useState(
+    habit.reward_settings?.count_check_bonus?.toString() || '5'
+  );
   const [editWeightReward, setEditWeightReward] = useState(
-    habit.reward_settings?.weight_reward?.toString() || '1'
+    habit.reward_settings?.weight_per_unit?.toString() || '1'
+  );
+  const [editWeightCheckBonus, setEditWeightCheckBonus] = useState(
+    habit.reward_settings?.weight_check_bonus?.toString() || '5'
   );
 
   // Schedule settings
@@ -145,6 +151,13 @@ export function HabitCard({
   const borderColor = useThemeColor({ light: '#e1e5e9', dark: '#333' }, 'border');
   const progressBgColor = useThemeColor({ light: '#e0e0e0', dark: '#444' }, 'background');
   const habitColor = getHabitColor(habit.id);
+
+  // Helper function to format reward labels
+  const formatRewardLabel = (label: string) => {
+    const unit = userSettings.reward_unit || '$';
+    const position = userSettings.reward_unit_position || 'before';
+    return position === 'before' ? `${label} ${unit}` : `${label} ${unit}`;
+  };
 
   // Get current settings based on habit type
   const target = habit.count_settings?.target || 0;
@@ -528,8 +541,14 @@ export function HabitCard({
           success_points: parseFloat(editSuccessReward) || 0,
           penalty_points: parseFloat(editFailureReward) || 0,
           sub_habit_points: parseFloat(editSubHabitPoints) || 5,
-          ...(editHabitType === 'count' && { count_reward: parseFloat(editCountReward) || 0 }),
-          ...(editHabitType === 'weight' && { weight_reward: parseFloat(editWeightReward) || 0 }),
+          ...(editHabitType === 'count' && {
+            count_reward: parseFloat(editCountReward) || 0,
+            count_check_bonus: parseFloat(editCountCheckBonus) || 0,
+          }),
+          ...(editHabitType === 'weight' && {
+            weight_per_unit: parseFloat(editWeightReward) || 0,
+            weight_check_bonus: parseFloat(editWeightCheckBonus) || 0,
+          }),
         },
         schedule_settings: {
           ...habit.schedule_settings,
@@ -566,7 +585,9 @@ export function HabitCard({
     setEditFailureReward(habit.reward_settings?.penalty_points?.toString() || '0');
     setEditSubHabitPoints(habit.reward_settings?.sub_habit_points?.toString() || '5');
     setEditCountReward(habit.reward_settings?.count_reward?.toString() || '0.1');
-    setEditWeightReward(habit.reward_settings?.weight_reward?.toString() || '1');
+    setEditCountCheckBonus(habit.reward_settings?.count_check_bonus?.toString() || '5');
+    setEditWeightReward(habit.reward_settings?.weight_per_unit?.toString() || '1');
+    setEditWeightCheckBonus(habit.reward_settings?.weight_check_bonus?.toString() || '5');
     setEditWeekdays(habit.schedule_settings?.weekdays || [0, 1, 2, 3, 4, 5, 6]);
 
     onCancelEdit?.();
@@ -985,7 +1006,7 @@ export function HabitCard({
           {editHabitType === 'normal' && (
             <>
               <View style={styles.rewardContainer}>
-                <ThemedText style={styles.miniLabel}>Success: $</ThemedText>
+                <ThemedText style={styles.miniLabel}>{formatRewardLabel('Success:')}</ThemedText>
                 <TextInput
                   style={[styles.miniNumberInput, { color: textColor, borderColor }]}
                   value={editSuccessReward}
@@ -997,7 +1018,7 @@ export function HabitCard({
               </View>
 
               <View style={styles.rewardContainer}>
-                <ThemedText style={styles.miniLabel}>Failure: $</ThemedText>
+                <ThemedText style={styles.miniLabel}>{formatRewardLabel('Failure:')}</ThemedText>
                 <TextInput
                   style={[styles.miniNumberInput, { color: textColor, borderColor }]}
                   value={editFailureReward}
@@ -1009,7 +1030,7 @@ export function HabitCard({
               </View>
 
               <View style={styles.rewardContainer}>
-                <ThemedText style={styles.miniLabel}>Sub-habit: $</ThemedText>
+                <ThemedText style={styles.miniLabel}>{formatRewardLabel('Sub-habit:')}</ThemedText>
                 <TextInput
                   style={[styles.miniNumberInput, { color: textColor, borderColor }]}
                   value={editSubHabitPoints}
@@ -1037,12 +1058,24 @@ export function HabitCard({
               </View>
 
               <View style={styles.rewardContainer}>
-                <ThemedText style={styles.miniLabel}>Per +/-:</ThemedText>
+                <ThemedText style={styles.miniLabel}>{formatRewardLabel('Per +/-:')}</ThemedText>
                 <TextInput
                   style={[styles.miniNumberInput, { color: textColor, borderColor }]}
                   value={editCountReward}
                   onChangeText={setEditCountReward}
                   placeholder="0.1"
+                  keyboardType="numeric"
+                  placeholderTextColor={textColor + '80'}
+                />
+              </View>
+
+              <View style={styles.rewardContainer}>
+                <ThemedText style={styles.miniLabel}>{formatRewardLabel('Check:')}</ThemedText>
+                <TextInput
+                  style={[styles.miniNumberInput, { color: textColor, borderColor }]}
+                  value={editCountCheckBonus}
+                  onChangeText={setEditCountCheckBonus}
+                  placeholder="5"
                   keyboardType="numeric"
                   placeholderTextColor={textColor + '80'}
                 />
@@ -1090,7 +1123,7 @@ export function HabitCard({
               </View>
 
               <View style={styles.rewardContainer}>
-                <ThemedText style={styles.miniLabel}>Per unit:</ThemedText>
+                <ThemedText style={styles.miniLabel}>{formatRewardLabel('Per unit:')}</ThemedText>
                 <TextInput
                   style={[styles.miniNumberInput, { color: textColor, borderColor }]}
                   value={editWeightReward}
@@ -1100,42 +1133,52 @@ export function HabitCard({
                   placeholderTextColor={textColor + '80'}
                 />
               </View>
+
+              <View style={styles.rewardContainer}>
+                <ThemedText style={styles.miniLabel}>{formatRewardLabel('Check:')}</ThemedText>
+                <TextInput
+                  style={[styles.miniNumberInput, { color: textColor, borderColor }]}
+                  value={editWeightCheckBonus}
+                  onChangeText={setEditWeightCheckBonus}
+                  placeholder="5"
+                  keyboardType="numeric"
+                  placeholderTextColor={textColor + '80'}
+                />
+              </View>
             </>
           )}
 
           {/* Weekday Schedule */}
-          <View style={styles.weekdaySection}>
-            <ThemedText style={styles.weekdayLabel}>Show on:</ThemedText>
-            <View style={styles.weekdayButtons}>
-              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-                <TouchableOpacity
-                  key={index}
+          <View style={styles.rewardContainer}>
+            <ThemedText style={styles.miniLabel}>Show on:</ThemedText>
+            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.weekdayButtonMini,
+                  {
+                    backgroundColor: editWeekdays.includes(index) ? tintColor : 'transparent',
+                    borderColor: tintColor,
+                  },
+                ]}
+                onPress={() => {
+                  if (editWeekdays.includes(index)) {
+                    setEditWeekdays(prev => prev.filter(d => d !== index));
+                  } else {
+                    setEditWeekdays(prev => [...prev, index].sort());
+                  }
+                }}
+              >
+                <ThemedText
                   style={[
-                    styles.weekdayButton,
-                    {
-                      backgroundColor: editWeekdays.includes(index) ? tintColor : 'transparent',
-                      borderColor: tintColor,
-                    },
+                    styles.weekdayButtonTextMini,
+                    { color: editWeekdays.includes(index) ? backgroundColor : tintColor },
                   ]}
-                  onPress={() => {
-                    if (editWeekdays.includes(index)) {
-                      setEditWeekdays(prev => prev.filter(d => d !== index));
-                    } else {
-                      setEditWeekdays(prev => [...prev, index].sort());
-                    }
-                  }}
                 >
-                  <ThemedText
-                    style={[
-                      styles.weekdayButtonText,
-                      { color: editWeekdays.includes(index) ? backgroundColor : tintColor },
-                    ]}
-                  >
-                    {day}
-                  </ThemedText>
-                </TouchableOpacity>
-              ))}
-            </View>
+                  {day}
+                </ThemedText>
+              </TouchableOpacity>
+            ))}
           </View>
 
           {/* Action buttons */}
@@ -1774,6 +1817,7 @@ const styles = StyleSheet.create({
   },
   editSettingsBar: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     padding: 8,
     marginTop: -4,
@@ -1867,6 +1911,18 @@ const styles = StyleSheet.create({
   },
   actionButtonTextCompact: {
     fontSize: 18,
+    fontWeight: '600',
+  },
+  weekdayButtonMini: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weekdayButtonTextMini: {
+    fontSize: 10,
     fontWeight: '600',
   },
   // Sub-habits in main card area

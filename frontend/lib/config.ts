@@ -44,7 +44,7 @@ const ENV_CONFIGS = {
   },
   production: {
     api: {
-      baseUrl: readApiUrl('production', 'REPLACE_WITH_PROD_URL'),
+      baseUrl: readApiUrl('production', 'https://hue2-production.up.railway.app'),
     },
     debug: false,
   },

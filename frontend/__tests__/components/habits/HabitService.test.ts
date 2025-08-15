@@ -3,8 +3,15 @@ import { api } from '@/lib/api';
 import type { HabitCreate, CountCreate, WeightUpdateCreate } from '@/lib/types/habits';
 
 // Mock the API module
-jest.mock('@/lib/api');
-const mockApi = api as jest.Mocked<typeof api>;
+jest.mock('@/lib/api', () => ({
+  api: {
+    get: jest.fn(),
+    post: jest.fn(),
+    put: jest.fn(),
+    delete: jest.fn(),
+  },
+}));
+const mockApi = api as any;
 
 describe('HabitService', () => {
   const mockToken = 'test-token';
@@ -431,6 +438,75 @@ describe('HabitService', () => {
       mockApi.get.mockRejectedValue(new Error('Network error'));
 
       await expect(HabitService.getHabit(1, mockToken)).rejects.toThrow('Network error');
+    });
+  });
+
+  describe('Additional Coverage Tests', () => {
+    it('should handle updateCurrentUser', async () => {
+      const userData = { name: 'Updated Name' };
+      const mockUpdatedUser = {
+        id: 'user-123',
+        email: 'test@example.com',
+        name: 'Updated Name',
+        created_at: '2024-01-01T00:00:00Z',
+      };
+
+      mockApi.put.mockResolvedValue({ data: mockUpdatedUser, status: 200 });
+
+      const result = await HabitService.updateCurrentUser(userData, mockToken);
+
+      expect(mockApi.put).toHaveBeenCalledWith('/api/users/me', userData, mockToken);
+      expect(result.data).toEqual(mockUpdatedUser);
+    });
+
+    it('should handle updateSubHabit', async () => {
+      const subHabitId = 1;
+      const updates = { name: 'Updated Sub Habit' };
+      const mockUpdatedSubHabit = {
+        id: 1,
+        parent_habit_id: 1,
+        user_id: 'user-123',
+        name: 'Updated Sub Habit',
+        order_index: 0,
+        created_at: '2024-01-01T00:00:00Z',
+      };
+
+      mockApi.put.mockResolvedValue({ data: mockUpdatedSubHabit, status: 200 });
+
+      const result = await HabitService.updateSubHabit(subHabitId, updates, mockToken);
+
+      expect(mockApi.put).toHaveBeenCalledWith('/api/sub-habits/1', updates, mockToken);
+      expect(result.data).toEqual(mockUpdatedSubHabit);
+    });
+
+    it('should handle getHabits with includeDeleted flag', async () => {
+      const mockHabits = [
+        {
+          id: 1,
+          user_id: 'user-123',
+          name: 'Test Habit',
+          has_counts: false,
+          is_weight: false,
+          deleted_at: '2024-01-01T00:00:00Z',
+          created_at: '2024-01-01T00:00:00Z',
+        },
+      ];
+
+      mockApi.get.mockResolvedValue({ data: mockHabits, status: 200 });
+
+      const result = await HabitService.getHabits(mockToken, true);
+
+      expect(mockApi.get).toHaveBeenCalledWith('/api/habits?include_deleted=true', mockToken);
+      expect(result.data).toEqual(mockHabits);
+    });
+
+    it('should handle deleteHabit with hardDelete flag', async () => {
+      mockApi.delete.mockResolvedValue({ status: 200 });
+
+      const result = await HabitService.deleteHabit(1, mockToken, true);
+
+      expect(mockApi.delete).toHaveBeenCalledWith('/api/habits/1?hard_delete=true', mockToken);
+      expect(result.status).toBe(200);
     });
   });
 });

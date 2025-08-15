@@ -120,10 +120,19 @@ export function CountHabitCard({
       if (response.data) {
         setTodayCount(newValue);
 
-        // Calculate reward based on count logic
-        const countReward = habit.reward_settings?.count_reward || 0;
-        if (countReward > 0) {
-          const rewardAmount = countReward * Math.abs(stepSize);
+        // Calculate rewards
+        const countPerUnit = habit.reward_settings?.count_per_unit || 0;
+        const checkBonus = habit.reward_settings?.count_check_bonus || 0;
+
+        // Give bonus points for tracking the count
+        if (checkBonus > 0 && todayCount === null) {
+          // First time tracking today - give bonus
+          await addReward(checkBonus);
+        }
+
+        // Give per-unit rewards
+        if (countPerUnit > 0) {
+          const rewardAmount = countPerUnit * Math.abs(stepSize);
 
           if (countIsGood) {
             // If count is good, always reward for increment
@@ -223,14 +232,11 @@ export function CountHabitCard({
   const [editFailureReward, setEditFailureReward] = useState(
     habit.reward_settings?.penalty_points?.toString() || '0'
   );
-  const [editCountReward, setEditCountReward] = useState(
-    habit.reward_settings?.count_reward?.toString() || '0.1'
+  const [editCountPerUnit, setEditCountPerUnit] = useState(
+    habit.reward_settings?.count_per_unit?.toString() || '1'
   );
-  const [editTrackingBonus, setEditTrackingBonus] = useState(
-    habit.reward_settings?.tracking_bonus?.toString() || '5'
-  );
-  const [editTrackingPenalty, setEditTrackingPenalty] = useState(
-    habit.reward_settings?.tracking_penalty?.toString() || '2'
+  const [editCountCheckBonus, setEditCountCheckBonus] = useState(
+    habit.reward_settings?.count_check_bonus?.toString() || '5'
   );
   const [editWeightReward, setEditWeightReward] = useState(
     habit.reward_settings?.weight_reward?.toString() || '1'
@@ -271,9 +277,8 @@ export function CountHabitCard({
           success_points: parseFloat(editSuccessReward) || 0,
           penalty_points: parseFloat(editFailureReward) || 0,
           ...(editHabitType === 'count' && {
-            count_reward: parseFloat(editCountReward) || 0,
-            tracking_bonus: parseFloat(editTrackingBonus) || 0,
-            tracking_penalty: parseFloat(editTrackingPenalty) || 0,
+            count_per_unit: parseFloat(editCountPerUnit) || 1,
+            count_check_bonus: parseFloat(editCountCheckBonus) || 5,
           }),
           ...(editHabitType === 'weight' && { weight_reward: parseFloat(editWeightReward) || 0 }),
         },
@@ -306,9 +311,8 @@ export function CountHabitCard({
     // Reset reward settings
     setEditSuccessReward(habit.reward_settings?.success_points?.toString() || '1');
     setEditFailureReward(habit.reward_settings?.penalty_points?.toString() || '0');
-    setEditCountReward(habit.reward_settings?.count_reward?.toString() || '0.1');
-    setEditTrackingBonus(habit.reward_settings?.tracking_bonus?.toString() || '5');
-    setEditTrackingPenalty(habit.reward_settings?.tracking_penalty?.toString() || '2');
+    setEditCountPerUnit(habit.reward_settings?.count_per_unit?.toString() || '1');
+    setEditCountCheckBonus(habit.reward_settings?.count_check_bonus?.toString() || '5');
     setEditWeightReward(habit.reward_settings?.weight_reward?.toString() || '1');
     setEditWeightTarget(habit.weight_settings?.target_weight?.toString() || '');
     setEditWeightUnit(habit.weight_settings?.unit || 'kg');

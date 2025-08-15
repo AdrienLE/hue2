@@ -106,11 +106,19 @@ export function HabitCard({
   const [editFailureReward, setEditFailureReward] = useState(
     habit.reward_settings?.penalty_points?.toString() || '0'
   );
+  const [editSubHabitPoints, setEditSubHabitPoints] = useState(
+    habit.reward_settings?.sub_habit_points?.toString() || '5'
+  );
   const [editCountReward, setEditCountReward] = useState(
     habit.reward_settings?.count_reward?.toString() || '0.1'
   );
   const [editWeightReward, setEditWeightReward] = useState(
     habit.reward_settings?.weight_reward?.toString() || '1'
+  );
+
+  // Schedule settings
+  const [editWeekdays, setEditWeekdays] = useState<number[]>(
+    habit.schedule_settings?.weekdays || [0, 1, 2, 3, 4, 5, 6]
   );
 
   // Effect to apply defaults when switching habit types
@@ -183,7 +191,10 @@ export function HabitCard({
   };
 
   // Toggle sub-habit checked status
-  const toggleSubHabit = (subHabitId: number) => {
+  const toggleSubHabit = async (subHabitId: number) => {
+    const subHabitPoints = habit.reward_settings?.sub_habit_points || 0;
+    const wasChecked = checkedSubHabits.has(subHabitId);
+
     setCheckedSubHabits(prev => {
       const newSet = new Set(prev);
       if (newSet.has(subHabitId)) {
@@ -193,6 +204,17 @@ export function HabitCard({
       }
       return newSet;
     });
+
+    // Apply rewards for sub-habit checking
+    if (subHabitPoints > 0) {
+      if (wasChecked) {
+        // Unchecking - remove reward
+        await subtractReward(subHabitPoints);
+      } else {
+        // Checking - add reward
+        await addReward(subHabitPoints);
+      }
+    }
   };
 
   // Delete sub-habit
@@ -505,8 +527,13 @@ export function HabitCard({
         reward_settings: {
           success_points: parseFloat(editSuccessReward) || 0,
           penalty_points: parseFloat(editFailureReward) || 0,
+          sub_habit_points: parseFloat(editSubHabitPoints) || 5,
           ...(editHabitType === 'count' && { count_reward: parseFloat(editCountReward) || 0 }),
           ...(editHabitType === 'weight' && { weight_reward: parseFloat(editWeightReward) || 0 }),
+        },
+        schedule_settings: {
+          ...habit.schedule_settings,
+          weekdays: editWeekdays,
         },
       };
 
@@ -537,8 +564,10 @@ export function HabitCard({
     setEditWeightUnit(habit.weight_settings?.unit || 'kg');
     setEditSuccessReward(habit.reward_settings?.success_points?.toString() || '1');
     setEditFailureReward(habit.reward_settings?.penalty_points?.toString() || '0');
+    setEditSubHabitPoints(habit.reward_settings?.sub_habit_points?.toString() || '5');
     setEditCountReward(habit.reward_settings?.count_reward?.toString() || '0.1');
     setEditWeightReward(habit.reward_settings?.weight_reward?.toString() || '1');
+    setEditWeekdays(habit.schedule_settings?.weekdays || [0, 1, 2, 3, 4, 5, 6]);
 
     onCancelEdit?.();
   };
@@ -978,6 +1007,18 @@ export function HabitCard({
                   placeholderTextColor={textColor + '80'}
                 />
               </View>
+
+              <View style={styles.rewardContainer}>
+                <ThemedText style={styles.miniLabel}>Sub-habit: $</ThemedText>
+                <TextInput
+                  style={[styles.miniNumberInput, { color: textColor, borderColor }]}
+                  value={editSubHabitPoints}
+                  onChangeText={setEditSubHabitPoints}
+                  placeholder="5"
+                  keyboardType="numeric"
+                  placeholderTextColor={textColor + '80'}
+                />
+              </View>
             </>
           )}
 
@@ -1061,6 +1102,41 @@ export function HabitCard({
               </View>
             </>
           )}
+
+          {/* Weekday Schedule */}
+          <View style={styles.weekdaySection}>
+            <ThemedText style={styles.weekdayLabel}>Show on:</ThemedText>
+            <View style={styles.weekdayButtons}>
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.weekdayButton,
+                    {
+                      backgroundColor: editWeekdays.includes(index) ? tintColor : 'transparent',
+                      borderColor: tintColor,
+                    },
+                  ]}
+                  onPress={() => {
+                    if (editWeekdays.includes(index)) {
+                      setEditWeekdays(prev => prev.filter(d => d !== index));
+                    } else {
+                      setEditWeekdays(prev => [...prev, index].sort());
+                    }
+                  }}
+                >
+                  <ThemedText
+                    style={[
+                      styles.weekdayButtonText,
+                      { color: editWeekdays.includes(index) ? backgroundColor : tintColor },
+                    ]}
+                  >
+                    {day}
+                  </ThemedText>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
 
           {/* Action buttons */}
           <View style={styles.editActions}>
@@ -1863,6 +1939,31 @@ const styles = StyleSheet.create({
   deleteSubHabitTextInCard: {
     fontSize: 10,
     color: '#ff4444',
+    fontWeight: '600',
+  },
+  weekdaySection: {
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  weekdayLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  weekdayButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  weekdayButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weekdayButtonText: {
+    fontSize: 12,
     fontWeight: '600',
   },
 });

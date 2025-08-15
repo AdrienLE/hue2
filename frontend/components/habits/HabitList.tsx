@@ -143,10 +143,24 @@ export function HabitList() {
     }
   };
 
-  // Filter habits based on visibility setting
-  const visibleHabits = showCheckedHabits
-    ? habits
-    : habits.filter(habit => !checkedHabitsToday.has(habit.id));
+  // Get current day of week (0 = Sunday, 6 = Saturday)
+  const currentDayOfWeek = new Date().getDay();
+
+  // Filter habits based on visibility setting and weekday schedule
+  const visibleHabits = habits.filter(habit => {
+    // Check weekday schedule
+    const weekdays = habit.schedule_settings?.weekdays || [0, 1, 2, 3, 4, 5, 6];
+    if (!weekdays.includes(currentDayOfWeek)) {
+      return false;
+    }
+
+    // Check completion visibility
+    if (!showCheckedHabits && checkedHabitsToday.has(habit.id)) {
+      return false;
+    }
+
+    return true;
+  });
 
   useEffect(() => {
     console.log('🔄 useEffect triggered - token:', token ? 'EXISTS' : 'MISSING');

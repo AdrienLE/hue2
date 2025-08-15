@@ -145,21 +145,28 @@ export function WeightHabitCard({
         const oldWeight = currentWeight || 0;
         setCurrentWeight(weight);
 
+        // Give bonus for tracking weight
+        const checkBonus = habit.reward_settings?.weight_check_bonus || 0;
+        if (checkBonus > 0 && !currentWeight) {
+          // First time tracking today - give bonus
+          await addReward(checkBonus);
+        }
+
         // Calculate reward based on weight movement
         if (targetWeight && oldWeight > 0) {
-          const weightReward = habit.reward_settings?.weight_reward || 0;
-          if (weightReward > 0) {
+          const weightPerUnit = habit.reward_settings?.weight_per_unit || 0;
+          if (weightPerUnit > 0) {
             const oldDistance = Math.abs(oldWeight - targetWeight);
             const newDistance = Math.abs(weight - targetWeight);
 
             if (newDistance < oldDistance) {
               // Moving closer to target - reward
               const improvement = oldDistance - newDistance;
-              await addReward(weightReward * improvement);
+              await addReward(weightPerUnit * improvement);
             } else if (newDistance > oldDistance) {
               // Moving away from target - penalty
               const decline = newDistance - oldDistance;
-              await subtractReward(weightReward * decline);
+              await subtractReward(weightPerUnit * decline);
             }
           }
         }

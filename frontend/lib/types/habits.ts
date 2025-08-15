@@ -49,12 +49,21 @@ export interface ScheduleSettings {
 }
 
 export interface RewardSettings {
-  success_points?: number;
-  penalty_points?: number;
-  count_reward?: number;
-  weight_reward?: number;
-  tracking_bonus?: number; // Bonus for checking count/weight habits
-  tracking_penalty?: number; // Penalty for not checking count/weight habits
+  // Regular habit rewards
+  success_points?: number; // Points for checking the main habit
+  penalty_points?: number; // Penalty for not checking
+
+  // Sub-habit specific
+  sub_habit_points?: number; // Points for checking individual sub-habits
+
+  // Count habit rewards
+  count_per_unit?: number; // Points per unit counted
+  count_check_bonus?: number; // Bonus points for checking/tracking the count
+
+  // Weight habit rewards
+  weight_per_unit?: number; // Points per kg/lb lost or gained (depending on goal)
+  weight_check_bonus?: number; // Bonus points for tracking weight
+
   custom_rewards?: string[];
 }
 

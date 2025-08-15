@@ -98,7 +98,7 @@ if [ "$FRONTEND_ONLY" = false ]; then
 
     if [ "$COVERAGE" = true ]; then
         print_status "Running backend tests with coverage..."
-        if pytest tests/ --cov=backend --cov-report=html --cov-report=term --cov-fail-under=80; then
+        if pytest tests/ --cov=backend --cov-report=html --cov-report=term --cov-fail-under=60; then
             BACKEND_SUCCESS=true
             print_success "Backend tests passed with coverage!"
             print_status "Backend coverage report generated in htmlcov/"

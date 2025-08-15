@@ -48,6 +48,26 @@ export function HabitSettingsModal({ habit, visible, onClose, onUpdate }: HabitS
   const [penaltyPoints, setPenaltyPoints] = useState(
     habit.reward_settings?.penalty_points?.toString() || '5'
   );
+  const [subHabitPoints, setSubHabitPoints] = useState(
+    habit.reward_settings?.sub_habit_points?.toString() || '5'
+  );
+  const [countPerUnit, setCountPerUnit] = useState(
+    habit.reward_settings?.count_per_unit?.toString() || '1'
+  );
+  const [countCheckBonus, setCountCheckBonus] = useState(
+    habit.reward_settings?.count_check_bonus?.toString() || '5'
+  );
+  const [weightPerUnit, setWeightPerUnit] = useState(
+    habit.reward_settings?.weight_per_unit?.toString() || '10'
+  );
+  const [weightCheckBonus, setWeightCheckBonus] = useState(
+    habit.reward_settings?.weight_check_bonus?.toString() || '5'
+  );
+
+  // Schedule settings
+  const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>(
+    habit.schedule_settings?.weekdays || [0, 1, 2, 3, 4, 5, 6]
+  );
 
   const { token } = useAuth();
   const tintColor = useThemeColor({}, 'tint');
@@ -66,6 +86,12 @@ export function HabitSettingsModal({ habit, visible, onClose, onUpdate }: HabitS
     setWeightUnit(habit.weight_settings?.unit || 'kg');
     setSuccessPoints(habit.reward_settings?.success_points?.toString() || '10');
     setPenaltyPoints(habit.reward_settings?.penalty_points?.toString() || '5');
+    setSubHabitPoints(habit.reward_settings?.sub_habit_points?.toString() || '5');
+    setCountPerUnit(habit.reward_settings?.count_per_unit?.toString() || '1');
+    setCountCheckBonus(habit.reward_settings?.count_check_bonus?.toString() || '5');
+    setWeightPerUnit(habit.reward_settings?.weight_per_unit?.toString() || '10');
+    setWeightCheckBonus(habit.reward_settings?.weight_check_bonus?.toString() || '5');
+    setSelectedWeekdays(habit.schedule_settings?.weekdays || [0, 1, 2, 3, 4, 5, 6]);
   }, [habit]);
 
   const handleSave = async () => {
@@ -124,8 +150,28 @@ export function HabitSettingsModal({ habit, visible, onClose, onUpdate }: HabitS
       const rewardSettings: RewardSettings = {
         success_points: parseFloat(successPoints) || 10,
         penalty_points: parseFloat(penaltyPoints) || 5,
+        sub_habit_points: parseFloat(subHabitPoints) || 5,
       };
+
+      // Add count-specific rewards if applicable
+      if (hasCount) {
+        rewardSettings.count_per_unit = parseFloat(countPerUnit) || 1;
+        rewardSettings.count_check_bonus = parseFloat(countCheckBonus) || 5;
+      }
+
+      // Add weight-specific rewards if applicable
+      if (isWeight) {
+        rewardSettings.weight_per_unit = parseFloat(weightPerUnit) || 10;
+        rewardSettings.weight_check_bonus = parseFloat(weightCheckBonus) || 5;
+      }
+
       updateData.reward_settings = rewardSettings;
+
+      // Add schedule settings
+      updateData.schedule_settings = {
+        ...habit.schedule_settings,
+        weekdays: selectedWeekdays,
+      };
 
       const response = await HabitService.updateHabit(habit.id, updateData, token);
 
@@ -287,10 +333,45 @@ export function HabitSettingsModal({ habit, visible, onClose, onUpdate }: HabitS
           </ThemedView>
 
           <ThemedView style={styles.section}>
+            <ThemedText style={styles.label}>Schedule</ThemedText>
+            <ThemedText style={styles.sublabel}>Show on these days:</ThemedText>
+            <ThemedView style={styles.weekdayContainer}>
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.weekdayButton,
+                    {
+                      backgroundColor: selectedWeekdays.includes(index) ? tintColor : 'transparent',
+                      borderColor: tintColor,
+                    },
+                  ]}
+                  onPress={() => {
+                    if (selectedWeekdays.includes(index)) {
+                      setSelectedWeekdays(prev => prev.filter(d => d !== index));
+                    } else {
+                      setSelectedWeekdays(prev => [...prev, index].sort());
+                    }
+                  }}
+                >
+                  <ThemedText
+                    style={[
+                      styles.weekdayText,
+                      { color: selectedWeekdays.includes(index) ? backgroundColor : tintColor },
+                    ]}
+                  >
+                    {day}
+                  </ThemedText>
+                </TouchableOpacity>
+              ))}
+            </ThemedView>
+          </ThemedView>
+
+          <ThemedView style={styles.section}>
             <ThemedText style={styles.label}>Rewards</ThemedText>
 
             <ThemedView style={styles.inputGroup}>
-              <ThemedText style={styles.sublabel}>Success Points</ThemedText>
+              <ThemedText style={styles.sublabel}>Points for completing habit</ThemedText>
               <ThemedTextInput
                 style={styles.input}
                 value={successPoints}
@@ -301,7 +382,7 @@ export function HabitSettingsModal({ habit, visible, onClose, onUpdate }: HabitS
             </ThemedView>
 
             <ThemedView style={styles.inputGroup}>
-              <ThemedText style={styles.sublabel}>Penalty Points</ThemedText>
+              <ThemedText style={styles.sublabel}>Penalty for missing habit</ThemedText>
               <ThemedTextInput
                 style={styles.input}
                 value={penaltyPoints}
@@ -310,6 +391,69 @@ export function HabitSettingsModal({ habit, visible, onClose, onUpdate }: HabitS
                 keyboardType="numeric"
               />
             </ThemedView>
+
+            <ThemedView style={styles.inputGroup}>
+              <ThemedText style={styles.sublabel}>Points per sub-habit</ThemedText>
+              <ThemedTextInput
+                style={styles.input}
+                value={subHabitPoints}
+                onChangeText={setSubHabitPoints}
+                placeholder="5"
+                keyboardType="numeric"
+              />
+            </ThemedView>
+
+            {hasCount && (
+              <>
+                <ThemedView style={styles.inputGroup}>
+                  <ThemedText style={styles.sublabel}>Points per {countUnit || 'unit'}</ThemedText>
+                  <ThemedTextInput
+                    style={styles.input}
+                    value={countPerUnit}
+                    onChangeText={setCountPerUnit}
+                    placeholder="1"
+                    keyboardType="numeric"
+                  />
+                </ThemedView>
+
+                <ThemedView style={styles.inputGroup}>
+                  <ThemedText style={styles.sublabel}>Bonus for tracking count</ThemedText>
+                  <ThemedTextInput
+                    style={styles.input}
+                    value={countCheckBonus}
+                    onChangeText={setCountCheckBonus}
+                    placeholder="5"
+                    keyboardType="numeric"
+                  />
+                </ThemedView>
+              </>
+            )}
+
+            {isWeight && (
+              <>
+                <ThemedView style={styles.inputGroup}>
+                  <ThemedText style={styles.sublabel}>Points per {weightUnit}</ThemedText>
+                  <ThemedTextInput
+                    style={styles.input}
+                    value={weightPerUnit}
+                    onChangeText={setWeightPerUnit}
+                    placeholder="10"
+                    keyboardType="numeric"
+                  />
+                </ThemedView>
+
+                <ThemedView style={styles.inputGroup}>
+                  <ThemedText style={styles.sublabel}>Bonus for tracking weight</ThemedText>
+                  <ThemedTextInput
+                    style={styles.input}
+                    value={weightCheckBonus}
+                    onChangeText={setWeightCheckBonus}
+                    placeholder="5"
+                    keyboardType="numeric"
+                  />
+                </ThemedView>
+              </>
+            )}
           </ThemedView>
         </ScrollView>
       </ThemedView>
@@ -392,5 +536,22 @@ const styles = StyleSheet.create({
   },
   inputGroup: {
     marginBottom: 16,
+  },
+  weekdayContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  weekdayButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weekdayText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

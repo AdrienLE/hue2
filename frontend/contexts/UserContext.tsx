@@ -7,6 +7,8 @@ interface UserSettings {
   reward_unit_position?: 'before' | 'after';
   total_rewards?: number;
   day_rollover_hour?: number; // Hour of day when habits roll over to next day (0-23, default 3)
+  color_brightness?: number; // 0-100, inverts in dark mode
+  color_saturation?: number; // 0-100, how colorful vs gray
 }
 
 interface UserContextType {
@@ -26,6 +28,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     reward_unit_position: 'before',
     total_rewards: 0,
     day_rollover_hour: 3,
+    color_brightness: 50, // Default 50% brightness
+    color_saturation: 60, // Default 60% saturation for tame colors
   });
   const [totalRewards, setTotalRewards] = useState(0);
   const { token } = useAuth();
@@ -41,6 +45,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           reward_unit: settings.reward_unit || '$',
           reward_unit_position: settings.reward_unit_position || 'before',
           total_rewards: settings.total_rewards || 0,
+          day_rollover_hour: settings.day_rollover_hour || 3,
+          color_brightness: settings.color_brightness ?? 50,
+          color_saturation: settings.color_saturation ?? 60,
         });
         setTotalRewards(settings.total_rewards || 0);
       }

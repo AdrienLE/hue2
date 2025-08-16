@@ -1,8 +1,17 @@
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState, useRef } from 'react';
-import { View, Button, StyleSheet, Pressable, Platform, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Button,
+  StyleSheet,
+  Pressable,
+  Platform,
+  TouchableOpacity,
+  ScrollView,
+} from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
+import Slider from '@react-native-community/slider';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedTextInput } from '@/components/ThemedTextInput';
 import { IconSymbol } from '@/components/ui/IconSymbol';
@@ -37,6 +46,8 @@ export default function SettingsScreen() {
   const [rolloverHour, setRolloverHour] = useState(
     userSettings.day_rollover_hour?.toString() || '3'
   );
+  const [colorLightness, setColorLightness] = useState(userSettings.color_brightness ?? 65);
+  const [colorChroma, setColorChroma] = useState(userSettings.color_saturation ?? 15);
 
   // Compress image to reduce file size
   const compressImage = async (uri: string, fileName: string, mimeType: string) => {
@@ -149,6 +160,8 @@ export default function SettingsScreen() {
     setRewardUnit(userSettings.reward_unit || '$');
     setRewardPosition(userSettings.reward_unit_position || 'before');
     setRolloverHour(userSettings.day_rollover_hour?.toString() || '3');
+    setColorLightness(userSettings.color_brightness ?? 65);
+    setColorChroma(userSettings.color_saturation ?? 15);
   }, [userSettings]);
 
   const save = async () => {
@@ -199,6 +212,8 @@ export default function SettingsScreen() {
         reward_unit: rewardUnit,
         reward_unit_position: rewardPosition,
         day_rollover_hour: parseInt(rolloverHour) || 3,
+        color_brightness: colorLightness,
+        color_saturation: colorChroma,
       });
 
       router.back();
@@ -220,7 +235,7 @@ export default function SettingsScreen() {
           <Pressable onPress={router.back} style={styles.closeButton} hitSlop={8}>
             <IconSymbol name="xmark" size={24} color={Colors[colorScheme ?? 'light'].icon} />
           </Pressable>
-          <View style={styles.content}>
+          <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
             <View style={styles.pictureRow}>
               {pendingImage || imageUrl ? (
                 <Image source={{ uri: pendingImage?.uri || imageUrl }} style={styles.avatar} />
@@ -373,6 +388,58 @@ export default function SettingsScreen() {
               Habits reset at this time each day. Default is 3 AM.
             </ThemedText>
 
+            {/* Color Settings Section */}
+            <View style={styles.sectionHeader}>
+              <ThemedText style={styles.sectionTitle}>Color Settings</ThemedText>
+            </View>
+
+            <View style={styles.sliderRow}>
+              <ThemedText style={styles.label}>Lightness</ThemedText>
+              <View style={styles.sliderContainer}>
+                <View style={styles.sliderWrapper}>
+                  <View
+                    style={[
+                      styles.sliderTrack,
+                      colorScheme === 'dark'
+                        ? styles.brightnessTrackDark
+                        : styles.brightnessTrackLight,
+                    ]}
+                  />
+                  <Slider
+                    style={styles.slider}
+                    minimumValue={10}
+                    maximumValue={90}
+                    value={colorLightness}
+                    onValueChange={setColorLightness}
+                    minimumTrackTintColor="transparent"
+                    maximumTrackTintColor="transparent"
+                    thumbTintColor={Colors[colorScheme ?? 'light'].tint}
+                  />
+                </View>
+                <ThemedText style={styles.sliderValue}>{Math.round(colorLightness)}%</ThemedText>
+              </View>
+            </View>
+
+            <View style={styles.sliderRow}>
+              <ThemedText style={styles.label}>Chroma</ThemedText>
+              <View style={styles.sliderContainer}>
+                <View style={styles.sliderWrapper}>
+                  <View style={[styles.sliderTrack, styles.chromaTrack]} />
+                  <Slider
+                    style={styles.slider}
+                    minimumValue={0}
+                    maximumValue={30}
+                    value={colorChroma}
+                    onValueChange={setColorChroma}
+                    minimumTrackTintColor="transparent"
+                    maximumTrackTintColor="transparent"
+                    thumbTintColor={Colors[colorScheme ?? 'light'].tint}
+                  />
+                </View>
+                <ThemedText style={styles.sliderValue}>{Math.round(colorChroma)}</ThemedText>
+              </View>
+            </View>
+
             <View style={styles.buttonRow}>
               <Button
                 title="Cancel"
@@ -382,7 +449,7 @@ export default function SettingsScreen() {
               />
               <Button title={saving ? 'Saving...' : 'Save'} onPress={save} disabled={saving} />
             </View>
-          </View>
+          </ScrollView>
         </Pressable>
       </Pressable>
     </>
@@ -400,8 +467,12 @@ const styles = StyleSheet.create({
   modal: {
     width: '100%',
     maxWidth: 480,
+    maxHeight: '90%',
     borderRadius: 8,
     padding: 24,
+  },
+  scrollView: {
+    flex: 1,
   },
   content: { width: '100%', gap: 16 },
   pictureRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
@@ -467,5 +538,47 @@ const styles = StyleSheet.create({
     opacity: 0.6,
     marginTop: 4,
     marginBottom: 8,
+  },
+  sliderRow: {
+    flexDirection: 'column',
+    gap: 8,
+  },
+  sliderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  sliderWrapper: {
+    flex: 1,
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  sliderTrack: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    height: 6,
+    borderRadius: 3,
+  },
+  brightnessTrackLight: {
+    backgroundColor: '#000',
+    background: 'linear-gradient(to right, #000000 0%, #ffffff 100%)',
+  },
+  brightnessTrackDark: {
+    backgroundColor: '#fff',
+    background: 'linear-gradient(to right, #ffffff 0%, #000000 100%)',
+  },
+  chromaTrack: {
+    background: 'linear-gradient(to right, #808080 0%, #ff0000 100%)',
+  },
+  slider: {
+    flex: 1,
+    height: 40,
+  },
+  sliderValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    minWidth: 40,
+    textAlign: 'right',
   },
 });

@@ -1062,6 +1062,18 @@ if os.path.isdir(frontend_path):
     if os.path.isdir(expo_static_dir):
         app.mount("/_expo/static", StaticFiles(directory=expo_static_dir), name="expo-static")
 
+    @app.get("/favicon.{ext}")
+    async def serve_favicon(ext: str):
+        # Handle favicon requests
+        favicon_file = os.path.join(frontend_path, f"favicon.{ext}")
+        if os.path.isfile(favicon_file):
+            return FileResponse(favicon_file)
+        # Fallback to favicon.ico if other extensions are requested
+        favicon_ico = os.path.join(frontend_path, "favicon.ico")
+        if os.path.isfile(favicon_ico):
+            return FileResponse(favicon_ico)
+        raise HTTPException(status_code=404, detail="Favicon not found")
+
     @app.get("/{path:path}")
     async def serve_spa(path: str):
         # Do not catch API paths

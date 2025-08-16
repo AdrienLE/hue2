@@ -73,6 +73,7 @@ export interface DisplaySettings {
   order?: number;
   hidden?: boolean;
   color?: string;
+  hue?: number; // 0-360 degrees for custom color
   icon?: string;
 }
 

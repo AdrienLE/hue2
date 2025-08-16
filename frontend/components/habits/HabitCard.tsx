@@ -8,6 +8,7 @@ import {
   Modal,
   TextInput,
 } from 'react-native';
+import Slider from '@react-native-community/slider';
 import { getLogicalDateTimestamp } from '@/contexts/DevDateContext';
 import DraggableFlatList, {
   ScaleDecorator,
@@ -20,6 +21,7 @@ import { HabitService } from '@/lib/services/habitService';
 import { useAuth } from '@/auth/AuthContext';
 import { useUser } from '@/contexts/UserContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
+import { useColorScheme } from '@/hooks/useColorScheme';
 import { getHabitColor } from '@/constants/Colors';
 import type { Habit, Count, WeightUpdate, SubHabit, SubHabitCreate } from '@/lib/types/habits';
 
@@ -133,6 +135,9 @@ export function HabitCard({
     habit.schedule_settings?.weekdays || [0, 1, 2, 3, 4, 5, 6]
   );
 
+  // Display settings
+  const [editHue, setEditHue] = useState(habit.display_settings?.hue?.toString() || '');
+
   // Effect to apply defaults when switching habit types
   useEffect(() => {
     if (editHabitType === 'count') {
@@ -151,12 +156,32 @@ export function HabitCard({
 
   const { token } = useAuth();
   const { addReward, subtractReward, userSettings } = useUser();
+  const colorScheme = useColorScheme();
+  const isDarkMode = colorScheme === 'dark';
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
   const tintColor = useThemeColor({}, 'tint');
   const borderColor = useThemeColor({ light: '#e1e5e9', dark: '#333' }, 'border');
   const progressBgColor = useThemeColor({ light: '#e0e0e0', dark: '#444' }, 'background');
-  const habitColor = getHabitColor(habit.id);
+  const habitColor = getHabitColor(
+    habit.id,
+    habit.display_settings?.hue,
+    userSettings.color_brightness,
+    userSettings.color_saturation,
+    isDarkMode
+  );
+
+  // Live preview color that updates with current edit values
+  const liveHabitColor =
+    isEditing && editHue
+      ? getHabitColor(
+          habit.id,
+          parseFloat(editHue),
+          userSettings.color_brightness,
+          userSettings.color_saturation,
+          isDarkMode
+        )
+      : habitColor;
 
   // Helper function to format reward labels
   const formatRewardLabel = (label: string) => {
@@ -562,6 +587,10 @@ export function HabitCard({
           ...habit.schedule_settings,
           weekdays: editWeekdays,
         },
+        display_settings: {
+          ...habit.display_settings,
+          hue: editHue ? parseFloat(editHue) : undefined,
+        },
       };
 
       const response = await HabitService.updateHabit(habit.id, updatedHabit, token);
@@ -599,6 +628,7 @@ export function HabitCard({
     setEditWeightCheckBonus(habit.reward_settings?.weight_check_bonus?.toString() || '5');
     setEditWeightCheckPenalty(habit.reward_settings?.weight_check_penalty?.toString() || '5');
     setEditWeekdays(habit.schedule_settings?.weekdays || [0, 1, 2, 3, 4, 5, 6]);
+    setEditHue(habit.display_settings?.hue?.toString() || '');
 
     onCancelEdit?.();
   };
@@ -681,7 +711,7 @@ export function HabitCard({
         <ThemedView
           style={[
             styles.container,
-            { borderColor: habitColor, borderLeftWidth: 4, borderLeftColor: habitColor },
+            { borderColor: liveHabitColor, borderLeftWidth: 4, borderLeftColor: liveHabitColor },
           ]}
         >
           <View style={styles.mainRow}>
@@ -691,14 +721,14 @@ export function HabitCard({
                 styles.checkButton,
                 {
                   backgroundColor: 'transparent',
-                  borderColor: habitColor,
+                  borderColor: liveHabitColor,
                   borderWidth: 2,
                   opacity: 0.5,
                 },
               ]}
               disabled={true}
             >
-              <ThemedText style={[styles.checkButtonText, { color: habitColor }]}>✓</ThemedText>
+              <ThemedText style={[styles.checkButtonText, { color: liveHabitColor }]}>✓</ThemedText>
             </TouchableOpacity>
 
             <View style={styles.leftSection}>
@@ -785,7 +815,7 @@ export function HabitCard({
                                   styles.subHabitCheckboxInner,
                                   {
                                     backgroundColor: 'transparent',
-                                    borderColor: habitColor,
+                                    borderColor: liveHabitColor,
                                     opacity: 0.5,
                                   },
                                 ]}
@@ -869,7 +899,7 @@ export function HabitCard({
                         styles.subHabitCheckbox,
                         {
                           backgroundColor: 'transparent',
-                          borderColor: habitColor,
+                          borderColor: liveHabitColor,
                           opacity: 0.3,
                           borderStyle: 'dashed',
                         },
@@ -1215,6 +1245,35 @@ export function HabitCard({
             ))}
           </View>
 
+          {/* Color Hue Slider */}
+          <View style={styles.hueSliderContainer}>
+            <View style={styles.hueSliderLabelRow}>
+              <ThemedText style={styles.miniLabel}>Color:</ThemedText>
+              <TouchableOpacity style={styles.resetHueButton} onPress={() => setEditHue('')}>
+                <ThemedText style={[styles.miniLabel, { opacity: 0.6 }]}>Auto</ThemedText>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.hueSliderWrapper}>
+              <View style={styles.hueGradientBar} pointerEvents="none" />
+              <Slider
+                style={styles.hueSlider}
+                minimumValue={0}
+                maximumValue={360}
+                value={editHue ? parseFloat(editHue) : 200}
+                onValueChange={value => setEditHue(Math.round(value).toString())}
+                minimumTrackTintColor="transparent"
+                maximumTrackTintColor="transparent"
+                thumbTintColor={getHabitColor(
+                  habit.id,
+                  editHue ? parseFloat(editHue) : undefined,
+                  userSettings.color_brightness,
+                  userSettings.color_saturation,
+                  isDarkMode
+                )}
+              />
+            </View>
+          </View>
+
           {/* Action buttons */}
           <View style={styles.editActions}>
             <TouchableOpacity style={styles.cancelButtonCompact} onPress={handleCancel}>
@@ -1244,9 +1303,9 @@ export function HabitCard({
         style={[
           styles.container,
           {
-            borderColor: habitColor,
+            borderColor: liveHabitColor,
             borderLeftWidth: 4,
-            borderLeftColor: habitColor,
+            borderLeftColor: liveHabitColor,
             opacity: isActive ? 0.7 : 1,
           },
         ]}
@@ -1262,8 +1321,8 @@ export function HabitCard({
             style={[
               styles.checkButton,
               {
-                backgroundColor: isCheckedToday ? habitColor : 'transparent',
-                borderColor: habitColor,
+                backgroundColor: isCheckedToday ? liveHabitColor : 'transparent',
+                borderColor: liveHabitColor,
                 borderWidth: isCheckedToday ? 0 : 2,
               },
             ]}
@@ -1274,7 +1333,7 @@ export function HabitCard({
               style={[
                 styles.checkButtonText,
                 {
-                  color: isCheckedToday ? backgroundColor : habitColor,
+                  color: isCheckedToday ? backgroundColor : liveHabitColor,
                 },
               ]}
             >
@@ -1341,9 +1400,9 @@ export function HabitCard({
                           styles.subHabitCheckboxInner,
                           {
                             backgroundColor: checkedSubHabits.has(subHabit.id)
-                              ? habitColor
+                              ? liveHabitColor
                               : 'transparent',
-                            borderColor: habitColor,
+                            borderColor: liveHabitColor,
                           },
                         ]}
                       >
@@ -1958,6 +2017,70 @@ const styles = StyleSheet.create({
   weekdayButtonTextMini: {
     fontSize: 10,
     fontWeight: '600',
+  },
+  sliderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  colorPreview: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.2)',
+  },
+  hueSliderContainer: {
+    flexDirection: 'column',
+    gap: 8,
+    minWidth: 280,
+    maxWidth: 400,
+  },
+  hueSliderLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  hueSliderWrapper: {
+    flex: 1,
+    position: 'relative',
+    height: 32,
+    justifyContent: 'center',
+  },
+  hueSlider: {
+    flex: 1,
+    height: 32,
+  },
+  hueTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'transparent',
+  },
+  hueGradientBar: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    height: 8,
+    borderRadius: 4,
+    background:
+      'linear-gradient(to right, #ff0000 0%, #ffff00 16.67%, #00ff00 33.33%, #00ffff 50%, #0000ff 66.67%, #ff00ff 83.33%, #ff0000 100%)',
+    backgroundColor: '#ff0000', // Fallback for platforms that don't support gradients
+  },
+  hueThumb: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 1,
+    elevation: 2,
+  },
+  resetHueButton: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
   },
   // Sub-habits in main card area
   subHabitsInCard: {

@@ -1,8 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import {
+  ScrollView,
+  StyleSheet,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
+  Platform,
+  View,
+} from 'react-native';
 import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemedView } from '../ThemedView';
 import { ThemedText } from '../ThemedText';
+import { DndKitHabitList } from './DndKitHabitList';
 import { HabitService } from '@/lib/services/habitService';
 import { useAuth } from '@/auth/AuthContext';
 import { useUser } from '@/contexts/UserContext';
@@ -193,33 +203,57 @@ export function HabitList() {
           <ThemedText style={styles.emptySubtext}>Great job staying on track today</ThemedText>
         </ThemedView>
       ) : showCheckedHabits ? (
-        // Draggable mode when all habits are visible
-        <DraggableFlatList
-          data={visibleHabits}
-          onDragEnd={({ data }) => handleHabitReorder(data)}
-          keyExtractor={item => item.id.toString()}
-          renderItem={({ item, drag, isActive }) => (
-            <ScaleDecorator activeScale={1.05}>
-              <HabitItem
-                key={item.id}
-                habit={item}
-                onUpdate={handleHabitUpdate}
-                onDelete={handleHabitDelete}
-                onChecked={handleHabitChecked}
-                onUnchecked={handleHabitUnchecked}
-                isCheckedToday={checkedHabitsToday.has(item.id)}
-                isDraggable={true}
-                onDrag={drag}
-                isActive={isActive}
-                isEditing={editingHabitId === item.id}
-                onStartEditing={() => handleStartEditing(item.id)}
-                onCancelEditing={handleCancelEditing}
+        // Show all habits with drag and drop support
+        Platform.OS === 'web' ? (
+          <DndKitHabitList
+            habits={visibleHabits}
+            onReorder={handleHabitReorder}
+            onHabitUpdate={handleHabitUpdate}
+            onHabitDelete={handleHabitDelete}
+            onHabitChecked={handleHabitChecked}
+            onHabitUnchecked={handleHabitUnchecked}
+            checkedHabitsToday={checkedHabitsToday}
+            editingHabitId={editingHabitId}
+            onStartEditing={handleStartEditing}
+            onCancelEditing={handleCancelEditing}
+            refreshing={refreshing}
+            onRefresh={() => loadHabits(true)}
+          />
+        ) : (
+          <DraggableFlatList
+            data={visibleHabits}
+            onDragEnd={({ data }) => handleHabitReorder(data)}
+            keyExtractor={item => item.id.toString()}
+            renderItem={({ item, drag, isActive }) => (
+              <ScaleDecorator activeScale={1.05}>
+                <HabitItem
+                  key={item.id}
+                  habit={item}
+                  onUpdate={handleHabitUpdate}
+                  onDelete={handleHabitDelete}
+                  onChecked={handleHabitChecked}
+                  onUnchecked={handleHabitUnchecked}
+                  isCheckedToday={checkedHabitsToday.has(item.id)}
+                  isDraggable={true}
+                  onDrag={drag}
+                  isActive={isActive}
+                  isEditing={editingHabitId === item.id}
+                  onStartEditing={() => handleStartEditing(item.id)}
+                  onCancelEditing={handleCancelEditing}
+                />
+              </ScaleDecorator>
+            )}
+            style={styles.container}
+            contentContainerStyle={styles.containerContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={() => loadHabits(true)}
+                tintColor={textColor}
               />
-            </ScaleDecorator>
-          )}
-          style={styles.container}
-          contentContainerStyle={styles.containerContent}
-        />
+            }
+          />
+        )
       ) : (
         // Regular scroll view when some habits are hidden
         <ScrollView

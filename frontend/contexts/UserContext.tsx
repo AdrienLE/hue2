@@ -82,12 +82,28 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const addReward = async (amount: number) => {
     const newTotal = totalRewards + amount;
-    await updateUserSettings({ total_rewards: newTotal });
+    // Optimistic update for immediate UI feedback
+    setTotalRewards(newTotal);
+    try {
+      await updateUserSettings({ total_rewards: newTotal });
+    } catch (error) {
+      // Revert on error
+      setTotalRewards(totalRewards);
+      throw error;
+    }
   };
 
   const subtractReward = async (amount: number) => {
     const newTotal = Math.max(0, totalRewards - amount); // Don't go below 0
-    await updateUserSettings({ total_rewards: newTotal });
+    // Optimistic update for immediate UI feedback
+    setTotalRewards(newTotal);
+    try {
+      await updateUserSettings({ total_rewards: newTotal });
+    } catch (error) {
+      // Revert on error
+      setTotalRewards(totalRewards);
+      throw error;
+    }
   };
 
   useEffect(() => {

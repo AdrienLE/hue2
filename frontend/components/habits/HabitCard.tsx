@@ -239,6 +239,7 @@ export function HabitCard({
     const subHabitPoints = habit.reward_settings?.sub_habit_points || 0;
     const wasChecked = checkedSubHabits.has(subHabitId);
 
+    // Optimistic UI update
     setCheckedSubHabits(prev => {
       const newSet = new Set(prev);
       if (newSet.has(subHabitId)) {
@@ -251,12 +252,26 @@ export function HabitCard({
 
     // Apply rewards for sub-habit checking
     if (subHabitPoints > 0) {
-      if (wasChecked) {
-        // Unchecking - remove reward
-        await subtractReward(subHabitPoints);
-      } else {
-        // Checking - add reward
-        await addReward(subHabitPoints);
+      try {
+        if (wasChecked) {
+          // Unchecking - remove reward
+          await subtractReward(subHabitPoints);
+        } else {
+          // Checking - add reward
+          await addReward(subHabitPoints);
+        }
+      } catch (error) {
+        // Revert UI state on error
+        setCheckedSubHabits(prev => {
+          const newSet = new Set(prev);
+          if (wasChecked) {
+            newSet.add(subHabitId);
+          } else {
+            newSet.delete(subHabitId);
+          }
+          return newSet;
+        });
+        console.error('Error updating sub-habit reward:', error);
       }
     }
   };
@@ -384,11 +399,27 @@ export function HabitCard({
     try {
       const successReward = habit.reward_settings?.success_points || 0;
 
+      // Get type-specific bonus rewards
+      const countCheckBonus = habit.reward_settings?.count_check_bonus || 0;
+      const countCheckPenalty = habit.reward_settings?.count_check_penalty || 0;
+      const weightCheckBonus = habit.reward_settings?.weight_check_bonus || 0;
+      const weightCheckPenalty = habit.reward_settings?.weight_check_penalty || 0;
+
       if (isCheckedToday) {
         await HabitService.uncheckHabitToday(habit.id, token);
+
+        // Apply rewards/penalties for unchecking
         if (successReward > 0) {
           await subtractReward(successReward);
         }
+
+        // Apply type-specific penalties for unchecking
+        if (habit.has_counts && countCheckPenalty > 0) {
+          await subtractReward(countCheckPenalty);
+        } else if (habit.is_weight && weightCheckPenalty > 0) {
+          await subtractReward(weightCheckPenalty);
+        }
+
         Alert.alert('Success', 'Habit unchecked!');
         onUnchecked?.(habit.id);
       } else {
@@ -401,9 +432,18 @@ export function HabitCard({
 
         const response = await HabitService.createCheck(checkData, token);
         if (response.data) {
+          // Apply base success reward
           if (successReward > 0) {
             await addReward(successReward);
           }
+
+          // Apply type-specific bonuses for checking
+          if (habit.has_counts && countCheckBonus > 0) {
+            await addReward(countCheckBonus);
+          } else if (habit.is_weight && weightCheckBonus > 0) {
+            await addReward(weightCheckBonus);
+          }
+
           Alert.alert('Success', 'Habit checked!');
           onChecked?.(habit.id);
         } else {
@@ -434,10 +474,11 @@ export function HabitCard({
         count_date: new Date().toISOString(),
       };
 
+      // Optimistic UI update
+      setTodayCount(newValue);
+
       const response = await HabitService.createCount(countData, token);
       if (response.data) {
-        setTodayCount(newValue);
-
         // Calculate reward
         const countReward = habit.reward_settings?.count_reward || 0;
         if (countReward > 0) {
@@ -446,16 +487,22 @@ export function HabitCard({
           if (countIsGood) {
             if (increment) {
               await addReward(rewardAmount);
+            } else {
+              // Decrementing a good habit should subtract reward
+              await subtractReward(rewardAmount);
             }
           } else {
             if (!increment) {
               await addReward(rewardAmount);
-            } else if (target > 0 && newValue > target) {
+            } else {
+              // Incrementing a bad habit should subtract reward
               await subtractReward(rewardAmount);
             }
           }
         }
       } else {
+        // Revert optimistic update on failure
+        setTodayCount(todayCount);
         console.error('Failed to update count:', response.error);
         Alert.alert('Error', 'Failed to update count');
       }
@@ -479,6 +526,11 @@ export function HabitCard({
 
     setUpdating(true);
     try {
+      const oldWeight = currentWeight || 0;
+
+      // Optimistic UI update
+      setCurrentWeight(weight);
+
       const weightData = {
         habit_id: habit.id,
         weight,
@@ -487,12 +539,9 @@ export function HabitCard({
 
       const response = await HabitService.createWeightUpdate(weightData, token);
       if (response.data) {
-        const oldWeight = currentWeight || 0;
-        setCurrentWeight(weight);
-
         // Calculate reward based on weight movement
         if (targetWeight && oldWeight > 0) {
-          const weightReward = habit.reward_settings?.weight_reward || 0;
+          const weightReward = habit.reward_settings?.weight_per_unit || 0;
           if (weightReward > 0) {
             const oldDistance = Math.abs(oldWeight - targetWeight);
             const newDistance = Math.abs(weight - targetWeight);
@@ -513,6 +562,8 @@ export function HabitCard({
         }
         Alert.alert('Success', 'Weight updated successfully!');
       } else {
+        // Revert optimistic update on failure
+        setCurrentWeight(oldWeight);
         console.error('Failed to update weight:', response.error);
         Alert.alert('Error', 'Failed to update weight');
       }

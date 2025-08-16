@@ -59,10 +59,12 @@ export interface RewardSettings {
   // Count habit rewards
   count_per_unit?: number; // Points per unit counted
   count_check_bonus?: number; // Bonus points for checking/tracking the count
+  count_check_penalty?: number; // Penalty for not checking/tracking the count
 
   // Weight habit rewards
   weight_per_unit?: number; // Points per kg/lb lost or gained (depending on goal)
   weight_check_bonus?: number; // Bonus points for tracking weight
+  weight_check_penalty?: number; // Penalty for not checking/tracking weight
 
   custom_rewards?: string[];
 }

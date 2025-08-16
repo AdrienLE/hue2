@@ -115,11 +115,17 @@ export function HabitCard({
   const [editCountCheckBonus, setEditCountCheckBonus] = useState(
     habit.reward_settings?.count_check_bonus?.toString() || '5'
   );
+  const [editCountCheckPenalty, setEditCountCheckPenalty] = useState(
+    habit.reward_settings?.count_check_penalty?.toString() || '5'
+  );
   const [editWeightReward, setEditWeightReward] = useState(
     habit.reward_settings?.weight_per_unit?.toString() || '1'
   );
   const [editWeightCheckBonus, setEditWeightCheckBonus] = useState(
     habit.reward_settings?.weight_check_bonus?.toString() || '5'
+  );
+  const [editWeightCheckPenalty, setEditWeightCheckPenalty] = useState(
+    habit.reward_settings?.weight_check_penalty?.toString() || '5'
   );
 
   // Schedule settings
@@ -544,10 +550,12 @@ export function HabitCard({
           ...(editHabitType === 'count' && {
             count_reward: parseFloat(editCountReward) || 0,
             count_check_bonus: parseFloat(editCountCheckBonus) || 0,
+            count_check_penalty: parseFloat(editCountCheckPenalty) || 0,
           }),
           ...(editHabitType === 'weight' && {
             weight_per_unit: parseFloat(editWeightReward) || 0,
             weight_check_bonus: parseFloat(editWeightCheckBonus) || 0,
+            weight_check_penalty: parseFloat(editWeightCheckPenalty) || 0,
           }),
         },
         schedule_settings: {
@@ -586,8 +594,10 @@ export function HabitCard({
     setEditSubHabitPoints(habit.reward_settings?.sub_habit_points?.toString() || '5');
     setEditCountReward(habit.reward_settings?.count_reward?.toString() || '0.1');
     setEditCountCheckBonus(habit.reward_settings?.count_check_bonus?.toString() || '5');
+    setEditCountCheckPenalty(habit.reward_settings?.count_check_penalty?.toString() || '5');
     setEditWeightReward(habit.reward_settings?.weight_per_unit?.toString() || '1');
     setEditWeightCheckBonus(habit.reward_settings?.weight_check_bonus?.toString() || '5');
+    setEditWeightCheckPenalty(habit.reward_settings?.weight_check_penalty?.toString() || '5');
     setEditWeekdays(habit.schedule_settings?.weekdays || [0, 1, 2, 3, 4, 5, 6]);
 
     onCancelEdit?.();
@@ -1006,7 +1016,7 @@ export function HabitCard({
           {editHabitType === 'normal' && (
             <>
               <View style={styles.rewardContainer}>
-                <ThemedText style={styles.miniLabel}>{formatRewardLabel('Success:')}</ThemedText>
+                <ThemedText style={styles.miniLabel}>{formatRewardLabel('Checked:')}</ThemedText>
                 <TextInput
                   style={[styles.miniNumberInput, { color: textColor, borderColor }]}
                   value={editSuccessReward}
@@ -1018,7 +1028,7 @@ export function HabitCard({
               </View>
 
               <View style={styles.rewardContainer}>
-                <ThemedText style={styles.miniLabel}>{formatRewardLabel('Failure:')}</ThemedText>
+                <ThemedText style={styles.miniLabel}>{formatRewardLabel('Unchecked:')}</ThemedText>
                 <TextInput
                   style={[styles.miniNumberInput, { color: textColor, borderColor }]}
                   value={editFailureReward}
@@ -1070,11 +1080,23 @@ export function HabitCard({
               </View>
 
               <View style={styles.rewardContainer}>
-                <ThemedText style={styles.miniLabel}>{formatRewardLabel('Check:')}</ThemedText>
+                <ThemedText style={styles.miniLabel}>{formatRewardLabel('Checked:')}</ThemedText>
                 <TextInput
                   style={[styles.miniNumberInput, { color: textColor, borderColor }]}
                   value={editCountCheckBonus}
                   onChangeText={setEditCountCheckBonus}
+                  placeholder="5"
+                  keyboardType="numeric"
+                  placeholderTextColor={textColor + '80'}
+                />
+              </View>
+
+              <View style={styles.rewardContainer}>
+                <ThemedText style={styles.miniLabel}>{formatRewardLabel('Unchecked:')}</ThemedText>
+                <TextInput
+                  style={[styles.miniNumberInput, { color: textColor, borderColor }]}
+                  value={editCountCheckPenalty}
+                  onChangeText={setEditCountCheckPenalty}
                   placeholder="5"
                   keyboardType="numeric"
                   placeholderTextColor={textColor + '80'}
@@ -1135,11 +1157,23 @@ export function HabitCard({
               </View>
 
               <View style={styles.rewardContainer}>
-                <ThemedText style={styles.miniLabel}>{formatRewardLabel('Check:')}</ThemedText>
+                <ThemedText style={styles.miniLabel}>{formatRewardLabel('Checked:')}</ThemedText>
                 <TextInput
                   style={[styles.miniNumberInput, { color: textColor, borderColor }]}
                   value={editWeightCheckBonus}
                   onChangeText={setEditWeightCheckBonus}
+                  placeholder="5"
+                  keyboardType="numeric"
+                  placeholderTextColor={textColor + '80'}
+                />
+              </View>
+
+              <View style={styles.rewardContainer}>
+                <ThemedText style={styles.miniLabel}>{formatRewardLabel('Unchecked:')}</ThemedText>
+                <TextInput
+                  style={[styles.miniNumberInput, { color: textColor, borderColor }]}
+                  value={editWeightCheckPenalty}
+                  onChangeText={setEditWeightCheckPenalty}
                   placeholder="5"
                   keyboardType="numeric"
                   placeholderTextColor={textColor + '80'}

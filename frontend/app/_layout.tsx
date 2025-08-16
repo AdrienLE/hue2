@@ -3,17 +3,19 @@ import { Stack } from 'expo-router';
 import Head from 'expo-router/head';
 import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { AuthProvider, useAuth } from '@/auth/AuthContext';
 import { HabitVisibilityProvider, useHabitVisibility } from '@/contexts/HabitVisibilityContext';
-import { UserProvider } from '@/contexts/UserContext';
+import { UserProvider, useUser } from '@/contexts/UserContext';
 import { DevDateProvider, useDevDate } from '@/contexts/DevDateContext';
 import { Colors } from '@/constants/Colors';
 import { ThemedHeader } from '@/components/ThemedHeader';
 import { DailyReviewModal } from '@/components/DailyReviewModal';
+import { getLogicalDate, getLogicalDateTimestamp } from '@/contexts/DevDateContext';
 
 export default function RootLayout() {
   return (
@@ -32,10 +34,12 @@ export default function RootLayout() {
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
   const { token, loading } = useAuth();
+  const { userSettings } = useUser();
   const { showCheckedHabits, toggleCheckedHabits } = useHabitVisibility();
   const { advanceDay, resetToToday } = useDevDate();
   const [showDailyReview, setShowDailyReview] = useState(false);
   const [reviewDate, setReviewDate] = useState(new Date());
+  const [hasCheckedToday, setHasCheckedToday] = useState(false);
 
   const handleAdvanceDay = () => {
     console.log('handleAdvanceDay called');
@@ -61,6 +65,89 @@ function RootLayoutNav() {
     console.log('handleResetDay called');
     resetToToday();
   };
+
+  // Check for automatic daily review on app load/focus
+  useEffect(() => {
+    if (!token || !userSettings) return;
+
+    const checkForDailyReview = async () => {
+      try {
+        const rolloverHour = userSettings.day_rollover_hour || 3;
+        const today = getLogicalDate(rolloverHour);
+        const lastActiveDate = await AsyncStorage.getItem('lastActiveDate');
+
+        console.log('Daily review check:', { today, lastActiveDate, rolloverHour });
+
+        if (lastActiveDate && lastActiveDate !== today) {
+          // User was last active on a different day
+          const lastDate = new Date(lastActiveDate + 'T00:00:00');
+          const currentDate = new Date(today + 'T00:00:00');
+          const daysDiff = Math.floor(
+            (currentDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24)
+          );
+
+          console.log('Days since last active:', daysDiff);
+
+          if (daysDiff >= 1) {
+            // Show daily review for the most recent missed day
+            const reviewDay = new Date(currentDate);
+            reviewDay.setDate(reviewDay.getDate() - 1);
+            setReviewDate(reviewDay);
+            setShowDailyReview(true);
+            console.log('Showing automatic daily review for:', reviewDay);
+          }
+        }
+
+        // Update last active date
+        await AsyncStorage.setItem('lastActiveDate', today);
+        setHasCheckedToday(true);
+      } catch (error) {
+        console.error('Error checking for daily review:', error);
+      }
+    };
+
+    // Only check once per app session and when user settings are loaded
+    if (!hasCheckedToday) {
+      checkForDailyReview();
+    }
+  }, [token, userSettings, hasCheckedToday]);
+
+  // Also check when the app comes back to foreground
+  useEffect(() => {
+    if (!token || !userSettings) return;
+
+    const handleAppStateChange = async () => {
+      try {
+        const rolloverHour = userSettings.day_rollover_hour || 3;
+        const today = getLogicalDate(rolloverHour);
+        const lastActiveDate = await AsyncStorage.getItem('lastActiveDate');
+
+        if (lastActiveDate && lastActiveDate !== today) {
+          // Day has changed while app was in background
+          const lastDate = new Date(lastActiveDate + 'T00:00:00');
+          const currentDate = new Date(today + 'T00:00:00');
+          const daysDiff = Math.floor(
+            (currentDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24)
+          );
+
+          if (daysDiff >= 1 && !showDailyReview) {
+            const reviewDay = new Date(currentDate);
+            reviewDay.setDate(reviewDay.getDate() - 1);
+            setReviewDate(reviewDay);
+            setShowDailyReview(true);
+          }
+
+          await AsyncStorage.setItem('lastActiveDate', today);
+        }
+      } catch (error) {
+        console.error('Error checking app state change:', error);
+      }
+    };
+
+    // Check every minute for day changes (lightweight check)
+    const interval = setInterval(handleAppStateChange, 60000);
+    return () => clearInterval(interval);
+  }, [token, userSettings, showDailyReview]);
 
   if (loading) {
     return null;

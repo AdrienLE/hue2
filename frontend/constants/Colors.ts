@@ -46,7 +46,7 @@ export const Colors = {
 
 // Convert OKLCH to RGB hex for perceptually uniform colors
 // OKLCH is a newer, more accurate perceptual color space
-function oklchToHex(l: number, c: number, h: number): string {
+export function oklchToHex(l: number, c: number, h: number): string {
   // Convert to OKLAB first
   const a = c * Math.cos((h * Math.PI) / 180);
   const b = c * Math.sin((h * Math.PI) / 180);

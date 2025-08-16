@@ -11,6 +11,12 @@ interface UserSettings {
   color_saturation?: number; // 0-100, how colorful vs gray
 }
 
+interface RewardAnimation {
+  id: string;
+  amount: number;
+  timestamp: number;
+}
+
 interface UserContextType {
   userSettings: UserSettings;
   totalRewards: number;
@@ -18,6 +24,8 @@ interface UserContextType {
   addReward: (amount: number) => Promise<void>;
   subtractReward: (amount: number) => Promise<void>;
   loadUserData: () => Promise<void>;
+  rewardAnimations: RewardAnimation[];
+  clearAnimation: (id: string) => void;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -32,6 +40,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     color_saturation: 60, // Default 60% saturation for tame colors
   });
   const [totalRewards, setTotalRewards] = useState(0);
+  const [rewardAnimations, setRewardAnimations] = useState<RewardAnimation[]>([]);
   const { token } = useAuth();
 
   const loadUserData = async () => {
@@ -84,6 +93,16 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const newTotal = totalRewards + amount;
     // Optimistic update for immediate UI feedback
     setTotalRewards(newTotal);
+
+    // Add animation
+    const animationId = `${Date.now()}-${Math.random()}`;
+    const newAnimation: RewardAnimation = {
+      id: animationId,
+      amount,
+      timestamp: Date.now(),
+    };
+    setRewardAnimations(prev => [...prev, newAnimation]);
+
     try {
       await updateUserSettings({ total_rewards: newTotal });
     } catch (error) {
@@ -97,6 +116,16 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const newTotal = Math.max(0, totalRewards - amount); // Don't go below 0
     // Optimistic update for immediate UI feedback
     setTotalRewards(newTotal);
+
+    // Add animation (negative amount)
+    const animationId = `${Date.now()}-${Math.random()}`;
+    const newAnimation: RewardAnimation = {
+      id: animationId,
+      amount: -amount,
+      timestamp: Date.now(),
+    };
+    setRewardAnimations(prev => [...prev, newAnimation]);
+
     try {
       await updateUserSettings({ total_rewards: newTotal });
     } catch (error) {
@@ -104,6 +133,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setTotalRewards(totalRewards);
       throw error;
     }
+  };
+
+  const clearAnimation = (id: string) => {
+    setRewardAnimations(prev => prev.filter(anim => anim.id !== id));
   };
 
   useEffect(() => {
@@ -119,6 +152,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         addReward,
         subtractReward,
         loadUserData,
+        rewardAnimations,
+        clearAnimation,
       }}
     >
       {children}

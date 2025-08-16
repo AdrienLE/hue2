@@ -15,6 +15,7 @@ import { useThemeColor } from '@/hooks/useThemeColor';
 import { useUser } from '@/contexts/UserContext';
 import { HueColors } from '@/constants/Colors';
 import { DevTools } from './DevTools';
+import { RewardAnimation } from './ui/RewardAnimation';
 
 interface ThemedHeaderProps {
   title: string;
@@ -43,7 +44,8 @@ export function ThemedHeader({
   const textColor = useThemeColor({}, 'text');
   const tintColor = useThemeColor({}, 'tint');
   const borderColor = useThemeColor({ light: '#e1e5e9', dark: '#333' }, 'border');
-  const { userSettings, totalRewards, subtractReward } = useUser();
+  const { userSettings, totalRewards, subtractReward, rewardAnimations, clearAnimation } =
+    useUser();
 
   const formatReward = (amount: number) => {
     const unit = userSettings.reward_unit || '$';
@@ -120,17 +122,30 @@ export function ThemedHeader({
       </View>
 
       <View style={styles.rightSection}>
-        <TouchableOpacity
-          style={[styles.rewardDisplay, { borderColor: tintColor }]}
-          onPress={() => {
-            console.log('Reward clicked, current showSpendInput:', showSpendInput);
-            setShowSpendInput(!showSpendInput);
-          }}
-        >
-          <ThemedText style={[styles.rewardText, { color: tintColor }]}>
-            {formatReward(totalRewards)}
-          </ThemedText>
-        </TouchableOpacity>
+        <View style={styles.rewardContainer}>
+          <TouchableOpacity
+            style={[styles.rewardDisplay, { borderColor: tintColor }]}
+            onPress={() => {
+              console.log('Reward clicked, current showSpendInput:', showSpendInput);
+              setShowSpendInput(!showSpendInput);
+            }}
+          >
+            <ThemedText style={[styles.rewardText, { color: tintColor }]}>
+              {formatReward(totalRewards)}
+            </ThemedText>
+          </TouchableOpacity>
+
+          {/* Reward Animations */}
+          {rewardAnimations.map(animation => (
+            <RewardAnimation
+              key={animation.id}
+              amount={animation.amount}
+              isVisible={true}
+              onComplete={() => clearAnimation(animation.id)}
+              position="right"
+            />
+          ))}
+        </View>
 
         <TouchableOpacity
           style={[
@@ -332,6 +347,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  rewardContainer: {
+    position: 'relative',
   },
   rewardDisplay: {
     paddingHorizontal: 12,

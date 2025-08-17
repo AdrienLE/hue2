@@ -13,7 +13,8 @@
       "bundleIdentifier": "com.adrienle.hue2",
       "associatedDomains": ["applinks:hue2-production.up.railway.app"],
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSUserActivityTypes": ["NSUserActivityTypeBrowsingWeb"]
       }
     },
     "android": {
@@ -30,7 +31,12 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-router",
+      [
+        "expo-router",
+        {
+          "origin": "https://hue2-production.up.railway.app"
+        }
+      ],
       [
         "expo-splash-screen",
         {

@@ -9,6 +9,7 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from './ThemedText';
 import { ProfileMenu } from './ProfileMenu';
 import { useThemeColor } from '@/hooks/useThemeColor';
@@ -40,6 +41,7 @@ export function ThemedHeader({
   const [showSpendInput, setShowSpendInput] = useState(false);
   const [spendAmount, setSpendAmount] = useState('');
   const [spending, setSpending] = useState(false);
+  const insets = useSafeAreaInsets();
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
   const tintColor = useThemeColor({}, 'tint');
@@ -105,7 +107,12 @@ export function ThemedHeader({
   };
 
   return (
-    <View style={[styles.container, { backgroundColor, borderBottomColor: borderColor }]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor, borderBottomColor: borderColor, paddingTop: insets.top + 8 },
+      ]}
+    >
       <View style={styles.leftSection}>
         {showIcon && (
           <Image
@@ -330,7 +337,6 @@ export function ThemedHeader({
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: 8, // Reduced from 32 to make header thinner
     paddingBottom: 8,
     paddingHorizontal: 16,
     borderBottomWidth: 1,

@@ -9,6 +9,11 @@ interface UserSettings {
   day_rollover_hour?: number; // Hour of day when habits roll over to next day (0-23, default 3)
   color_brightness?: number; // 0-100, inverts in dark mode
   color_saturation?: number; // 0-100, how colorful vs gray
+  last_session_date?: string; // Last date the user was active (YYYY-MM-DD format)
+  pending_daily_review?: {
+    review_date: string;
+    created_at: string;
+  } | null; // Tracks if there's a pending daily review that needs completion
 }
 
 interface RewardAnimation {
@@ -26,6 +31,11 @@ interface UserContextType {
   loadUserData: () => Promise<void>;
   rewardAnimations: RewardAnimation[];
   clearAnimation: (id: string) => void;
+  setPendingDailyReview: (
+    reviewData: { review_date: string; created_at: string } | null
+  ) => Promise<void>;
+  clearPendingDailyReview: () => Promise<void>;
+  updateLastSessionDate: (date: string) => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -57,6 +67,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           day_rollover_hour: settings.day_rollover_hour || 3,
           color_brightness: settings.color_brightness ?? 50,
           color_saturation: settings.color_saturation ?? 60,
+          last_session_date: settings.last_session_date,
+          pending_daily_review: settings.pending_daily_review || null,
         });
         setTotalRewards(settings.total_rewards || 0);
       }
@@ -139,6 +151,20 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setRewardAnimations(prev => prev.filter(anim => anim.id !== id));
   };
 
+  const setPendingDailyReview = async (
+    reviewData: { review_date: string; created_at: string } | null
+  ) => {
+    await updateUserSettings({ pending_daily_review: reviewData });
+  };
+
+  const clearPendingDailyReview = async () => {
+    await updateUserSettings({ pending_daily_review: null });
+  };
+
+  const updateLastSessionDate = async (date: string) => {
+    await updateUserSettings({ last_session_date: date });
+  };
+
   useEffect(() => {
     loadUserData();
   }, [token]);
@@ -154,6 +180,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         loadUserData,
         rewardAnimations,
         clearAnimation,
+        setPendingDailyReview,
+        clearPendingDailyReview,
+        updateLastSessionDate,
       }}
     >
       {children}

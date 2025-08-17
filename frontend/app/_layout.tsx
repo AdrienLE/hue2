@@ -4,7 +4,6 @@ import Head from 'expo-router/head';
 import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
 import { useState, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -34,7 +33,8 @@ export default function RootLayout() {
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
   const { token, loading } = useAuth();
-  const { userSettings } = useUser();
+  const { userSettings, setPendingDailyReview, clearPendingDailyReview, updateLastSessionDate } =
+    useUser();
   const { showCheckedHabits, toggleCheckedHabits } = useHabitVisibility();
   const { advanceDay, resetToToday } = useDevDate();
   const [showDailyReview, setShowDailyReview] = useState(false);
@@ -74,9 +74,23 @@ function RootLayoutNav() {
       try {
         const rolloverHour = userSettings.day_rollover_hour || 3;
         const today = getLogicalDate(rolloverHour);
-        const lastActiveDate = await AsyncStorage.getItem('lastActiveDate');
+        const lastActiveDate = userSettings.last_session_date;
+        const pendingDailyReview = userSettings.pending_daily_review;
 
-        console.log('Daily review check:', { today, lastActiveDate, rolloverHour });
+        console.log('Daily review check:', {
+          today,
+          lastActiveDate,
+          rolloverHour,
+          pendingDailyReview,
+        });
+
+        // Check if there's a pending daily review that hasn't been completed
+        if (pendingDailyReview) {
+          setReviewDate(new Date(pendingDailyReview.review_date));
+          setShowDailyReview(true);
+          console.log('Restoring pending daily review for:', pendingDailyReview.review_date);
+          return;
+        }
 
         if (lastActiveDate && lastActiveDate !== today) {
           // User was last active on a different day
@@ -94,12 +108,19 @@ function RootLayoutNav() {
             reviewDay.setDate(reviewDay.getDate() - 1);
             setReviewDate(reviewDay);
             setShowDailyReview(true);
+
+            // Store pending review on server to persist across devices/reloads
+            await setPendingDailyReview({
+              review_date: reviewDay.toISOString(),
+              created_at: new Date().toISOString(),
+            });
+
             console.log('Showing automatic daily review for:', reviewDay);
           }
         }
 
-        // Update last active date
-        await AsyncStorage.setItem('lastActiveDate', today);
+        // Update last active date on server
+        await updateLastSessionDate(today);
         setHasCheckedToday(true);
       } catch (error) {
         console.error('Error checking for daily review:', error);
@@ -120,7 +141,7 @@ function RootLayoutNav() {
       try {
         const rolloverHour = userSettings.day_rollover_hour || 3;
         const today = getLogicalDate(rolloverHour);
-        const lastActiveDate = await AsyncStorage.getItem('lastActiveDate');
+        const lastActiveDate = userSettings.last_session_date;
 
         if (lastActiveDate && lastActiveDate !== today) {
           // Day has changed while app was in background
@@ -135,9 +156,15 @@ function RootLayoutNav() {
             reviewDay.setDate(reviewDay.getDate() - 1);
             setReviewDate(reviewDay);
             setShowDailyReview(true);
+
+            // Store pending review on server to persist across devices/reloads
+            await setPendingDailyReview({
+              review_date: reviewDay.toISOString(),
+              created_at: new Date().toISOString(),
+            });
           }
 
-          await AsyncStorage.setItem('lastActiveDate', today);
+          await updateLastSessionDate(today);
         }
       } catch (error) {
         console.error('Error checking app state change:', error);

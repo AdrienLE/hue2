@@ -17,6 +17,15 @@ interface DailyReviewModalProps {
 }
 
 export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewModalProps) {
+  const handleClose = async () => {
+    try {
+      await clearPendingDailyReview();
+      onClose();
+    } catch (error) {
+      console.error('Error clearing pending review:', error);
+      onClose(); // Still close even if clearing fails
+    }
+  };
   const [originallyUncheckedHabits, setOriginallyUncheckedHabits] = useState<Habit[]>([]);
   const [currentlyCheckedHabits, setCurrentlyCheckedHabits] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -26,7 +35,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
   const [showSkippedDaysOptions, setShowSkippedDaysOptions] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const { token } = useAuth();
-  const { subtractReward } = useUser();
+  const { subtractReward, clearPendingDailyReview } = useUser();
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
   const tintColor = useThemeColor({}, 'tint');
@@ -138,11 +147,11 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
         Alert.alert(
           'Penalties Applied',
           `Deducted ${totalPenalty} points for ${originallyUncheckedHabits.length} missed habits.`,
-          [{ text: 'OK', onPress: onClose }]
+          [{ text: 'OK', onPress: handleClose }]
         );
       } else {
         Alert.alert('No Penalties', 'No penalty points were configured for these habits.', [
-          { text: 'OK', onPress: onClose },
+          { text: 'OK', onPress: handleClose },
         ]);
       }
     } catch (error) {
@@ -216,7 +225,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
   );
 
   return (
-    <Modal visible={visible} transparent={true} animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent={true} animationType="slide" onRequestClose={handleClose}>
       <View style={styles.overlay}>
         <ThemedView style={[styles.modal, { borderColor }]}>
           <ThemedText style={styles.title}>Daily Review</ThemedText>
@@ -277,7 +286,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
             {originallyUncheckedHabits.length === 0 ? (
               <TouchableOpacity
                 style={[styles.button, styles.fullButton, { backgroundColor: tintColor }]}
-                onPress={onClose}
+                onPress={handleClose}
               >
                 <ThemedText style={[styles.buttonText, { color: backgroundColor }]}>
                   All Done! 🎉
@@ -286,7 +295,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
             ) : allHabitsCompleted && isLastDay ? (
               <TouchableOpacity
                 style={[styles.button, styles.fullButton, { backgroundColor: tintColor }]}
-                onPress={onClose}
+                onPress={handleClose}
               >
                 <ThemedText style={[styles.buttonText, { color: backgroundColor }]}>
                   Perfect! All Complete! 🎉
@@ -315,7 +324,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
 
                 <TouchableOpacity
                   style={[styles.button, styles.applyButton, { backgroundColor: '#666' }]}
-                  onPress={onClose}
+                  onPress={handleClose}
                   disabled={applying}
                 >
                   <ThemedText style={[styles.buttonText, { color: 'white' }]}>Close</ThemedText>

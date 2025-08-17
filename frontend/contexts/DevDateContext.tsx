@@ -80,12 +80,16 @@ export function getLogicalDate(rolloverHour: number = 3, currentDate?: Date): st
 
   // If it's before the rollover hour, use the previous day
   const adjustedDate = new Date(now);
-  if (now.getHours() < rolloverHour) {
+  if (adjustedDate.getHours() < rolloverHour) {
     adjustedDate.setDate(adjustedDate.getDate() - 1);
   }
 
-  // Return in YYYY-MM-DD format
-  return adjustedDate.toISOString().split('T')[0];
+  // Use local date methods to avoid timezone issues
+  const year = adjustedDate.getFullYear();
+  const month = String(adjustedDate.getMonth() + 1).padStart(2, '0');
+  const day = String(adjustedDate.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
 }
 
 // Helper function to get date range for API calls

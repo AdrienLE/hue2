@@ -371,6 +371,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
                       onChecked={handleHabitChecked}
                       onUnchecked={handleHabitUnchecked}
                       isCheckedToday={isChecked}
+                      checkDate={reviewDate}
                     />
                   );
                 })}

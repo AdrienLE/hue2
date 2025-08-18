@@ -30,6 +30,7 @@ interface HabitCardProps {
   isDraggable?: boolean;
   onDrag?: () => void;
   isActive?: boolean;
+  checkDate?: Date; // Optional date to use for habit checks (defaults to current date)
 }
 
 export function HabitCard({
@@ -45,7 +46,19 @@ export function HabitCard({
   isDraggable,
   onDrag,
   isActive,
+  checkDate,
 }: HabitCardProps) {
+  // Helper function to get the date to use for habit checks
+  const getCheckDate = (rolloverHour: number = 3): string => {
+    if (checkDate) {
+      // Use the provided checkDate prop (for daily review modal)
+      return checkDate.toLocaleDateString('en-CA'); // YYYY-MM-DD format
+    } else {
+      // Use current logical date (normal operation)
+      return getLogicalDate(rolloverHour);
+    }
+  };
+
   // Common state
   const [showDropdown, setShowDropdown] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
@@ -417,7 +430,7 @@ export function HabitCard({
         const checkData = {
           habit_id: habit.id,
           checked: true,
-          check_date: getLogicalDate(rolloverHour) + 'T00:00:00.000',
+          check_date: getCheckDate(rolloverHour) + 'T00:00:00.000',
         };
 
         const response = await HabitService.createCheck(checkData, token);
@@ -462,7 +475,7 @@ export function HabitCard({
       const countData = {
         habit_id: habit.id,
         value: change,
-        count_date: getLogicalDate(rolloverHour) + 'T00:00:00.000',
+        count_date: getCheckDate(rolloverHour) + 'T00:00:00.000',
       };
 
       // Optimistic UI update
@@ -526,7 +539,7 @@ export function HabitCard({
       const weightData = {
         habit_id: habit.id,
         weight,
-        update_date: getLogicalDate(rolloverHour) + 'T00:00:00.000',
+        update_date: getCheckDate(rolloverHour) + 'T00:00:00.000',
       };
 
       const response = await HabitService.createWeightUpdate(weightData, token);

@@ -7,13 +7,31 @@ import {
   Modal,
   Pressable,
   TextInput,
-  Alert,
+  Platform,
+  Button,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+let DateTimePicker: any;
+let ReactDatePicker: any;
+try {
+  DateTimePicker = require('@react-native-community/datetimepicker').default;
+} catch (e) {
+  // DateTimePicker not available on web
+  DateTimePicker = null;
+}
+if (Platform.OS === 'web') {
+  try {
+    ReactDatePicker = require('react-datepicker').default;
+    require('react-datepicker/dist/react-datepicker.css');
+  } catch (e) {
+    ReactDatePicker = null;
+  }
+}
 import { ThemedText } from './ThemedText';
 import { ProfileMenu } from './ProfileMenu';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { useUser } from '@/contexts/UserContext';
+import { useDevDate } from '@/contexts/DevDateContext';
 import { HueColors } from '@/constants/Colors';
 import { DevTools } from './DevTools';
 import { RewardAnimation } from './ui/RewardAnimation';
@@ -41,6 +59,9 @@ export function ThemedHeader({
   const [showSpendInput, setShowSpendInput] = useState(false);
   const [spendAmount, setSpendAmount] = useState('');
   const [spending, setSpending] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [tempCustomDate, setTempCustomDate] = useState<Date | null>(null);
   const insets = useSafeAreaInsets();
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
@@ -48,6 +69,7 @@ export function ThemedHeader({
   const borderColor = useThemeColor({ light: '#e1e5e9', dark: '#333' }, 'border');
   const { userSettings, totalRewards, subtractReward, rewardAnimations, clearAnimation } =
     useUser();
+  const { customDateOverride, setCustomDateOverride, isUsingCustomDate } = useDevDate();
 
   const formatReward = (amount: number) => {
     const unit = userSettings.reward_unit || '$';
@@ -59,50 +81,20 @@ export function ThemedHeader({
   const handleSpend = async () => {
     const amount = parseFloat(spendAmount);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid positive amount to spend.');
+      console.log('Invalid Amount: Please enter a valid positive amount to spend.');
       return;
     }
 
-    const willGoNegative = totalRewards - amount < 0;
-    if (willGoNegative) {
-      Alert.alert(
-        'Warning: Negative Balance',
-        `This will take your balance to ${formatReward(totalRewards - amount)}. Make sure you\'re not cheating your targets!`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Spend Anyway',
-            style: 'destructive',
-            onPress: async () => {
-              setSpending(true);
-              try {
-                await subtractReward(amount);
-                setSpendAmount('');
-                setShowSpendInput(false);
-                Alert.alert('Success', `Spent ${formatReward(amount)}!`);
-              } catch (error) {
-                console.error('Error spending reward:', error);
-                Alert.alert('Error', 'Failed to spend reward');
-              } finally {
-                setSpending(false);
-              }
-            },
-          },
-        ]
-      );
-    } else {
-      setSpending(true);
-      try {
-        await subtractReward(amount);
-        setSpendAmount('');
-        setShowSpendInput(false);
-        Alert.alert('Success', `Spent ${formatReward(amount)}!`);
-      } catch (error) {
-        console.error('Error spending reward:', error);
-        Alert.alert('Error', 'Failed to spend reward');
-      } finally {
-        setSpending(false);
-      }
+    setSpending(true);
+    try {
+      await subtractReward(amount);
+      setSpendAmount('');
+      setShowSpendInput(false);
+      console.log(`Success: Spent ${formatReward(amount)}!`);
+    } catch (error) {
+      console.error('Error spending reward:', error);
+    } finally {
+      setSpending(false);
     }
   };
 
@@ -264,60 +256,253 @@ export function ThemedHeader({
           animationType="fade"
           onRequestClose={() => setShowDevTools(false)}
         >
-          <Pressable style={styles.overlay} onPress={() => setShowDevTools(false)}>
+          <Pressable
+            style={styles.overlay}
+            onPress={e => {
+              if (e.target === e.currentTarget) {
+                setShowDevTools(false);
+              }
+            }}
+          >
             <View style={[styles.modal, { backgroundColor, borderColor }]}>
               <ThemedText style={[styles.modalTitle, { color: textColor }]}>Dev Tools</ThemedText>
 
-              <TouchableOpacity
-                style={[styles.devButton, { backgroundColor: tintColor }]}
-                onPress={() => {
-                  onAdvanceDay?.();
-                  setShowDevTools(false);
-                }}
-              >
-                <ThemedText style={[styles.devButtonText, { color: backgroundColor }]}>
-                  Advance Day (+1)
+              {/* Current Date/Time Display */}
+              <View style={styles.dateSection}>
+                <ThemedText style={[styles.dateSectionTitle, { color: textColor }]}>
+                  Custom Date/Time Override
                 </ThemedText>
-              </TouchableOpacity>
+                {isUsingCustomDate && customDateOverride ? (
+                  <View>
+                    <ThemedText style={[styles.currentDate, { color: tintColor }]}>
+                      {customDateOverride.toLocaleDateString()}{' '}
+                      {customDateOverride.toLocaleTimeString()}
+                    </ThemedText>
+                    <TouchableOpacity
+                      style={[styles.devButton, { backgroundColor: '#ff6b6b', marginTop: 8 }]}
+                      onPress={() => {
+                        setCustomDateOverride(null);
+                        setTempCustomDate(null);
+                      }}
+                    >
+                      <ThemedText style={[styles.devButtonText, { color: 'white' }]}>
+                        Clear Override (Use Real Time)
+                      </ThemedText>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <ThemedText style={[styles.currentDate, { color: textColor, opacity: 0.6 }]}>
+                    Using real time
+                  </ThemedText>
+                )}
+              </View>
 
-              <TouchableOpacity
-                style={[styles.devButton, { backgroundColor: '#9b59b6' }]}
-                onPress={() => {
-                  // Advance 3 days
-                  onAdvanceDay?.();
-                  setTimeout(() => onAdvanceDay?.(), 100);
-                  setTimeout(() => onAdvanceDay?.(), 200);
-                  setShowDevTools(false);
-                }}
-              >
-                <ThemedText style={[styles.devButtonText, { color: 'white' }]}>
-                  Advance 3 Days (+3)
-                </ThemedText>
-              </TouchableOpacity>
+              {/* Date/Time Picker Controls */}
+              <View style={styles.pickerSection}>
+                {Platform.OS === 'web' ? (
+                  <View>
+                    {ReactDatePicker ? (
+                      <View>
+                        <View style={styles.datePickerWrapper}>
+                          <ReactDatePicker
+                            selected={tempCustomDate || customDateOverride || new Date()}
+                            onChange={(date: Date | null) => {
+                              if (date) {
+                                setTempCustomDate(date);
+                              }
+                            }}
+                            showTimeSelect
+                            dateFormat="yyyy-MM-dd HH:mm:ss"
+                            timeFormat="HH:mm"
+                            timeIntervals={15}
+                            customInput={
+                              <TextInput
+                                style={[
+                                  styles.dateInput,
+                                  { color: textColor, borderColor, width: '100%' },
+                                ]}
+                                placeholder="YYYY-MM-DD HH:MM:SS"
+                                placeholderTextColor={textColor + '60'}
+                                value={
+                                  tempCustomDate
+                                    ? tempCustomDate.toISOString().slice(0, 19).replace('T', ' ')
+                                    : ''
+                                }
+                              />
+                            }
+                          />
+                        </View>
+                        <View style={styles.dateButtonsRow}>
+                          <TouchableOpacity
+                            style={[styles.devButton, { backgroundColor: tintColor, flex: 1 }]}
+                            onPress={() => {
+                              if (tempCustomDate) {
+                                setCustomDateOverride(tempCustomDate);
+                              }
+                            }}
+                          >
+                            <ThemedText style={[styles.devButtonText, { color: backgroundColor }]}>
+                              Apply
+                            </ThemedText>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.addDayButton, { backgroundColor: '#9b59b6' }]}
+                            onPress={() => {
+                              const currentDate =
+                                tempCustomDate || customDateOverride || new Date();
+                              const nextDay = new Date(currentDate);
+                              nextDay.setDate(nextDay.getDate() + 1);
+                              setTempCustomDate(nextDay);
+                              setCustomDateOverride(nextDay);
+                            }}
+                          >
+                            <ThemedText style={[styles.addDayButtonText, { color: 'white' }]}>
+                              +1 Day
+                            </ThemedText>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ) : (
+                      // Fallback if ReactDatePicker is not available
+                      <View>
+                        <View style={styles.dateInputRow}>
+                          <TextInput
+                            style={[styles.dateInput, { color: textColor, borderColor, flex: 1 }]}
+                            placeholder="YYYY-MM-DD HH:MM:SS"
+                            placeholderTextColor={textColor + '60'}
+                            value={
+                              tempCustomDate
+                                ? tempCustomDate.toISOString().slice(0, 19).replace('T', ' ')
+                                : ''
+                            }
+                            onChangeText={text => {
+                              const date = new Date(text);
+                              if (!isNaN(date.getTime())) {
+                                setTempCustomDate(date);
+                              }
+                            }}
+                          />
+                          <TouchableOpacity
+                            style={[styles.addDayButton, { backgroundColor: tintColor }]}
+                            onPress={() => {
+                              const currentDate = customDateOverride || new Date();
+                              const nextDay = new Date(currentDate);
+                              nextDay.setDate(nextDay.getDate() + 1);
+                              setTempCustomDate(nextDay);
+                              setCustomDateOverride(nextDay);
+                            }}
+                          >
+                            <ThemedText
+                              style={[styles.addDayButtonText, { color: backgroundColor }]}
+                            >
+                              +1 Day
+                            </ThemedText>
+                          </TouchableOpacity>
+                        </View>
+                        <TouchableOpacity
+                          style={[styles.devButton, { backgroundColor: tintColor, marginTop: 8 }]}
+                          onPress={() => {
+                            if (tempCustomDate) {
+                              setCustomDateOverride(tempCustomDate);
+                            }
+                          }}
+                        >
+                          <ThemedText style={[styles.devButtonText, { color: backgroundColor }]}>
+                            Apply Custom Date/Time
+                          </ThemedText>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.devButton, { backgroundColor: tintColor }]}
+                    onPress={() => {
+                      setTempCustomDate(customDateOverride || new Date());
+                      if (Platform.OS === 'ios') {
+                        setShowDatePicker(true);
+                      } else {
+                        // On Android, show date picker directly
+                        setShowDatePicker(true);
+                      }
+                    }}
+                  >
+                    <ThemedText style={[styles.devButtonText, { color: backgroundColor }]}>
+                      Set Custom Date/Time
+                    </ThemedText>
+                  </TouchableOpacity>
+                )}
+              </View>
 
-              <TouchableOpacity
-                style={[styles.devButton, { backgroundColor: '#4ecdc4' }]}
-                onPress={() => {
-                  onTriggerDailyReview?.();
-                  setShowDevTools(false);
-                }}
-              >
-                <ThemedText style={[styles.devButtonText, { color: 'white' }]}>
-                  Trigger Daily Review
-                </ThemedText>
-              </TouchableOpacity>
+              {/* iOS Date Picker Modal */}
+              {Platform.OS === 'ios' && showDatePicker && DateTimePicker && (
+                <Modal transparent={true} animationType="slide" visible={showDatePicker}>
+                  <View style={styles.pickerOverlay}>
+                    <View style={[styles.pickerContainer, { backgroundColor }]}>
+                      <View style={styles.pickerHeader}>
+                        <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                          <ThemedText style={[styles.pickerButton, { color: tintColor }]}>
+                            Cancel
+                          </ThemedText>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => {
+                            if (tempCustomDate) {
+                              setCustomDateOverride(tempCustomDate);
+                            }
+                            setShowDatePicker(false);
+                          }}
+                        >
+                          <ThemedText style={[styles.pickerButton, { color: tintColor }]}>
+                            Done
+                          </ThemedText>
+                        </TouchableOpacity>
+                      </View>
+                      <DateTimePicker
+                        value={tempCustomDate || new Date()}
+                        mode="datetime"
+                        display="spinner"
+                        onChange={(event, selectedDate) => {
+                          if (selectedDate) {
+                            setTempCustomDate(selectedDate);
+                          }
+                        }}
+                      />
+                    </View>
+                  </View>
+                </Modal>
+              )}
 
-              <TouchableOpacity
-                style={[styles.devButton, { backgroundColor: '#ff6b6b' }]}
-                onPress={() => {
-                  onResetDay?.();
-                  setShowDevTools(false);
-                }}
-              >
-                <ThemedText style={[styles.devButtonText, { color: 'white' }]}>
-                  Reset to Today
-                </ThemedText>
-              </TouchableOpacity>
+              {/* Android Date/Time Pickers */}
+              {Platform.OS === 'android' && showDatePicker && DateTimePicker && (
+                <DateTimePicker
+                  value={tempCustomDate || new Date()}
+                  mode="date"
+                  display="default"
+                  onChange={(event, selectedDate) => {
+                    setShowDatePicker(false);
+                    if (selectedDate) {
+                      setTempCustomDate(selectedDate);
+                      // After date is selected, show time picker
+                      setTimeout(() => setShowTimePicker(true), 100);
+                    }
+                  }}
+                />
+              )}
+
+              {Platform.OS === 'android' && showTimePicker && DateTimePicker && (
+                <DateTimePicker
+                  value={tempCustomDate || new Date()}
+                  mode="time"
+                  display="default"
+                  onChange={(event, selectedDate) => {
+                    setShowTimePicker(false);
+                    if (selectedDate) {
+                      setCustomDateOverride(selectedDate);
+                    }
+                  }}
+                />
+              )}
 
               <TouchableOpacity
                 style={[styles.closeButton, { borderColor }]}
@@ -500,5 +685,87 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.7,
     marginBottom: 20,
+  },
+  dateSection: {
+    marginBottom: 20,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(128, 128, 128, 0.2)',
+  },
+  dateSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  currentDate: {
+    fontSize: 16,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  pickerSection: {
+    marginBottom: 16,
+  },
+  quickActionsSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(128, 128, 128, 0.2)',
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  pickerOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  pickerContainer: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 20,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(128, 128, 128, 0.2)',
+  },
+  pickerButton: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  dateInput: {
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+  },
+  dateInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  addDayButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  addDayButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  datePickerWrapper: {
+    marginBottom: 8,
+  },
+  dateButtonsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
   },
 });

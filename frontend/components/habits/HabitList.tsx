@@ -4,7 +4,6 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
-  Alert,
   Platform,
   View,
 } from 'react-native';
@@ -19,6 +18,7 @@ import { useUser } from '@/contexts/UserContext';
 import { useHabitVisibility } from '@/contexts/HabitVisibilityContext';
 import { getLogicalDate } from '@/contexts/DevDateContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
+import { getCurrentDate, useDevDate } from '@/contexts/DevDateContext';
 import type { Habit } from '@/lib/types/habits';
 import { HabitItem } from './HabitItem';
 import { QuickAddHabit } from './QuickAddHabit';
@@ -32,6 +32,7 @@ export function HabitList() {
   const { token } = useAuth();
   const { userSettings } = useUser();
   const { showCheckedHabits } = useHabitVisibility();
+  const { customDateOverride } = useDevDate();
   const textColor = useThemeColor({}, 'text');
 
   console.log('🔍 HabitList render - token:', token ? 'EXISTS' : 'MISSING', 'loading:', loading);
@@ -67,11 +68,9 @@ export function HabitList() {
         await loadTodaysChecks();
       } else {
         console.error('Failed to load habits:', response.error);
-        Alert.alert('Error', 'Failed to load habits');
       }
     } catch (error) {
       console.error('Error loading habits:', error);
-      Alert.alert('Error', 'Failed to load habits');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -83,7 +82,8 @@ export function HabitList() {
 
     try {
       const rolloverHour = userSettings.day_rollover_hour || 3;
-      const today = getLogicalDate(rolloverHour); // Uses logical day with rollover hour
+      const currentDate = getCurrentDate(); // This will use custom date if set
+      const today = getLogicalDate(rolloverHour, currentDate); // Pass current date to use override
       const response = await HabitService.getChecks(token);
       if (response.data) {
         const todaysChecks = response.data.filter(check => check.check_date.startsWith(today));
@@ -154,7 +154,7 @@ export function HabitList() {
   };
 
   // Get current day of week (0 = Sunday, 6 = Saturday)
-  const currentDayOfWeek = new Date().getDay();
+  const currentDayOfWeek = getCurrentDate().getDay();
 
   // Filter habits based on visibility setting and weekday schedule
   const visibleHabits = habits.filter(habit => {
@@ -176,6 +176,14 @@ export function HabitList() {
     console.log('🔄 useEffect triggered - token:', token ? 'EXISTS' : 'MISSING');
     loadHabits();
   }, [token]);
+
+  // Reload habits and checks when custom date changes
+  useEffect(() => {
+    if (customDateOverride && token) {
+      console.log('📅 Custom date changed, reloading habits and checks');
+      loadTodaysChecks();
+    }
+  }, [customDateOverride]);
 
   if (loading) {
     return (
@@ -220,39 +228,41 @@ export function HabitList() {
             onRefresh={() => loadHabits(true)}
           />
         ) : (
-          <DraggableFlatList
-            data={visibleHabits}
-            onDragEnd={({ data }) => handleHabitReorder(data)}
-            keyExtractor={item => item.id.toString()}
-            renderItem={({ item, drag, isActive }) => (
-              <ScaleDecorator activeScale={1.05}>
-                <HabitItem
-                  key={item.id}
-                  habit={item}
-                  onUpdate={handleHabitUpdate}
-                  onDelete={handleHabitDelete}
-                  onChecked={handleHabitChecked}
-                  onUnchecked={handleHabitUnchecked}
-                  isCheckedToday={checkedHabitsToday.has(item.id)}
-                  isDraggable={true}
-                  onDrag={drag}
-                  isActive={isActive}
-                  isEditing={editingHabitId === item.id}
-                  onStartEditing={() => handleStartEditing(item.id)}
-                  onCancelEditing={handleCancelEditing}
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <DraggableFlatList
+              data={visibleHabits}
+              onDragEnd={({ data }) => handleHabitReorder(data)}
+              keyExtractor={item => item.id.toString()}
+              renderItem={({ item, drag, isActive }) => (
+                <ScaleDecorator activeScale={1.05}>
+                  <HabitItem
+                    key={item.id}
+                    habit={item}
+                    onUpdate={handleHabitUpdate}
+                    onDelete={handleHabitDelete}
+                    onChecked={handleHabitChecked}
+                    onUnchecked={handleHabitUnchecked}
+                    isCheckedToday={checkedHabitsToday.has(item.id)}
+                    isDraggable={true}
+                    onDrag={drag}
+                    isActive={isActive}
+                    isEditing={editingHabitId === item.id}
+                    onStartEditing={() => handleStartEditing(item.id)}
+                    onCancelEditing={handleCancelEditing}
+                  />
+                </ScaleDecorator>
+              )}
+              style={styles.container}
+              contentContainerStyle={styles.containerContent}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={() => loadHabits(true)}
+                  tintColor={textColor}
                 />
-              </ScaleDecorator>
-            )}
-            style={styles.container}
-            contentContainerStyle={styles.containerContent}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={() => loadHabits(true)}
-                tintColor={textColor}
-              />
-            }
-          />
+              }
+            />
+          </GestureHandlerRootView>
         )
       ) : (
         // Regular scroll view when some habits are hidden

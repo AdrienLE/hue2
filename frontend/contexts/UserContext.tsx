@@ -58,9 +58,20 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const response = await HabitService.getCurrentUser(token);
-      if (response.data && response.data.settings) {
-        const settings = response.data.settings;
-        setUserSettings({
+      console.log('📅 loadUserData response:', JSON.stringify(response.data, null, 2));
+      console.log('📅 response.data exists:', !!response.data);
+      console.log('📅 response.data.settings exists:', !!(response.data && response.data.settings));
+      if (response.data) {
+        const settings = response.data.settings || {}; // Handle case where settings is null/undefined
+        console.log('📅 User settings from server:', JSON.stringify(settings, null, 2));
+        console.log(
+          '📅 last_session_date value:',
+          settings.last_session_date,
+          'type:',
+          typeof settings.last_session_date
+        );
+
+        const userSettings = {
           reward_unit: settings.reward_unit || '$',
           reward_unit_position: settings.reward_unit_position || 'before',
           total_rewards: settings.total_rewards || 0,
@@ -69,8 +80,24 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           color_saturation: settings.color_saturation ?? 60,
           last_session_date: settings.last_session_date,
           pending_daily_review: settings.pending_daily_review || null,
-        });
+        };
+
+        setUserSettings(userSettings);
         setTotalRewards(settings.total_rewards || 0);
+
+        // If last_session_date is null, initialize it with today's logical date
+        if (!settings.last_session_date) {
+          console.log('📅 No last_session_date found, initializing with current date');
+          const { getLogicalDate } = await import('@/contexts/DevDateContext');
+          const rolloverHour = settings.day_rollover_hour || 3;
+          const todayLogical = getLogicalDate(rolloverHour);
+          await updateUserSettings({ last_session_date: todayLogical });
+          console.log('📅 Initialized last_session_date to:', todayLogical);
+        } else {
+          console.log('📅 last_session_date already exists:', settings.last_session_date);
+        }
+      } else {
+        console.log('📅 No user data found in response');
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -162,7 +189,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateLastSessionDate = async (date: string) => {
+    console.log('📅 updateLastSessionDate called with:', date);
     await updateUserSettings({ last_session_date: date });
+    console.log('📅 updateLastSessionDate completed for:', date);
   };
 
   useEffect(() => {

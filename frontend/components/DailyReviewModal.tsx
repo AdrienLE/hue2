@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Modal, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'react-native';
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
 import { useThemeColor } from '@/hooks/useThemeColor';
@@ -8,6 +8,7 @@ import { useUser } from '@/contexts/UserContext';
 import { HabitService } from '@/lib/services/habitService';
 import { getHabitColor } from '@/constants/Colors';
 import { HabitCard } from './habits/HabitCard';
+import { getLogicalDate, getCurrentDate } from '@/contexts/DevDateContext';
 import type { Habit } from '@/lib/types/habits';
 
 interface DailyReviewModalProps {
@@ -18,12 +19,36 @@ interface DailyReviewModalProps {
 
 export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewModalProps) {
   const handleClose = async () => {
+    console.log('DailyReview: handleClose called');
     try {
       await clearPendingDailyReview();
+      console.log('DailyReview: Cleared pending review, calling onClose');
       onClose();
     } catch (error) {
       console.error('Error clearing pending review:', error);
       onClose(); // Still close even if clearing fails
+    }
+  };
+
+  const handlePerfectCompletion = async () => {
+    try {
+      // Calculate the next logical date to advance to
+      const rolloverHour = userSettings?.day_rollover_hour || 3;
+      const currentLogicalDate = getLogicalDate(rolloverHour);
+      const nextDate = new Date(currentLogicalDate + 'T00:00:00');
+      nextDate.setDate(nextDate.getDate() + 1);
+      const nextLogicalDate = nextDate.toLocaleDateString('en-CA'); // YYYY-MM-DD format
+
+      // Update last session date to advance to next day
+      await updateLastSessionDate(nextLogicalDate);
+      console.log('Perfect completion - advanced to next day:', nextLogicalDate);
+
+      await clearPendingDailyReview();
+      onClose();
+    } catch (error) {
+      console.error('Error handling perfect completion:', error);
+      // Still close even if updating fails
+      handleClose();
     }
   };
   const [originallyUncheckedHabits, setOriginallyUncheckedHabits] = useState<Habit[]>([]);
@@ -35,7 +60,8 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
   const [showSkippedDaysOptions, setShowSkippedDaysOptions] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const { token } = useAuth();
-  const { subtractReward, clearPendingDailyReview } = useUser();
+  const { subtractReward, clearPendingDailyReview, userSettings, updateLastSessionDate } =
+    useUser();
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
   const tintColor = useThemeColor({}, 'tint');
@@ -53,8 +79,15 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
         return;
       }
 
-      const reviewDateStr = reviewDate.toISOString().split('T')[0];
-      console.log('DailyReview: Review date string:', reviewDateStr);
+      // Convert reviewDate directly to YYYY-MM-DD format - no rollover logic needed
+      // since reviewDate is already the correct date for the review
+      const reviewDateStr = reviewDate.toLocaleDateString('en-CA'); // YYYY-MM-DD format
+      console.log(
+        'DailyReview: Review date string:',
+        reviewDateStr,
+        'from reviewDate:',
+        reviewDate
+      );
 
       // Get all types of activity data for the review date
       const [checksResponse, countsResponse, weightsResponse] = await Promise.all([
@@ -71,12 +104,21 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
       const trackedHabitIds = new Set();
 
       // Normal habits: checked in checks table
-      (checksResponse.data || [])
-        .filter(check => check.check_date.startsWith(reviewDateStr))
-        .forEach(check => {
+      const allChecks = checksResponse.data || [];
+      console.log('DailyReview: Filtering checks for date:', reviewDateStr);
+      allChecks.forEach(check => {
+        const matches = check.check_date.startsWith(reviewDateStr);
+        console.log('DailyReview: Check comparison:', {
+          check_date: check.check_date,
+          reviewDateStr,
+          matches,
+          habit_id: check.habit_id,
+        });
+        if (matches) {
           console.log('DailyReview: Normal habit checked:', check.habit_id);
           trackedHabitIds.add(check.habit_id);
-        });
+        }
+      });
 
       // Count habits: have count entries for the date
       (countsResponse.data || [])
@@ -96,7 +138,10 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
 
       console.log('DailyReview: All tracked habit IDs for date:', Array.from(trackedHabitIds));
 
-      // Filter to ALL habits that weren't tracked
+      // Get the day of week for the review date (0 = Sunday, 6 = Saturday)
+      const reviewDayOfWeek = reviewDate.getDay();
+
+      // Filter to habits that were scheduled for this day AND weren't tracked
       const allHabits = habitsResponse.data;
       console.log(
         'DailyReview: All habits:',
@@ -104,10 +149,18 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
           id: h.id,
           name: h.name,
           type: h.has_counts ? 'count' : h.is_weight ? 'weight' : 'normal',
+          weekdays: h.schedule_settings?.weekdays || [0, 1, 2, 3, 4, 5, 6],
         }))
       );
 
-      const unchecked = allHabits.filter(habit => !trackedHabitIds.has(habit.id));
+      const unchecked = allHabits.filter(habit => {
+        // Check if habit was scheduled for this day of week
+        const weekdays = habit.schedule_settings?.weekdays || [0, 1, 2, 3, 4, 5, 6];
+        const wasScheduledForThisDay = weekdays.includes(reviewDayOfWeek);
+
+        // Only include if it was scheduled AND not tracked
+        return wasScheduledForThisDay && !trackedHabitIds.has(habit.id);
+      });
       console.log(
         'DailyReview: Untracked habits:',
         unchecked.map(h => ({
@@ -129,6 +182,10 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
   };
 
   const applyPenalties = async () => {
+    console.log('applyPenalties called:', {
+      token: !!token,
+      habitsCount: originallyUncheckedHabits.length,
+    });
     if (!token || originallyUncheckedHabits.length === 0) return;
 
     setApplying(true);
@@ -142,21 +199,49 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
         }
       }
 
+      // Calculate the next logical date to advance to
+      const rolloverHour = userSettings?.day_rollover_hour || 3;
+      const currentLogicalDate = getLogicalDate(rolloverHour);
+      const nextDate = new Date(currentLogicalDate + 'T00:00:00');
+      nextDate.setDate(nextDate.getDate() + 1);
+      const nextLogicalDate = nextDate.toLocaleDateString('en-CA'); // YYYY-MM-DD format
+
       if (totalPenalty > 0) {
+        console.log('DailyReview: Subtracting reward:', totalPenalty);
         await subtractReward(totalPenalty);
-        Alert.alert(
-          'Penalties Applied',
-          `Deducted ${totalPenalty} points for ${originallyUncheckedHabits.length} missed habits.`,
-          [{ text: 'OK', onPress: handleClose }]
+        console.log(
+          'DailyReview: Reward subtracted, updating last session date to:',
+          nextLogicalDate
+        );
+        // Update last session date to advance to next day
+        await updateLastSessionDate(nextLogicalDate);
+        console.log('Applied penalties and advanced to next day:', nextLogicalDate);
+
+        // Close modal immediately and then show alert
+        console.log('DailyReview: Closing modal after penalties');
+        await handleClose();
+
+        console.log(
+          `Penalties Applied: Deducted ${totalPenalty} points for ${originallyUncheckedHabits.length} missed habits.`
         );
       } else {
-        Alert.alert('No Penalties', 'No penalty points were configured for these habits.', [
-          { text: 'OK', onPress: handleClose },
-        ]);
+        console.log(
+          'DailyReview: No penalties to apply, updating last session date to:',
+          nextLogicalDate
+        );
+        // Even with no penalties, advance to next day
+        await updateLastSessionDate(nextLogicalDate);
+        console.log('No penalties but advanced to next day:', nextLogicalDate);
+
+        // Close modal immediately and then show alert
+        console.log('DailyReview: Closing modal after no penalties');
+        await handleClose();
+
+        console.log('No Penalties: No penalty points were configured for these habits.');
       }
     } catch (error) {
       console.error('Error applying penalties:', error);
-      Alert.alert('Error', 'Failed to apply penalties');
+      console.error('Failed to apply penalties');
     } finally {
       setApplying(false);
     }
@@ -218,11 +303,22 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
   };
 
   const currentDate = missedDays[currentDayIndex] || reviewDate;
-  const isLastDay = currentDayIndex === missedDays.length - 1;
+  // For single day reviews, treat it as the last (and only) day
+  const isLastDay = missedDays.length <= 1 || currentDayIndex === missedDays.length - 1;
   const hasMoreDays = missedDays.length > 1;
   const allHabitsCompleted = originallyUncheckedHabits.every(habit =>
     currentlyCheckedHabits.has(habit.id)
   );
+
+  console.log('DailyReview Button Logic:', {
+    originallyUncheckedHabitsCount: originallyUncheckedHabits.length,
+    allHabitsCompleted,
+    isLastDay,
+    hasMoreDays,
+    missedDaysLength: missedDays.length,
+    currentDayIndex,
+    currentlyCheckedHabitsSize: currentlyCheckedHabits.size,
+  });
 
   return (
     <Modal visible={visible} transparent={true} animationType="slide" onRequestClose={handleClose}>
@@ -286,7 +382,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
             {originallyUncheckedHabits.length === 0 ? (
               <TouchableOpacity
                 style={[styles.button, styles.fullButton, { backgroundColor: tintColor }]}
-                onPress={handleClose}
+                onPress={handlePerfectCompletion}
               >
                 <ThemedText style={[styles.buttonText, { color: backgroundColor }]}>
                   All Done! 🎉
@@ -295,7 +391,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
             ) : allHabitsCompleted && isLastDay ? (
               <TouchableOpacity
                 style={[styles.button, styles.fullButton, { backgroundColor: tintColor }]}
-                onPress={handleClose}
+                onPress={handlePerfectCompletion}
               >
                 <ThemedText style={[styles.buttonText, { color: backgroundColor }]}>
                   Perfect! All Complete! 🎉
@@ -313,21 +409,23 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
             ) : (
               <>
                 <TouchableOpacity
-                  style={[styles.button, styles.skipButton, { borderColor }]}
-                  onPress={() => setShowSkippedDaysOptions(true)}
+                  style={[styles.button, styles.applyButton, { backgroundColor: tintColor }]}
+                  onPress={applyPenalties}
                   disabled={applying}
                 >
-                  <ThemedText style={[styles.buttonText, { color: textColor }]}>
-                    Apply Penalties
+                  <ThemedText style={[styles.buttonText, { color: backgroundColor }]}>
+                    {applying ? 'Applying...' : 'Apply Penalties'}
                   </ThemedText>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.button, styles.applyButton, { backgroundColor: '#666' }]}
+                  style={[styles.button, styles.skipButton]}
                   onPress={handleClose}
                   disabled={applying}
                 >
-                  <ThemedText style={[styles.buttonText, { color: 'white' }]}>Close</ThemedText>
+                  <ThemedText style={[styles.skipButtonText, { color: textColor }]}>
+                    Skip
+                  </ThemedText>
                 </TouchableOpacity>
               </>
             )}
@@ -441,22 +539,27 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     gap: 12,
+    alignItems: 'center',
   },
   button: {
-    flex: 1,
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',
   },
   skipButton: {
-    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   applyButton: {
-    // backgroundColor set dynamically
+    flex: 1,
   },
   buttonText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  skipButtonText: {
+    fontSize: 12,
+    opacity: 0.7,
   },
   dayCounter: {
     padding: 8,

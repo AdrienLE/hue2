@@ -2,9 +2,12 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 interface DevDateContextType {
   currentDate: Date;
+  customDateOverride: Date | null;
   advanceDay: () => void;
   resetToToday: () => void;
   setDate: (date: Date) => void;
+  setCustomDateOverride: (date: Date | null) => void;
+  isUsingCustomDate: boolean;
 }
 
 const DevDateContext = createContext<DevDateContextType | undefined>(undefined);
@@ -15,6 +18,12 @@ interface DevDateProviderProps {
 
 export function DevDateProvider({ children }: DevDateProviderProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [customDateOverrideState, setCustomDateOverrideState] = useState<Date | null>(null);
+
+  const setCustomDateOverride = (date: Date | null) => {
+    setCustomDateOverrideState(date);
+    setGlobalCustomDateOverride(date);
+  };
 
   const advanceDay = () => {
     setCurrentDate(prev => {
@@ -26,6 +35,7 @@ export function DevDateProvider({ children }: DevDateProviderProps) {
 
   const resetToToday = () => {
     setCurrentDate(new Date());
+    setCustomDateOverride(null);
   };
 
   const setDate = (date: Date) => {
@@ -36,9 +46,12 @@ export function DevDateProvider({ children }: DevDateProviderProps) {
     <DevDateContext.Provider
       value={{
         currentDate,
+        customDateOverride: customDateOverrideState,
         advanceDay,
         resetToToday,
         setDate,
+        setCustomDateOverride,
+        isUsingCustomDate: customDateOverrideState !== null,
       }}
     >
       {children}
@@ -54,8 +67,21 @@ export function useDevDate() {
   return context;
 }
 
+// Store for custom date override outside of React context
+// This allows getCurrentDate to work outside of React components
+let globalCustomDateOverride: Date | null = null;
+
+export function setGlobalCustomDateOverride(date: Date | null) {
+  globalCustomDateOverride = date;
+}
+
 // Helper function to get the current date (either real or simulated)
 export function getCurrentDate(): Date {
+  // First check if there's a custom date override
+  if (globalCustomDateOverride) {
+    return new Date(globalCustomDateOverride);
+  }
+
   // In production, always return real date (unless dev tools are force enabled)
   const isDevelopment =
     process.env.NODE_ENV !== 'production' || process.env.EXPO_PUBLIC_FORCE_DEV_TOOLS === 'true';
@@ -65,8 +91,8 @@ export function getCurrentDate(): Date {
 
   // In development, try to use the dev date context if available
   try {
-    const { currentDate } = useDevDate();
-    return currentDate;
+    const { customDateOverride, currentDate } = useDevDate();
+    return customDateOverride || currentDate;
   } catch {
     // Fallback to real date if context is not available
     return new Date();
@@ -130,5 +156,30 @@ export function getLogicalDateTimestamp(rolloverHour: number = 3, currentDate?: 
   timestamp.setMonth(logicalDateObj.getMonth());
   timestamp.setDate(logicalDateObj.getDate());
 
-  return timestamp.toISOString();
+  // Return local time instead of UTC - server should store what client sends
+  // Format: YYYY-MM-DDTHH:mm:ss.sss (no timezone suffix)
+  const year = timestamp.getFullYear();
+  const month = String(timestamp.getMonth() + 1).padStart(2, '0');
+  const day = String(timestamp.getDate()).padStart(2, '0');
+  const hours = String(timestamp.getHours()).padStart(2, '0');
+  const minutes = String(timestamp.getMinutes()).padStart(2, '0');
+  const seconds = String(timestamp.getSeconds()).padStart(2, '0');
+  const milliseconds = String(timestamp.getMilliseconds()).padStart(3, '0');
+
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}`;
+}
+
+// Helper function to get current local timestamp (no timezone conversion)
+export function getLocalTimestamp(date?: Date): string {
+  const timestamp = date || getCurrentDate();
+
+  const year = timestamp.getFullYear();
+  const month = String(timestamp.getMonth() + 1).padStart(2, '0');
+  const day = String(timestamp.getDate()).padStart(2, '0');
+  const hours = String(timestamp.getHours()).padStart(2, '0');
+  const minutes = String(timestamp.getMinutes()).padStart(2, '0');
+  const seconds = String(timestamp.getSeconds()).padStart(2, '0');
+  const milliseconds = String(timestamp.getMilliseconds()).padStart(3, '0');
+
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}`;
 }

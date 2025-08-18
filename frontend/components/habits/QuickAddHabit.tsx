@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, StyleSheet, KeyboardAvoidingView, Platform, TextInput } from 'react-native';
 import { ThemedTextInput } from '../ThemedTextInput';
 import { HabitService } from '@/lib/services/habitService';
 import { useAuth } from '@/auth/AuthContext';
@@ -13,12 +13,13 @@ interface QuickAddHabitProps {
 export function QuickAddHabit({ onHabitAdded }: QuickAddHabitProps) {
   const [habitName, setHabitName] = useState('');
   const [creating, setCreating] = useState(false);
+  const inputRef = useRef<TextInput>(null);
   const { token } = useAuth();
   const borderColor = useThemeColor({}, 'text');
 
   const handleSubmit = async () => {
     if (!token) {
-      Alert.alert('Error', 'You must be logged in to create habits');
+      console.log('Error: You must be logged in to create habits');
       return;
     }
 
@@ -34,8 +35,8 @@ export function QuickAddHabit({ onHabitAdded }: QuickAddHabitProps) {
         has_counts: false,
         is_weight: false,
         reward_settings: {
-          success_points: 10,
-          penalty_points: 5,
+          success_points: 3,
+          penalty_points: 2,
         },
         display_settings: {
           order: Date.now(), // Use timestamp for simple ordering
@@ -47,13 +48,17 @@ export function QuickAddHabit({ onHabitAdded }: QuickAddHabitProps) {
       if (response.data) {
         setHabitName('');
         onHabitAdded?.();
+        // Keep focus on web platform after adding habit
+        if (Platform.OS === 'web') {
+          setTimeout(() => {
+            inputRef.current?.focus();
+          }, 100);
+        }
       } else {
         console.error('Failed to create habit:', response.error);
-        Alert.alert('Error', `Failed to create habit: ${response.error}`);
       }
     } catch (error) {
       console.error('Error creating habit:', error);
-      Alert.alert('Error', 'Failed to create habit');
     } finally {
       setCreating(false);
     }
@@ -66,6 +71,7 @@ export function QuickAddHabit({ onHabitAdded }: QuickAddHabitProps) {
     >
       <View style={styles.inputContainer}>
         <ThemedTextInput
+          ref={inputRef}
           style={[styles.input, { borderColor: borderColor + '30' }]}
           value={habitName}
           onChangeText={setHabitName}

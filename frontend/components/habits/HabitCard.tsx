@@ -1,15 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
-  Pressable,
-  Modal,
-  TextInput,
-} from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Pressable, Modal, TextInput } from 'react-native';
 import Slider from '@react-native-community/slider';
-import { getLogicalDateTimestamp } from '@/contexts/DevDateContext';
+import { getLogicalDateTimestamp, getCurrentDate, getLogicalDate } from '@/contexts/DevDateContext';
 import DraggableFlatList, {
   ScaleDecorator,
   RenderItemParams,
@@ -109,25 +101,25 @@ export function HabitCard({
     habit.reward_settings?.penalty_points?.toString() || '0'
   );
   const [editSubHabitPoints, setEditSubHabitPoints] = useState(
-    habit.reward_settings?.sub_habit_points?.toString() || '5'
+    habit.reward_settings?.sub_habit_points?.toString() || '2'
   );
   const [editCountReward, setEditCountReward] = useState(
     habit.reward_settings?.count_reward?.toString() || '0.1'
   );
   const [editCountCheckBonus, setEditCountCheckBonus] = useState(
-    habit.reward_settings?.count_check_bonus?.toString() || '5'
+    habit.reward_settings?.count_check_bonus?.toString() || '2'
   );
   const [editCountCheckPenalty, setEditCountCheckPenalty] = useState(
-    habit.reward_settings?.count_check_penalty?.toString() || '5'
+    habit.reward_settings?.count_check_penalty?.toString() || '2'
   );
   const [editWeightReward, setEditWeightReward] = useState(
     habit.reward_settings?.weight_per_unit?.toString() || '1'
   );
   const [editWeightCheckBonus, setEditWeightCheckBonus] = useState(
-    habit.reward_settings?.weight_check_bonus?.toString() || '5'
+    habit.reward_settings?.weight_check_bonus?.toString() || '2'
   );
   const [editWeightCheckPenalty, setEditWeightCheckPenalty] = useState(
-    habit.reward_settings?.weight_check_penalty?.toString() || '5'
+    habit.reward_settings?.weight_check_penalty?.toString() || '2'
   );
 
   // Schedule settings
@@ -230,7 +222,7 @@ export function HabitCard({
       }
     } catch (error) {
       console.error('Error creating sub-habit:', error);
-      Alert.alert('Error', 'Failed to create sub-habit');
+      console.error('Failed to create sub-habit');
     }
   };
 
@@ -305,11 +297,9 @@ export function HabitCard({
         });
       } else {
         console.error('Failed to delete sub-habit:', response.error);
-        Alert.alert('Error', 'Failed to delete sub-habit');
       }
     } catch (error) {
       console.error('Error deleting sub-habit:', error);
-      Alert.alert('Error', 'Failed to delete sub-habit');
     }
   };
 
@@ -337,7 +327,7 @@ export function HabitCard({
 
     setLoading(true);
     try {
-      const today = new Date();
+      const today = getCurrentDate();
       const startOfDay = new Date(
         today.getFullYear(),
         today.getMonth(),
@@ -420,14 +410,14 @@ export function HabitCard({
           await subtractReward(weightCheckPenalty);
         }
 
-        Alert.alert('Success', 'Habit unchecked!');
+        console.log('Success: Habit unchecked!');
         onUnchecked?.(habit.id);
       } else {
         const rolloverHour = userSettings.day_rollover_hour || 3;
         const checkData = {
           habit_id: habit.id,
           checked: true,
-          check_date: getLogicalDateTimestamp(rolloverHour),
+          check_date: getLogicalDate(rolloverHour) + 'T00:00:00.000',
         };
 
         const response = await HabitService.createCheck(checkData, token);
@@ -444,16 +434,16 @@ export function HabitCard({
             await addReward(weightCheckBonus);
           }
 
-          Alert.alert('Success', 'Habit checked!');
+          console.log('Success: Habit checked!');
           onChecked?.(habit.id);
         } else {
           console.error('Failed to check habit:', response.error);
-          Alert.alert('Error', 'Failed to check habit');
+          console.error('Failed to check habit');
         }
       }
     } catch (error) {
       console.error('Error checking/unchecking habit:', error);
-      Alert.alert('Error', 'Failed to check/uncheck habit');
+      console.error('Failed to check/uncheck habit');
     } finally {
       setChecking(false);
     }
@@ -468,10 +458,11 @@ export function HabitCard({
       const change = increment ? stepSize : -stepSize;
       const newValue = Math.max(0, todayCount + change);
 
+      const rolloverHour = userSettings.day_rollover_hour || 3;
       const countData = {
         habit_id: habit.id,
         value: change,
-        count_date: new Date().toISOString(),
+        count_date: getLogicalDate(rolloverHour) + 'T00:00:00.000',
       };
 
       // Optimistic UI update
@@ -504,11 +495,11 @@ export function HabitCard({
         // Revert optimistic update on failure
         setTodayCount(todayCount);
         console.error('Failed to update count:', response.error);
-        Alert.alert('Error', 'Failed to update count');
+        console.error('Failed to update count');
       }
     } catch (error) {
       console.error('Error updating count:', error);
-      Alert.alert('Error', 'Failed to update count');
+      console.error('Failed to update count');
     } finally {
       setUpdating(false);
     }
@@ -520,7 +511,7 @@ export function HabitCard({
 
     const weight = newWeightValue || parseFloat(newWeight);
     if (isNaN(weight) || weight <= 0) {
-      Alert.alert('Error', 'Please enter a valid weight');
+      console.log('Error: Please enter a valid weight');
       return;
     }
 
@@ -531,10 +522,11 @@ export function HabitCard({
       // Optimistic UI update
       setCurrentWeight(weight);
 
+      const rolloverHour = userSettings.day_rollover_hour || 3;
       const weightData = {
         habit_id: habit.id,
         weight,
-        update_date: new Date().toISOString(),
+        update_date: getLogicalDate(rolloverHour) + 'T00:00:00.000',
       };
 
       const response = await HabitService.createWeightUpdate(weightData, token);
@@ -560,16 +552,16 @@ export function HabitCard({
           setNewWeight('');
           setShowWeightInput(false);
         }
-        Alert.alert('Success', 'Weight updated successfully!');
+        console.log('Success: Weight updated successfully!');
       } else {
         // Revert optimistic update on failure
         setCurrentWeight(oldWeight);
         console.error('Failed to update weight:', response.error);
-        Alert.alert('Error', 'Failed to update weight');
+        console.error('Failed to update weight');
       }
     } catch (error) {
       console.error('Error updating weight:', error);
-      Alert.alert('Error', 'Failed to update weight');
+      console.error('Failed to update weight');
     } finally {
       setUpdating(false);
     }
@@ -622,7 +614,7 @@ export function HabitCard({
         reward_settings: {
           success_points: parseFloat(editSuccessReward) || 0,
           penalty_points: parseFloat(editFailureReward) || 0,
-          sub_habit_points: parseFloat(editSubHabitPoints) || 5,
+          sub_habit_points: parseFloat(editSubHabitPoints) || 2,
           ...(editHabitType === 'count' && {
             count_reward: parseFloat(editCountReward) || 0,
             count_check_bonus: parseFloat(editCountCheckBonus) || 0,
@@ -648,13 +640,13 @@ export function HabitCard({
       if (response.data) {
         onUpdate(response.data);
         onCancelEdit?.();
-        Alert.alert('Success', 'Habit updated successfully!');
+        console.log('Success: Habit updated successfully!');
       } else {
-        Alert.alert('Error', 'Failed to update habit');
+        console.error('Failed to update habit');
       }
     } catch (error) {
       console.error('Error updating habit:', error);
-      Alert.alert('Error', 'Failed to update habit');
+      console.error('Failed to update habit');
     }
   };
 
@@ -671,13 +663,13 @@ export function HabitCard({
     setEditWeightUnit(habit.weight_settings?.unit || 'kg');
     setEditSuccessReward(habit.reward_settings?.success_points?.toString() || '1');
     setEditFailureReward(habit.reward_settings?.penalty_points?.toString() || '0');
-    setEditSubHabitPoints(habit.reward_settings?.sub_habit_points?.toString() || '5');
+    setEditSubHabitPoints(habit.reward_settings?.sub_habit_points?.toString() || '2');
     setEditCountReward(habit.reward_settings?.count_reward?.toString() || '0.1');
-    setEditCountCheckBonus(habit.reward_settings?.count_check_bonus?.toString() || '5');
-    setEditCountCheckPenalty(habit.reward_settings?.count_check_penalty?.toString() || '5');
+    setEditCountCheckBonus(habit.reward_settings?.count_check_bonus?.toString() || '2');
+    setEditCountCheckPenalty(habit.reward_settings?.count_check_penalty?.toString() || '2');
     setEditWeightReward(habit.reward_settings?.weight_per_unit?.toString() || '1');
-    setEditWeightCheckBonus(habit.reward_settings?.weight_check_bonus?.toString() || '5');
-    setEditWeightCheckPenalty(habit.reward_settings?.weight_check_penalty?.toString() || '5');
+    setEditWeightCheckBonus(habit.reward_settings?.weight_check_bonus?.toString() || '2');
+    setEditWeightCheckPenalty(habit.reward_settings?.weight_check_penalty?.toString() || '2');
     setEditWeekdays(habit.schedule_settings?.weekdays || [0, 1, 2, 3, 4, 5, 6]);
     setEditHue(habit.display_settings?.hue?.toString() || '');
 
@@ -693,11 +685,11 @@ export function HabitCard({
         onDelete(habit.id);
       } else {
         console.error('Failed to delete habit:', response.error);
-        Alert.alert('Error', 'Failed to delete habit');
+        console.error('Failed to delete habit');
       }
     } catch (error) {
       console.error('Error deleting habit:', error);
-      Alert.alert('Error', 'Failed to delete habit');
+      console.error('Failed to delete habit');
     }
   };
 
@@ -1126,7 +1118,7 @@ export function HabitCard({
                   style={[styles.miniNumberInput, { color: textColor, borderColor }]}
                   value={editSubHabitPoints}
                   onChangeText={setEditSubHabitPoints}
-                  placeholder="5"
+                  placeholder="2"
                   keyboardType="numeric"
                   placeholderTextColor={textColor + '80'}
                 />
@@ -1166,7 +1158,7 @@ export function HabitCard({
                   style={[styles.miniNumberInput, { color: textColor, borderColor }]}
                   value={editCountCheckBonus}
                   onChangeText={setEditCountCheckBonus}
-                  placeholder="5"
+                  placeholder="2"
                   keyboardType="numeric"
                   placeholderTextColor={textColor + '80'}
                 />
@@ -1178,7 +1170,7 @@ export function HabitCard({
                   style={[styles.miniNumberInput, { color: textColor, borderColor }]}
                   value={editCountCheckPenalty}
                   onChangeText={setEditCountCheckPenalty}
-                  placeholder="5"
+                  placeholder="2"
                   keyboardType="numeric"
                   placeholderTextColor={textColor + '80'}
                 />
@@ -1243,7 +1235,7 @@ export function HabitCard({
                   style={[styles.miniNumberInput, { color: textColor, borderColor }]}
                   value={editWeightCheckBonus}
                   onChangeText={setEditWeightCheckBonus}
-                  placeholder="5"
+                  placeholder="2"
                   keyboardType="numeric"
                   placeholderTextColor={textColor + '80'}
                 />
@@ -1255,7 +1247,7 @@ export function HabitCard({
                   style={[styles.miniNumberInput, { color: textColor, borderColor }]}
                   value={editWeightCheckPenalty}
                   onChangeText={setEditWeightCheckPenalty}
-                  placeholder="5"
+                  placeholder="2"
                   keyboardType="numeric"
                   placeholderTextColor={textColor + '80'}
                 />

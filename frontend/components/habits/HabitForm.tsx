@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Alert, Switch, TouchableOpacity } from 'react-native';
+import { ScrollView, StyleSheet, Switch, TouchableOpacity } from 'react-native';
 import { ThemedView } from '../ThemedView';
 import { ThemedText } from '../ThemedText';
 import { ThemedTextInput } from '../ThemedTextInput';
@@ -34,8 +34,8 @@ export function HabitForm({ onHabitCreated }: HabitFormProps) {
   const [weightUnit, setWeightUnit] = useState('kg');
 
   // Reward settings
-  const [successPoints, setSuccessPoints] = useState('10');
-  const [penaltyPoints, setPenaltyPoints] = useState('5');
+  const [successPoints, setSuccessPoints] = useState('3');
+  const [penaltyPoints, setPenaltyPoints] = useState('2');
 
   const { token } = useAuth();
   const tintColor = useThemeColor({}, 'tint');
@@ -57,17 +57,17 @@ export function HabitForm({ onHabitCreated }: HabitFormProps) {
 
   const handleCreate = async () => {
     if (!token) {
-      Alert.alert('Error', 'You must be logged in to create habits');
+      console.log('Error: You must be logged in to create habits');
       return;
     }
 
     if (!name.trim()) {
-      Alert.alert('Error', 'Please enter a habit name');
+      console.log('Error: Please enter a habit name');
       return;
     }
 
     if (hasCount && isWeight) {
-      Alert.alert('Error', 'A habit cannot be both count-based and weight-based');
+      console.log('Error: A habit cannot be both count-based and weight-based');
       return;
     }
 
@@ -110,24 +110,22 @@ export function HabitForm({ onHabitCreated }: HabitFormProps) {
 
       // Add reward settings
       const rewardSettings: RewardSettings = {
-        success_points: parseFloat(successPoints) || 10,
-        penalty_points: parseFloat(penaltyPoints) || 5,
+        success_points: parseFloat(successPoints) || 3,
+        penalty_points: parseFloat(penaltyPoints) || 2,
       };
       habitData.reward_settings = rewardSettings;
 
       const response = await HabitService.createHabit(habitData, token);
 
       if (response.data) {
-        Alert.alert('Success', 'Habit created successfully!');
+        console.log('Success: Habit created successfully!');
         resetForm();
         onHabitCreated?.();
       } else {
         console.error('Failed to create habit:', response.error);
-        Alert.alert('Error', `Failed to create habit: ${response.error}`);
       }
     } catch (error) {
       console.error('Error creating habit:', error);
-      Alert.alert('Error', 'Failed to create habit');
     } finally {
       setCreating(false);
     }
@@ -258,7 +256,7 @@ export function HabitForm({ onHabitCreated }: HabitFormProps) {
               style={styles.input}
               value={successPoints}
               onChangeText={setSuccessPoints}
-              placeholder="10"
+              placeholder="3"
               keyboardType="numeric"
             />
           </ThemedView>
@@ -269,7 +267,7 @@ export function HabitForm({ onHabitCreated }: HabitFormProps) {
               style={styles.input}
               value={penaltyPoints}
               onChangeText={setPenaltyPoints}
-              placeholder="5"
+              placeholder="2"
               keyboardType="numeric"
             />
           </ThemedView>

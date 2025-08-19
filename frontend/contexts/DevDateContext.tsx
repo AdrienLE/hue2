@@ -126,9 +126,10 @@ export function getLogicalDateRange(
   const now = currentDate || getCurrentDate();
   const logicalDate = getLogicalDate(rolloverHour, now);
 
-  // Create start and end times for the logical day
-  const startDate = new Date(logicalDate + 'T00:00:00.000Z');
-  startDate.setHours(startDate.getHours() + rolloverHour); // Add rollover hour
+  // Create start and end times for the logical day using local time
+  // Parse the date string without timezone to get local midnight
+  const [year, month, day] = logicalDate.split('-').map(Number);
+  const startDate = new Date(year, month - 1, day, rolloverHour, 0, 0, 0);
 
   const endDate = new Date(startDate);
   endDate.setDate(endDate.getDate() + 1);

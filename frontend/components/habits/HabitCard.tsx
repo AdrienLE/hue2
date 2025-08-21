@@ -416,9 +416,42 @@ export function HabitCard({
           await subtractReward(successReward);
         }
 
+        // Reverse penalties for unchecked subhabits (give them back)
+        if (!habit.has_counts && !habit.is_weight && subHabits.length > 0) {
+          const uncheckedSubHabits = subHabits.filter(sh => !checkedSubHabits.has(sh.id));
+          const subHabitPenalty = habit.reward_settings?.sub_habit_points || 0;
+          if (subHabitPenalty > 0 && uncheckedSubHabits.length > 0) {
+            const totalPenalty = subHabitPenalty * uncheckedSubHabits.length;
+            await addReward(totalPenalty); // Give back the penalty
+            console.log(
+              `Reversed penalty of ${totalPenalty} for ${uncheckedSubHabits.length} unchecked sub-habits`
+            );
+          }
+        }
+
         // Apply type-specific penalties for unchecking
-        if (habit.has_counts && countCheckPenalty > 0) {
-          await subtractReward(countCheckPenalty);
+        if (habit.has_counts) {
+          if (countCheckPenalty > 0) {
+            await subtractReward(countCheckPenalty);
+          }
+
+          // Reverse count-based penalties/bonuses
+          const target = habit.count_settings?.target || 0;
+          const countReward = habit.reward_settings?.count_reward || 0;
+          if (!habit.is_bad && target > 0 && todayCount < target && countReward > 0) {
+            const countPenalty = (target - todayCount) * countReward;
+            await addReward(countPenalty); // Give back the penalty
+            console.log(
+              `Reversed penalty of ${countPenalty} for being ${target - todayCount} counts below target`
+            );
+          }
+          if (habit.is_bad && target > 0 && todayCount < target && countReward > 0) {
+            const countBonus = (target - todayCount) * countReward;
+            await subtractReward(countBonus); // Take back the bonus
+            console.log(
+              `Reversed bonus of ${countBonus} for being ${target - todayCount} counts below target`
+            );
+          }
         } else if (habit.is_weight && weightCheckPenalty > 0) {
           await subtractReward(weightCheckPenalty);
         }
@@ -440,9 +473,43 @@ export function HabitCard({
             await addReward(successReward);
           }
 
-          // Apply type-specific bonuses for checking
-          if (habit.has_counts && countCheckBonus > 0) {
-            await addReward(countCheckBonus);
+          // Apply penalties for unchecked subhabits
+          if (!habit.has_counts && !habit.is_weight && subHabits.length > 0) {
+            const uncheckedSubHabits = subHabits.filter(sh => !checkedSubHabits.has(sh.id));
+            const subHabitPenalty = habit.reward_settings?.sub_habit_points || 0;
+            if (subHabitPenalty > 0 && uncheckedSubHabits.length > 0) {
+              const totalPenalty = subHabitPenalty * uncheckedSubHabits.length;
+              await subtractReward(totalPenalty);
+              console.log(
+                `Applied penalty of ${totalPenalty} for ${uncheckedSubHabits.length} unchecked sub-habits`
+              );
+            }
+          }
+
+          // Apply type-specific bonuses/penalties for checking
+          if (habit.has_counts) {
+            if (countCheckBonus > 0) {
+              await addReward(countCheckBonus);
+            }
+
+            // For good count habits: apply penalty if count is below target
+            const target = habit.count_settings?.target || 0;
+            const countReward = habit.reward_settings?.count_reward || 0;
+            if (!habit.is_bad && target > 0 && todayCount < target && countReward > 0) {
+              const countPenalty = (target - todayCount) * countReward;
+              await subtractReward(countPenalty);
+              console.log(
+                `Applied penalty of ${countPenalty} for being ${target - todayCount} counts below target`
+              );
+            }
+            // For bad count habits: apply bonus if count is below target
+            if (habit.is_bad && target > 0 && todayCount < target && countReward > 0) {
+              const countBonus = (target - todayCount) * countReward;
+              await addReward(countBonus);
+              console.log(
+                `Applied bonus of ${countBonus} for being ${target - todayCount} counts below target`
+              );
+            }
           } else if (habit.is_weight && weightCheckBonus > 0) {
             await addReward(weightCheckBonus);
           }

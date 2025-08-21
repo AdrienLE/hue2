@@ -49,6 +49,15 @@ class BaseApiClient implements ApiClient {
       console.log(`📡 Response ${response.status}: ${options.method || 'GET'} ${url}`);
 
       if (!response.ok) {
+        // Handle 401 Unauthorized specially
+        if (response.status === 401) {
+          console.log('🔐 401 Unauthorized - Token may be expired');
+          // Emit a custom event that AuthContext can listen to
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('auth-expired'));
+          }
+        }
+
         return {
           status: response.status,
           error: `HTTP ${response.status}: ${response.statusText}`,

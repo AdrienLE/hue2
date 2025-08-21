@@ -14,6 +14,7 @@ interface AuthContextValue {
   loading: boolean;
   login: () => void;
   logout: () => Promise<void>;
+  validateToken: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -21,6 +22,7 @@ const AuthContext = createContext<AuthContextValue>({
   loading: true,
   login: () => {},
   logout: async () => {},
+  validateToken: async () => false,
 });
 
 const discovery = {
@@ -79,10 +81,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (!payload.exp || payload.exp * 1000 > Date.now()) {
               setTokenState(stored);
             } else {
+              // Token is expired - clear it completely
+              console.log('Token expired, clearing authentication');
               await AsyncStorage.removeItem(TOKEN_KEY);
+              setTokenState(null); // Clear the state too!
             }
           } catch {
+            // Invalid token - clear it completely
+            console.log('Invalid token, clearing authentication');
             await AsyncStorage.removeItem(TOKEN_KEY);
+            setTokenState(null); // Clear the state too!
           }
         }
       } catch (e) {
@@ -92,6 +100,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
     loadToken();
+  }, []);
+
+  // Listen for auth expired events from API calls
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const handleAuthExpired = () => {
+        console.log('Auth expired event received - clearing authentication');
+        setTokenState(null);
+        AsyncStorage.removeItem(TOKEN_KEY).catch(() => {});
+      };
+
+      window.addEventListener('auth-expired', handleAuthExpired);
+      return () => {
+        window.removeEventListener('auth-expired', handleAuthExpired);
+      };
+    }
   }, []);
 
   const [request, response, promptAsync] = useAuthRequest(
@@ -142,6 +166,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     promptAsync({ useProxy });
   };
 
+  // Simple token validation - just checks if expired
+  const validateToken = async (): Promise<boolean> => {
+    if (!tokenState) return false;
+
+    try {
+      const payload: { exp?: number } = jwtDecode(tokenState);
+      const now = Date.now() / 1000;
+      return payload.exp ? payload.exp > now : true;
+    } catch {
+      return false;
+    }
+  };
+
   const logout = async () => {
     // Clear local token first
     setTokenState(null);
@@ -174,7 +211,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ token, loading, login, logout }}>
+    <AuthContext.Provider value={{ token, loading, login, logout, validateToken }}>
       {children}
     </AuthContext.Provider>
   );

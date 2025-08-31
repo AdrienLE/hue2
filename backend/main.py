@@ -1079,6 +1079,11 @@ if os.path.isdir(frontend_path):
         # Do not catch API paths
         if path.startswith("api/"):
             raise HTTPException(status_code=404, detail="Not Found")
+        # Serve static files in dist root if requested path exists (e.g., favicons, manifest)
+        direct_file = os.path.join(frontend_path, path)
+        if os.path.isfile(direct_file):
+            return FileResponse(direct_file)
+
         # Serve HTML for routes (path -> path.html)
         html_file = os.path.join(frontend_path, f"{path}.html")
         if os.path.isfile(html_file):

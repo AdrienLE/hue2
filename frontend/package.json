@@ -16,7 +16,7 @@
     "build:web:staging": "EXPO_PUBLIC_ENVIRONMENT=staging expo export --platform web",
     "build:web:production": "EXPO_PUBLIC_ENVIRONMENT=production expo export --platform web",
     "build:production": "EXPO_PUBLIC_ENVIRONMENT=production expo export --platform web",
-    "postbuild:production": "cp assets/images/favicon.ico dist/favicon.ico && cp assets/images/favicon-48x48.png dist/favicon-48x48.png && cp assets/images/favicon-32x32.png dist/favicon-32x32.png && cp assets/images/favicon-16x16.png dist/favicon-16x16.png && cp assets/images/apple-touch-icon.png dist/apple-touch-icon.png",
+    "postbuild:production": "cp assets/images/favicon-48x48.png dist/favicon-48x48.png && cp assets/images/apple-touch-icon.png dist/apple-touch-icon.png",
     "build:ios:dev": "eas build --platform ios --profile development",
     "build:ios:staging": "eas build --platform ios --profile staging",
     "build:ios:production": "eas build --platform ios --profile production",

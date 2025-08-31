@@ -32,6 +32,7 @@ const discovery = {
 };
 
 const TOKEN_KEY = 'auth_token';
+const SILENT_AUTH_ATTEMPT_KEY = 'auth_silent_attempted';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setTokenState] = useState<string | null>(null);
@@ -66,6 +67,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setTokenState(accessToken);
             await AsyncStorage.setItem(TOKEN_KEY, accessToken);
 
+            // Clear silent auth attempt flag after a successful token reception
+            try {
+              sessionStorage.removeItem(SILENT_AUTH_ATTEMPT_KEY);
+            } catch {}
+
             // Clean up the URL hash
             window.history.replaceState({}, document.title, window.location.pathname);
             setLoading(false);
@@ -85,12 +91,69 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               console.log('Token expired, clearing authentication');
               await AsyncStorage.removeItem(TOKEN_KEY);
               setTokenState(null); // Clear the state too!
+
+              // Attempt silent re-auth on web if the user still has an Auth0 session
+              if (Platform.OS === 'web') {
+                try {
+                  const attempted = sessionStorage.getItem(SILENT_AUTH_ATTEMPT_KEY);
+                  if (!attempted) {
+                    sessionStorage.setItem(SILENT_AUTH_ATTEMPT_KEY, '1');
+                    const auth0Domain = process.env.EXPO_PUBLIC_AUTH0_DOMAIN;
+                    const clientId = process.env.EXPO_PUBLIC_AUTH0_CLIENT_ID;
+                    const audience = process.env.EXPO_PUBLIC_AUTH0_AUDIENCE;
+                    const silentUrl =
+                      `https://${auth0Domain}/authorize?` +
+                      new URLSearchParams({
+                        response_type: 'token',
+                        client_id: clientId ?? '',
+                        redirect_uri: redirectUri,
+                        scope: 'openid profile email',
+                        audience: audience ?? '',
+                        prompt: 'none',
+                      }).toString();
+                    console.log('Attempting silent auth via redirect');
+                    // Use replace() to avoid polluting history
+                    window.location.replace(silentUrl);
+                    return; // Stop further processing; navigation will occur
+                  }
+                } catch (e) {
+                  console.log('Silent auth attempt skipped due to sessionStorage error:', e);
+                }
+              }
             }
           } catch {
             // Invalid token - clear it completely
             console.log('Invalid token, clearing authentication');
             await AsyncStorage.removeItem(TOKEN_KEY);
             setTokenState(null); // Clear the state too!
+
+            // Attempt silent re-auth on web once
+            if (Platform.OS === 'web') {
+              try {
+                const attempted = sessionStorage.getItem(SILENT_AUTH_ATTEMPT_KEY);
+                if (!attempted) {
+                  sessionStorage.setItem(SILENT_AUTH_ATTEMPT_KEY, '1');
+                  const auth0Domain = process.env.EXPO_PUBLIC_AUTH0_DOMAIN;
+                  const clientId = process.env.EXPO_PUBLIC_AUTH0_CLIENT_ID;
+                  const audience = process.env.EXPO_PUBLIC_AUTH0_AUDIENCE;
+                  const silentUrl =
+                    `https://${auth0Domain}/authorize?` +
+                    new URLSearchParams({
+                      response_type: 'token',
+                      client_id: clientId ?? '',
+                      redirect_uri: redirectUri,
+                      scope: 'openid profile email',
+                      audience: audience ?? '',
+                      prompt: 'none',
+                    }).toString();
+                  console.log('Attempting silent auth via redirect');
+                  window.location.replace(silentUrl);
+                  return;
+                }
+              } catch (e) {
+                console.log('Silent auth attempt skipped due to sessionStorage error:', e);
+              }
+            }
           }
         }
       } catch (e) {
@@ -109,6 +172,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('Auth expired event received - clearing authentication');
         setTokenState(null);
         AsyncStorage.removeItem(TOKEN_KEY).catch(() => {});
+
+        // Attempt silent re-auth once to refresh the session seamlessly on web
+        try {
+          const attempted = sessionStorage.getItem(SILENT_AUTH_ATTEMPT_KEY);
+          if (!attempted) {
+            sessionStorage.setItem(SILENT_AUTH_ATTEMPT_KEY, '1');
+            const auth0Domain = process.env.EXPO_PUBLIC_AUTH0_DOMAIN;
+            const clientId = process.env.EXPO_PUBLIC_AUTH0_CLIENT_ID;
+            const audience = process.env.EXPO_PUBLIC_AUTH0_AUDIENCE;
+            const silentUrl =
+              `https://${auth0Domain}/authorize?` +
+              new URLSearchParams({
+                response_type: 'token',
+                client_id: clientId ?? '',
+                redirect_uri: redirectUri,
+                scope: 'openid profile email',
+                audience: audience ?? '',
+                prompt: 'none',
+              }).toString();
+            console.log('Attempting silent auth due to 401 via redirect');
+            window.location.replace(silentUrl);
+          }
+        } catch (e) {
+          console.log('Silent auth attempt on 401 skipped due to sessionStorage error:', e);
+        }
       };
 
       window.addEventListener('auth-expired', handleAuthExpired);
@@ -136,6 +224,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const newToken = response.params.access_token;
       setTokenState(newToken);
       AsyncStorage.setItem(TOKEN_KEY, newToken).catch(() => {});
+      // Clear any previous silent attempt flags
+      try {
+        if (Platform.OS === 'web') {
+          sessionStorage.removeItem(SILENT_AUTH_ATTEMPT_KEY);
+        }
+      } catch {}
     }
   }, [response]);
 
@@ -168,10 +262,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Simple token validation - just checks if expired
   const validateToken = async (): Promise<boolean> => {
-    if (!tokenState) return false;
+    if (!token) return false;
 
     try {
-      const payload: { exp?: number } = jwtDecode(tokenState);
+      const payload: { exp?: number } = jwtDecode(token);
       const now = Date.now() / 1000;
       return payload.exp ? payload.exp > now : true;
     } catch {
@@ -183,6 +277,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Clear local token first
     setTokenState(null);
     AsyncStorage.removeItem(TOKEN_KEY).catch(() => {});
+    try {
+      if (Platform.OS === 'web') {
+        sessionStorage.removeItem(SILENT_AUTH_ATTEMPT_KEY);
+      }
+    } catch {}
 
     // Construct Auth0 logout URL to clear Auth0 session
     const auth0Domain = process.env.EXPO_PUBLIC_AUTH0_DOMAIN;

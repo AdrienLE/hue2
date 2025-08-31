@@ -2,9 +2,9 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack } from 'expo-router';
 import Head from 'expo-router/head';
 import { StatusBar } from 'expo-status-bar';
-import { View, Platform } from 'react-native';
+import { View, Platform, AppState } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -42,7 +42,7 @@ function RootLayoutNav() {
   const { advanceDay, resetToToday } = useDevDate();
   const [showDailyReview, setShowDailyReview] = useState(false);
   const [reviewDate, setReviewDate] = useState(getCurrentDate());
-  const [hasCheckedToday, setHasCheckedToday] = useState(false);
+  const isCheckingRef = useRef(false);
 
   const handleAdvanceDay = async () => {
     console.log('handleAdvanceDay called');
@@ -90,18 +90,27 @@ function RootLayoutNav() {
     resetToToday();
   };
 
-  // Check for automatic daily review on app load/focus
-  useEffect(() => {
-    if (!token || !userSettings) return;
+  // Unified daily review check reused by mount/focus/interval
+  const checkForDailyReview = useCallback(
+    async (source: string = 'manual') => {
+      if (!token || !userSettings) return;
+      if (showDailyReview) {
+        console.log(`⏭️ ${source} check - Skipping (daily review modal open)`);
+        return;
+      }
+      if (isCheckingRef.current) {
+        console.log(`⏭️ ${source} check - Already checking`);
+        return;
+      }
 
-    const checkForDailyReview = async () => {
+      isCheckingRef.current = true;
       try {
         const rolloverHour = userSettings.day_rollover_hour || 3;
         const today = getLogicalDate(rolloverHour);
         const lastActiveDate = userSettings.last_session_date;
         const pendingDailyReview = userSettings.pending_daily_review;
 
-        console.log('Daily review check:', {
+        console.log(`${source} daily review check:`, {
           today,
           lastActiveDate,
           rolloverHour,
@@ -116,7 +125,7 @@ function RootLayoutNav() {
           new Date()
         );
 
-        // Check if there's a pending daily review that hasn't been completed
+        // If there's a pending daily review that hasn't been completed, restore it
         if (pendingDailyReview) {
           setReviewDate(new Date(pendingDailyReview.review_date));
           setShowDailyReview(true);
@@ -167,94 +176,63 @@ function RootLayoutNav() {
         if (lastActiveDate) {
           await updateLastSessionDate(today);
         }
-        setHasCheckedToday(true);
       } catch (error) {
         console.error('Error checking for daily review:', error);
+      } finally {
+        isCheckingRef.current = false;
       }
-    };
+    },
+    [token, userSettings, showDailyReview, setPendingDailyReview, updateLastSessionDate]
+  );
 
-    // Only check once per app session and when user settings are loaded
-    console.log('🔍 Daily review useEffect triggered:', {
-      token: !!token,
-      userSettings: !!userSettings,
-      hasCheckedToday,
-    });
-    if (!hasCheckedToday) {
-      console.log('🚀 Running checkForDailyReview...');
-      checkForDailyReview();
-    } else {
-      console.log('⏭️ Skipping checkForDailyReview (already checked today)');
-    }
-  }, [token, userSettings, hasCheckedToday]);
+  // Check immediately on mount when user + settings are ready
+  useEffect(() => {
+    if (!token || !userSettings) return;
+    console.log('🔍 Daily review initial check');
+    checkForDailyReview('mount');
+  }, [token, userSettings, checkForDailyReview]);
 
-  // Also check when the app comes back to foreground
+  // Check on a short interval as a fallback
+  useEffect(() => {
+    if (!token || !userSettings) return;
+    const interval = setInterval(() => checkForDailyReview('interval'), 5000);
+    return () => clearInterval(interval);
+  }, [token, userSettings, checkForDailyReview]);
+
+  // Also check when app/page gains focus (RN + web)
   useEffect(() => {
     if (!token || !userSettings) return;
 
-    const handleAppStateChange = async () => {
-      // Don't run checks while daily review modal is shown
-      if (showDailyReview) {
-        console.log('⏰ 5sec check - Skipping (daily review modal is open)');
-        return;
-      }
-
-      try {
-        const rolloverHour = userSettings.day_rollover_hour || 3;
-        const today = getLogicalDate(rolloverHour);
-        const lastActiveDate = userSettings.last_session_date;
-
-        console.log('⏰ 5sec check - userSettings:', {
-          last_session_date: userSettings.last_session_date,
-          day_rollover_hour: userSettings.day_rollover_hour,
-          total_rewards: userSettings.total_rewards,
-          hasLastSessionDate: !!userSettings.last_session_date,
-          today,
-        });
-
-        if (lastActiveDate && lastActiveDate !== today) {
-          // Day has changed while app was in background
-          const lastDate = new Date(lastActiveDate + 'T00:00:00');
-          const currentDate = new Date(today + 'T00:00:00');
-          const daysDiff = Math.floor(
-            (currentDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24)
-          );
-
-          console.log('⏰ 5sec check - Different day detected:', {
-            lastActiveDate,
-            today,
-            daysDiff,
-          });
-
-          if (daysDiff >= 1 && !showDailyReview) {
-            // Show daily review for the LAST ACTIVE DATE (not yesterday)
-            const reviewDay = new Date(lastActiveDate + 'T00:00:00');
-            setReviewDate(reviewDay);
-            setShowDailyReview(true);
-
-            console.log('⏰ 5sec check - Showing daily review for:', reviewDay);
-
-            // Store pending review on server to persist across devices/reloads
-            await setPendingDailyReview({
-              review_date: reviewDay.toISOString(),
-              created_at: getCurrentDate().toISOString(),
-            });
-          }
-
-          await updateLastSessionDate(today);
-        } else if (lastActiveDate) {
-          console.log('⏰ 5sec check - Same day:', { lastActiveDate, today });
-        } else {
-          console.log('⏰ 5sec check - No lastActiveDate found');
-        }
-      } catch (error) {
-        console.error('Error checking app state change:', error);
+    const onAppStateChange = (state: string) => {
+      if (state === 'active') {
+        checkForDailyReview('appstate');
       }
     };
 
-    // Check every 5 seconds for day changes (lightweight check)
-    const interval = setInterval(handleAppStateChange, 5000);
-    return () => clearInterval(interval);
-  }, [token, userSettings, showDailyReview]);
+    const sub = AppState.addEventListener('change', onAppStateChange);
+
+    let webFocusHandler: (() => void) | null = null;
+    let visibilityHandler: (() => void) | null = null;
+
+    if (Platform.OS === 'web') {
+      webFocusHandler = () => checkForDailyReview('window-focus');
+      visibilityHandler = () => {
+        if (document.visibilityState === 'visible') {
+          checkForDailyReview('visibility');
+        }
+      };
+      window.addEventListener('focus', webFocusHandler);
+      document.addEventListener('visibilitychange', visibilityHandler);
+    }
+
+    return () => {
+      sub.remove();
+      if (Platform.OS === 'web') {
+        if (webFocusHandler) window.removeEventListener('focus', webFocusHandler);
+        if (visibilityHandler) document.removeEventListener('visibilitychange', visibilityHandler);
+      }
+    };
+  }, [token, userSettings, checkForDailyReview]);
 
   if (loading) {
     return null;

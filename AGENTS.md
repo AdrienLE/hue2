@@ -45,3 +45,11 @@ and prefer configuration over hard-coded app-specific logic.
 - Copy envs from `.env.example` → `.env`/`.env.local`; keep secrets out of VCS.
 - HTTPS dev certs live in `certs/` (see `scripts/create_dev_cert.sh`).
 - Frontend runtime config uses `EXPO_PUBLIC_*` vars; backend reads from environment.
+
+## Agent Automation Workflow
+- Default flow: When a change is requested and the implementation appears successful, the agent should:
+  - Run all tests: `./scripts/test.sh` (set `DISABLE_WATCHMAN=1` in constrained environments).
+  - Run pre-commit hooks: `pre-commit run --all-files` (set `PRECOMMIT_RUN_TESTS=1` to include coverage via the local hook).
+  - Commit with a clear Conventional Commit message once both pass.
+- Scope: Keep changes minimal, focused, and consistent with the codebase style. Avoid unrelated fixes.
+- Notes: Prefer fast, deterministic checks. If hooks require installation, allow pre-commit to install pinned versions.

@@ -281,7 +281,7 @@ upload_to_diawi() {
   fi
   info "Upload queued. Diawi job: $job"
 
-  # Poll for status
+  # Poll for status (Diawi expects GET for status)
   local attempts=0
   local max_attempts=120   # ~10 minutes at 5s intervals
   local link="" status="" prog=""
@@ -289,7 +289,10 @@ upload_to_diawi() {
     sleep 5
     attempts=$((attempts+1))
     local sresp
-    sresp=$(curl -fsS -X POST "https://upload.diawi.com/status" -F "token=$TOKEN" -F "job=$job" || true)
+    sresp=$(curl -sS -G "https://upload.diawi.com/status" \
+      --data-urlencode "token=$TOKEN" \
+      --data-urlencode "job=$job" \
+      -H 'Accept: application/json' || true)
     status=$(echo "$sresp" | json_get status || true)
     link=$(echo "$sresp" | json_get link || true)
     if [[ -z "$link" || "$link" == "null" ]]; then

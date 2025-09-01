@@ -9,7 +9,7 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (!loading && token) {
-      router.replace('/(tabs)');
+      router.replace('/');
     }
   }, [token, loading]);
   return (

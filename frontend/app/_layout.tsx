@@ -273,43 +273,38 @@ function RootLayoutNav() {
               contentStyle: Platform.OS === 'web' ? { marginTop: 0 } : undefined,
             }}
           >
-            {token ? (
-              <>
-                <Stack.Screen
-                  name="index"
-                  options={{
-                    headerShown: false,
-                    title: '',
-                    headerTitle: '',
-                  }}
-                />
-                <Stack.Screen
-                  name="settings"
-                  options={{
-                    headerShown: false,
-                    title: 'Settings',
-                    headerTitle: '',
-                  }}
-                />
-                <Stack.Screen
-                  name="+not-found"
-                  options={{
-                    headerShown: false,
-                    title: 'Not Found',
-                    headerTitle: '',
-                  }}
-                />
-              </>
-            ) : (
-              <Stack.Screen
-                name="login"
-                options={{
-                  headerShown: false,
-                  title: 'Login',
-                  headerTitle: '',
-                }}
-              />
-            )}
+            <Stack.Screen
+              name="index"
+              options={{
+                headerShown: false,
+                title: '',
+                headerTitle: '',
+              }}
+            />
+            <Stack.Screen
+              name="settings"
+              options={{
+                headerShown: false,
+                title: 'Settings',
+                headerTitle: '',
+              }}
+            />
+            <Stack.Screen
+              name="login"
+              options={{
+                headerShown: false,
+                title: 'Login',
+                headerTitle: '',
+              }}
+            />
+            <Stack.Screen
+              name="+not-found"
+              options={{
+                headerShown: false,
+                title: 'Not Found',
+                headerTitle: '',
+              }}
+            />
           </Stack>
         </View>
       </View>

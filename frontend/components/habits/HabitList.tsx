@@ -198,6 +198,12 @@ export function HabitList() {
     );
   }
 
+  // Determine palette size (hue frequency): span this many distinct hues, then repeat
+  const paletteSize = Math.max(
+    1,
+    Math.min(userSettings.color_frequency ?? visibleHabits.length, visibleHabits.length)
+  );
+
   return (
     <ThemedView style={styles.fullContainer}>
       <QuickAddHabit onHabitAdded={() => loadHabits(true)} />
@@ -230,6 +236,7 @@ export function HabitList() {
             onCancelEditing={handleCancelEditing}
             refreshing={refreshing}
             onRefresh={() => loadHabits(true)}
+            colorTotal={paletteSize}
           />
         ) : (
           <GestureHandlerRootView style={{ flex: 1 }}>
@@ -254,7 +261,7 @@ export function HabitList() {
                     onStartEditing={() => handleStartEditing(item.id)}
                     onCancelEditing={handleCancelEditing}
                     colorIndex={index}
-                    colorTotal={visibleHabits.length}
+                    colorTotal={paletteSize}
                   />
                 </ScaleDecorator>
               )}
@@ -295,7 +302,7 @@ export function HabitList() {
               onStartEditing={() => handleStartEditing(habit.id)}
               onCancelEditing={handleCancelEditing}
               colorIndex={index}
-              colorTotal={visibleHabits.length}
+              colorTotal={paletteSize}
             />
           ))}
         </ScrollView>

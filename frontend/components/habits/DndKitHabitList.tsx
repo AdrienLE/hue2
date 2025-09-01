@@ -115,6 +115,7 @@ interface DndKitHabitListProps {
   onCancelEditing: () => void;
   refreshing: boolean;
   onRefresh: () => void;
+  colorTotal: number; // palette size (hue frequency)
 }
 
 export function DndKitHabitList({
@@ -130,6 +131,7 @@ export function DndKitHabitList({
   onCancelEditing,
   refreshing,
   onRefresh,
+  colorTotal,
 }: DndKitHabitListProps) {
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -175,7 +177,7 @@ export function DndKitHabitList({
               onStartEditing={onStartEditing}
               onCancelEditing={onCancelEditing}
               colorIndex={index}
-              colorTotal={habits.length}
+              colorTotal={colorTotal}
             />
           ))}
         </SortableContext>

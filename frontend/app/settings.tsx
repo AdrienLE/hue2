@@ -48,6 +48,10 @@ export default function SettingsScreen() {
   );
   const [colorLightness, setColorLightness] = useState(userSettings.color_brightness ?? 65);
   const [colorChroma, setColorChroma] = useState(userSettings.color_saturation ?? 15);
+  const [colorFrequency, setColorFrequency] = useState(
+    // Undefined means "span all habits"; for UI default to 12
+    userSettings.color_frequency ?? 12
+  );
 
   // Compress image to reduce file size
   const compressImage = async (uri: string, fileName: string, mimeType: string) => {
@@ -162,6 +166,7 @@ export default function SettingsScreen() {
     setRolloverHour((userSettings.day_rollover_hour ?? 3).toString());
     setColorLightness(userSettings.color_brightness ?? 65);
     setColorChroma(userSettings.color_saturation ?? 15);
+    setColorFrequency(userSettings.color_frequency ?? 12);
   }, [userSettings]);
 
   const save = async () => {
@@ -220,6 +225,7 @@ export default function SettingsScreen() {
         day_rollover_hour: parsedRollover,
         color_brightness: colorLightness,
         color_saturation: colorChroma,
+        color_frequency: Math.max(1, Math.round(colorFrequency)),
       });
 
       router.back();
@@ -443,6 +449,27 @@ export default function SettingsScreen() {
                   />
                 </View>
                 <ThemedText style={styles.sliderValue}>{Math.round(colorChroma)}</ThemedText>
+              </View>
+            </View>
+
+            <View style={styles.sliderRow}>
+              <ThemedText style={styles.label}>Hue Frequency</ThemedText>
+              <View style={styles.sliderContainer}>
+                <View style={styles.sliderWrapper}>
+                  <View style={[styles.sliderTrack, styles.chromaTrack]} />
+                  <Slider
+                    style={styles.slider}
+                    minimumValue={1}
+                    maximumValue={24}
+                    step={1}
+                    value={colorFrequency}
+                    onValueChange={setColorFrequency}
+                    minimumTrackTintColor="transparent"
+                    maximumTrackTintColor="transparent"
+                    thumbTintColor={Colors[colorScheme ?? 'light'].tint}
+                  />
+                </View>
+                <ThemedText style={styles.sliderValue}>{Math.round(colorFrequency)}</ThemedText>
               </View>
             </View>
 

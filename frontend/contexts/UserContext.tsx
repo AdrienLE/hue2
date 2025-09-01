@@ -9,6 +9,7 @@ interface UserSettings {
   day_rollover_hour?: number; // Hour of day when habits roll over to next day (0-23, default 3)
   color_brightness?: number; // 0-100, inverts in dark mode
   color_saturation?: number; // 0-100, how colorful vs gray
+  color_frequency?: number; // Number of distinct hues before repeating (palette size)
   last_session_date?: string; // Last date the user was active (YYYY-MM-DD format)
   pending_daily_review?: {
     review_date: string;
@@ -48,6 +49,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     day_rollover_hour: 3,
     color_brightness: 50, // Default 50% brightness
     color_saturation: 60, // Default 60% saturation for tame colors
+    color_frequency: undefined, // Default: span all habits unless user specifies
   });
   const [totalRewards, setTotalRewards] = useState(0);
   const [rewardAnimations, setRewardAnimations] = useState<RewardAnimation[]>([]);
@@ -78,6 +80,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           day_rollover_hour: settings.day_rollover_hour ?? 3,
           color_brightness: settings.color_brightness ?? 50,
           color_saturation: settings.color_saturation ?? 60,
+          color_frequency: settings.color_frequency, // optional, undefined means span all habits
           last_session_date: settings.last_session_date,
           pending_daily_review: settings.pending_daily_review || null,
         };

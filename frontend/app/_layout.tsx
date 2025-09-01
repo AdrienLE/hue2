@@ -48,7 +48,7 @@ function RootLayoutNav() {
     console.log('handleAdvanceDay called');
 
     // Get the current logical date before advancing
-    const rolloverHour = userSettings?.day_rollover_hour || 3;
+    const rolloverHour = userSettings?.day_rollover_hour ?? 3;
     const currentLogicalDate = getLogicalDate(rolloverHour);
 
     // Advance the day
@@ -105,7 +105,7 @@ function RootLayoutNav() {
 
       isCheckingRef.current = true;
       try {
-        const rolloverHour = userSettings.day_rollover_hour || 3;
+        const rolloverHour = userSettings.day_rollover_hour ?? 3;
         const today = getLogicalDate(rolloverHour);
         const lastActiveDate = userSettings.last_session_date;
         const pendingDailyReview = userSettings.pending_daily_review;

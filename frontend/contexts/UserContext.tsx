@@ -75,7 +75,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           reward_unit: settings.reward_unit || '$',
           reward_unit_position: settings.reward_unit_position || 'before',
           total_rewards: settings.total_rewards || 0,
-          day_rollover_hour: settings.day_rollover_hour || 3,
+          day_rollover_hour: settings.day_rollover_hour ?? 3,
           color_brightness: settings.color_brightness ?? 50,
           color_saturation: settings.color_saturation ?? 60,
           last_session_date: settings.last_session_date,
@@ -89,7 +89,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         if (!settings.last_session_date) {
           console.log('📅 No last_session_date found, initializing with current date');
           const { getLogicalDate } = await import('@/contexts/DevDateContext');
-          const rolloverHour = settings.day_rollover_hour || 3;
+          const rolloverHour = settings.day_rollover_hour ?? 3;
           const todayLogical = getLogicalDate(rolloverHour);
           await updateUserSettings({ last_session_date: todayLogical });
           console.log('📅 Initialized last_session_date to:', todayLogical);

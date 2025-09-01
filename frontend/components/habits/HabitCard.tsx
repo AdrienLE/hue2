@@ -453,7 +453,7 @@ export function HabitCard({
         console.log('Success: Habit unchecked!');
         onUnchecked?.(habit.id);
       } else {
-        const rolloverHour = userSettings.day_rollover_hour || 3;
+        const rolloverHour = userSettings.day_rollover_hour ?? 3;
         const checkData = {
           habit_id: habit.id,
           checked: true,
@@ -532,7 +532,7 @@ export function HabitCard({
       const change = increment ? stepSize : -stepSize;
       const newValue = Math.max(0, todayCount + change);
 
-      const rolloverHour = userSettings.day_rollover_hour || 3;
+      const rolloverHour = userSettings.day_rollover_hour ?? 3;
       const countData = {
         habit_id: habit.id,
         value: change,
@@ -596,7 +596,7 @@ export function HabitCard({
       // Optimistic UI update
       setCurrentWeight(weight);
 
-      const rolloverHour = userSettings.day_rollover_hour || 3;
+      const rolloverHour = userSettings.day_rollover_hour ?? 3;
       const weightData = {
         habit_id: habit.id,
         weight,

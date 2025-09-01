@@ -81,7 +81,7 @@ export function HabitList() {
     if (!token) return;
 
     try {
-      const rolloverHour = userSettings.day_rollover_hour || 3;
+      const rolloverHour = userSettings.day_rollover_hour ?? 3;
       const currentDate = getCurrentDate(); // This will use custom date if set
       const today = getLogicalDate(rolloverHour, currentDate); // Pass current date to use override
       const response = await HabitService.getChecks(token);
@@ -153,8 +153,12 @@ export function HabitList() {
     }
   };
 
-  // Get current day of week (0 = Sunday, 6 = Saturday)
-  const currentDayOfWeek = getCurrentDate().getDay();
+  // Get current logical day of week (0 = Sunday, 6 = Saturday) using rollover
+  const rolloverHour = userSettings.day_rollover_hour ?? 3;
+  const currentDate = getCurrentDate();
+  const todayLogical = getLogicalDate(rolloverHour, currentDate);
+  const [y, m, d] = todayLogical.split('-').map(Number);
+  const currentDayOfWeek = new Date(y, m - 1, d).getDay();
 
   // Filter habits based on visibility setting and weekday schedule
   const visibleHabits = habits.filter(habit => {

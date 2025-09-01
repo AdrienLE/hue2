@@ -44,7 +44,7 @@ export default function SettingsScreen() {
     userSettings.reward_unit_position || 'before'
   );
   const [rolloverHour, setRolloverHour] = useState(
-    userSettings.day_rollover_hour?.toString() || '3'
+    (userSettings.day_rollover_hour ?? 3).toString()
   );
   const [colorLightness, setColorLightness] = useState(userSettings.color_brightness ?? 65);
   const [colorChroma, setColorChroma] = useState(userSettings.color_saturation ?? 15);
@@ -159,7 +159,7 @@ export default function SettingsScreen() {
   useEffect(() => {
     setRewardUnit(userSettings.reward_unit || '$');
     setRewardPosition(userSettings.reward_unit_position || 'before');
-    setRolloverHour(userSettings.day_rollover_hour?.toString() || '3');
+    setRolloverHour((userSettings.day_rollover_hour ?? 3).toString());
     setColorLightness(userSettings.color_brightness ?? 65);
     setColorChroma(userSettings.color_saturation ?? 15);
   }, [userSettings]);
@@ -208,10 +208,16 @@ export default function SettingsScreen() {
       await api.post('/api/settings', { name, nickname, email, imageUrl: finalImageUrl }, token);
 
       // Save reward settings
+      const parsedRollover = (() => {
+        const n = parseInt(rolloverHour, 10);
+        if (Number.isNaN(n)) return 3;
+        return Math.min(23, Math.max(0, n));
+      })();
+
       await updateUserSettings({
         reward_unit: rewardUnit,
         reward_unit_position: rewardPosition,
-        day_rollover_hour: parseInt(rolloverHour) || 3,
+        day_rollover_hour: parsedRollover,
         color_brightness: colorLightness,
         color_saturation: colorChroma,
       });

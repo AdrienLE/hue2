@@ -124,7 +124,9 @@ export const getHabitColorByIndex = (
   isDarkMode?: boolean
 ): string => {
   const safeTotal = Math.max(1, total);
-  const hue = (360 * (index % safeTotal)) / safeTotal; // Evenly distribute hues
+  // Start from a pleasing sky-blue base and span the wheel
+  const baseHue = 200; // sky blue start
+  const hue = (baseHue + (360 * (index % safeTotal)) / safeTotal) % 360;
 
   const defaultLightness = isDarkMode ? 75 : 65;
   const lightness = globalLightness ?? defaultLightness;

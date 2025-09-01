@@ -33,7 +33,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
   const handlePerfectCompletion = async () => {
     try {
       // Calculate the next logical date to advance to
-      const rolloverHour = userSettings?.day_rollover_hour || 3;
+      const rolloverHour = userSettings?.day_rollover_hour ?? 3;
       const currentLogicalDate = getLogicalDate(rolloverHour);
       const nextDate = new Date(currentLogicalDate + 'T00:00:00');
       nextDate.setDate(nextDate.getDate() + 1);
@@ -200,7 +200,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
       }
 
       // Calculate the next logical date to advance to
-      const rolloverHour = userSettings?.day_rollover_hour || 3;
+      const rolloverHour = userSettings?.day_rollover_hour ?? 3;
       const currentLogicalDate = getLogicalDate(rolloverHour);
       const nextDate = new Date(currentLogicalDate + 'T00:00:00');
       nextDate.setDate(nextDate.getDate() + 1);

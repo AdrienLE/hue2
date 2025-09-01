@@ -21,6 +21,14 @@ certs/*.pem
 # Build outputs
 frontend/dist/
 
+# Mobile build artifacts (do not commit)
+frontend/**/*.ipa
+frontend/**/*.apk
+frontend/**/*.aab
+*.ipa
+*.apk
+*.aab
+
 # Misc
 .DS_Store
 .pnp.cjs

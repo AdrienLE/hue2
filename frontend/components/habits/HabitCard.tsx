@@ -14,7 +14,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { useUser } from '@/contexts/UserContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { getHabitColor } from '@/constants/Colors';
+import { getHabitColorByIndex } from '@/constants/Colors';
 import type { Habit, Count, WeightUpdate, SubHabit, SubHabitCreate } from '@/lib/types/habits';
 
 interface HabitCardProps {
@@ -31,6 +31,8 @@ interface HabitCardProps {
   onDrag?: () => void;
   isActive?: boolean;
   checkDate?: Date; // Optional date to use for habit checks (defaults to current date)
+  colorIndex?: number; // index among visible habits for color distribution
+  colorTotal?: number; // total visible habits for color distribution
 }
 
 export function HabitCard({
@@ -47,6 +49,8 @@ export function HabitCard({
   onDrag,
   isActive,
   checkDate,
+  colorIndex = 0,
+  colorTotal = 1,
 }: HabitCardProps) {
   // Helper function to get the date to use for habit checks
   const getCheckDate = (rolloverHour: number = 3): string => {
@@ -140,8 +144,7 @@ export function HabitCard({
     habit.schedule_settings?.weekdays || [0, 1, 2, 3, 4, 5, 6]
   );
 
-  // Display settings
-  const [editHue, setEditHue] = useState(habit.display_settings?.hue?.toString() || '');
+  // Display settings (hue editing removed; colors are auto-assigned by position)
 
   // Effect to apply defaults when switching habit types
   useEffect(() => {
@@ -168,25 +171,16 @@ export function HabitCard({
   const tintColor = useThemeColor({}, 'tint');
   const borderColor = useThemeColor({ light: '#e1e5e9', dark: '#333' }, 'border');
   const progressBgColor = useThemeColor({ light: '#e0e0e0', dark: '#444' }, 'background');
-  const habitColor = getHabitColor(
-    habit.id,
-    habit.display_settings?.hue,
+  const habitColor = getHabitColorByIndex(
+    colorIndex,
+    Math.max(1, colorTotal),
     userSettings.color_brightness,
     userSettings.color_saturation,
     isDarkMode
   );
 
   // Live preview color that updates with current edit values
-  const liveHabitColor =
-    isEditing && editHue
-      ? getHabitColor(
-          habit.id,
-          parseFloat(editHue),
-          userSettings.color_brightness,
-          userSettings.color_saturation,
-          isDarkMode
-        )
-      : habitColor;
+  const liveHabitColor = habitColor;
 
   // Helper function to format reward labels
   const formatRewardLabel = (label: string) => {
@@ -712,7 +706,7 @@ export function HabitCard({
         },
         display_settings: {
           ...habit.display_settings,
-          hue: editHue ? parseFloat(editHue) : undefined,
+          // hue removed; colors are auto-assigned by position
         },
       };
 
@@ -751,7 +745,7 @@ export function HabitCard({
     setEditWeightCheckBonus(habit.reward_settings?.weight_check_bonus?.toString() || '2');
     setEditWeightCheckPenalty(habit.reward_settings?.weight_check_penalty?.toString() || '2');
     setEditWeekdays(habit.schedule_settings?.weekdays || [0, 1, 2, 3, 4, 5, 6]);
-    setEditHue(habit.display_settings?.hue?.toString() || '');
+    // hue editing removed
 
     onCancelEdit?.();
   };
@@ -1368,34 +1362,7 @@ export function HabitCard({
             ))}
           </View>
 
-          {/* Color Hue Slider */}
-          <View style={styles.hueSliderContainer}>
-            <View style={styles.hueSliderLabelRow}>
-              <ThemedText style={styles.miniLabel}>Color:</ThemedText>
-              <TouchableOpacity style={styles.resetHueButton} onPress={() => setEditHue('')}>
-                <ThemedText style={[styles.miniLabel, { opacity: 0.6 }]}>Auto</ThemedText>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.hueSliderWrapper}>
-              <View style={styles.hueGradientBar} pointerEvents="none" />
-              <Slider
-                style={styles.hueSlider}
-                minimumValue={0}
-                maximumValue={360}
-                value={editHue ? parseFloat(editHue) : 200}
-                onValueChange={value => setEditHue(Math.round(value).toString())}
-                minimumTrackTintColor="transparent"
-                maximumTrackTintColor="transparent"
-                thumbTintColor={getHabitColor(
-                  habit.id,
-                  editHue ? parseFloat(editHue) : undefined,
-                  userSettings.color_brightness,
-                  userSettings.color_saturation,
-                  isDarkMode
-                )}
-              />
-            </View>
-          </View>
+          {/* Color hue controls removed: colors auto-assigned by list position */}
 
           {/* Action buttons */}
           <View style={styles.editActions}>

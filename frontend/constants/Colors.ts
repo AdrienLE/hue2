@@ -114,3 +114,26 @@ export const getHabitColor = (
 
   return oklchToHex(oklchLightness, oklchChroma, hue);
 };
+
+// Function to span hues evenly across the list order (index-based)
+export const getHabitColorByIndex = (
+  index: number,
+  total: number,
+  globalLightness?: number,
+  globalChroma?: number,
+  isDarkMode?: boolean
+): string => {
+  const safeTotal = Math.max(1, total);
+  const hue = (360 * (index % safeTotal)) / safeTotal; // Evenly distribute hues
+
+  const defaultLightness = isDarkMode ? 75 : 65;
+  const lightness = globalLightness ?? defaultLightness;
+  const finalLightness =
+    globalLightness !== undefined && isDarkMode ? 100 - globalLightness : lightness;
+  const oklchLightness = finalLightness / 100;
+
+  const chroma = globalChroma ?? 15;
+  const oklchChroma = chroma / 100;
+
+  return oklchToHex(oklchLightness, oklchChroma, hue);
+};

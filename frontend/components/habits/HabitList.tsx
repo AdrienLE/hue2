@@ -233,7 +233,7 @@ export function HabitList() {
               data={visibleHabits}
               onDragEnd={({ data }) => handleHabitReorder(data)}
               keyExtractor={item => item.id.toString()}
-              renderItem={({ item, drag, isActive }) => (
+              renderItem={({ item, drag, isActive, index }) => (
                 <ScaleDecorator activeScale={1.05}>
                   <HabitItem
                     key={item.id}
@@ -249,6 +249,8 @@ export function HabitList() {
                     isEditing={editingHabitId === item.id}
                     onStartEditing={() => handleStartEditing(item.id)}
                     onCancelEditing={handleCancelEditing}
+                    colorIndex={index}
+                    colorTotal={visibleHabits.length}
                   />
                 </ScaleDecorator>
               )}
@@ -276,7 +278,7 @@ export function HabitList() {
             />
           }
         >
-          {visibleHabits.map(habit => (
+          {visibleHabits.map((habit, index) => (
             <HabitItem
               key={habit.id}
               habit={habit}
@@ -288,6 +290,8 @@ export function HabitList() {
               isEditing={editingHabitId === habit.id}
               onStartEditing={() => handleStartEditing(habit.id)}
               onCancelEditing={handleCancelEditing}
+              colorIndex={index}
+              colorTotal={visibleHabits.length}
             />
           ))}
         </ScrollView>

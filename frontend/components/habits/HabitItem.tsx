@@ -15,6 +15,8 @@ interface HabitItemProps {
   isEditing?: boolean;
   onStartEditing?: () => void;
   onCancelEditing?: () => void;
+  colorIndex?: number;
+  colorTotal?: number;
 }
 
 export function HabitItem({
@@ -30,6 +32,8 @@ export function HabitItem({
   isEditing,
   onStartEditing,
   onCancelEditing,
+  colorIndex,
+  colorTotal,
 }: HabitItemProps) {
   return (
     <HabitCard
@@ -45,6 +49,8 @@ export function HabitItem({
       isDraggable={isDraggable}
       onDrag={onDrag}
       isActive={isActive}
+      colorIndex={colorIndex}
+      colorTotal={colorTotal}
     />
   );
 }

@@ -32,6 +32,8 @@ interface SortableHabitItemProps {
   editingHabitId: number | null;
   onStartEditing: (habitId: number) => void;
   onCancelEditing: () => void;
+  colorIndex: number;
+  colorTotal: number;
 }
 
 function SortableHabitItem({
@@ -44,6 +46,8 @@ function SortableHabitItem({
   editingHabitId,
   onStartEditing,
   onCancelEditing,
+  colorIndex,
+  colorTotal,
 }: SortableHabitItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: habit.id,
@@ -90,6 +94,8 @@ function SortableHabitItem({
           isEditing={editingHabitId === habit.id}
           onStartEditing={() => onStartEditing(habit.id)}
           onCancelEditing={onCancelEditing}
+          colorIndex={colorIndex}
+          colorTotal={colorTotal}
         />
       </View>
     </View>
@@ -156,7 +162,7 @@ export function DndKitHabitList({
         }
       >
         <SortableContext items={habits.map(h => h.id)} strategy={verticalListSortingStrategy}>
-          {habits.map(habit => (
+          {habits.map((habit, index) => (
             <SortableHabitItem
               key={habit.id}
               habit={habit}
@@ -168,6 +174,8 @@ export function DndKitHabitList({
               editingHabitId={editingHabitId}
               onStartEditing={onStartEditing}
               onCancelEditing={onCancelEditing}
+              colorIndex={index}
+              colorTotal={habits.length}
             />
           ))}
         </SortableContext>

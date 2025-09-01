@@ -93,6 +93,27 @@ eas build --platform ios
 eas build --platform android
 ```
 
+### Internal Distribution (Diawi)
+
+Build locally and upload to Diawi with a QR code for easy install on devices:
+
+```bash
+# 1) Set your Diawi token (do not commit this)
+export DIAWI_TOKEN=your-diawi-token
+
+# 2) Run the helper script (defaults to iOS local build)
+./scripts/build_and_upload_diawi.sh            # iOS
+./scripts/build_and_upload_diawi.sh android    # Android (if local build supported)
+
+# Pass extra build flags to the underlying build script using --
+./scripts/build_and_upload_diawi.sh ios -- --debug
+```
+
+Notes:
+- The script uses `./scripts/build-prod.sh` for builds and detects the new `.ipa`/`.apk` by comparing files before/after.
+- It uploads the resulting artifact to Diawi using `DIAWI_TOKEN`, then prints the Diawi link. If `qrencode` is installed, it also renders a QR code in the terminal.
+- If `qrencode` is missing, you will see install instructions (e.g., `brew install qrencode`).
+
 ### Backend
 Deploy the backend to your preferred hosting platform (Railway, Render, AWS, etc.).
 

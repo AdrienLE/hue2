@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { HabitService } from '@/lib/services/habitService';
 import { useAuth } from '@/auth/AuthContext';
+import { useRefetchOnFocus } from '@/hooks/useRefetchOnFocus';
 
 interface UserSettings {
   reward_unit?: string;
@@ -200,6 +201,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     loadUserData();
   }, [token]);
+
+  // Keep user settings fresh across devices: refetch on focus and poll occasionally
+  useRefetchOnFocus(
+    () => {
+      if (token) return loadUserData();
+    },
+    { enabled: !!token, intervalMs: 60000, focusThrottleMs: 1000 }
+  );
 
   return (
     <UserContext.Provider

@@ -22,6 +22,7 @@ import { getCurrentDate, useDevDate } from '@/contexts/DevDateContext';
 import type { Habit } from '@/lib/types/habits';
 import { HabitItem } from './HabitItem';
 import { QuickAddHabit } from './QuickAddHabit';
+import { useRefetchOnFocus } from '@/hooks/useRefetchOnFocus';
 
 export function HabitList() {
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -188,6 +189,14 @@ export function HabitList() {
       loadTodaysChecks();
     }
   }, [customDateOverride]);
+
+  // Refetch on app/window focus and poll periodically to keep devices in sync
+  useRefetchOnFocus(
+    () => {
+      if (token) return loadHabits(true);
+    },
+    { enabled: !!token, intervalMs: 30000, focusThrottleMs: 1000 }
+  );
 
   if (loading) {
     return (

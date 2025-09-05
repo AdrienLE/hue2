@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri, useAuthRequest, ResponseType } from 'expo-auth-session';
 import { useRouter } from 'expo-router';
@@ -33,19 +33,27 @@ const discovery = {
 
 const TOKEN_KEY = 'auth_token';
 const SILENT_AUTH_ATTEMPT_KEY = 'auth_silent_attempted';
+const URL_SCHEME = process.env.EXPO_PUBLIC_URL_SCHEME || 'hue2';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setTokenState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const useProxy = Platform.select({ web: false, default: true });
+  const redirectUriWeb = makeRedirectUri({ useProxy: false });
+  const redirectUriProxy = makeRedirectUri({
+    scheme: URL_SCHEME,
+    useProxy: true,
+    path: 'redirect',
+  });
+  const redirectUriNative = makeRedirectUri({
+    scheme: URL_SCHEME,
+    useProxy: false,
+    path: 'redirect',
+  });
   const redirectUri = Platform.select({
-    web: makeRedirectUri({ useProxy: false }), // Uses current web URL
-    default: makeRedirectUri({
-      scheme: 'baseapp',
-      useProxy,
-      path: 'redirect',
-    }), // Uses baseapp://redirect for mobile
+    web: redirectUriWeb,
+    default: redirectUriProxy,
   });
 
   useEffect(() => {
@@ -119,6 +127,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 } catch (e) {
                   console.log('Silent auth attempt skipped due to sessionStorage error:', e);
                 }
+              } else {
+                // On native, try a best-effort silent login using system browser cookies
+                try {
+                  await tryNativeSilentLogin();
+                  // If successful, tryNativeSilentLogin will set token
+                } catch (e) {
+                  console.log('Native silent login failed or not available:', e);
+                }
               }
             }
           } catch {
@@ -153,6 +169,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               } catch (e) {
                 console.log('Silent auth attempt skipped due to sessionStorage error:', e);
               }
+            } else {
+              try {
+                await tryNativeSilentLogin();
+              } catch (e) {
+                console.log('Native silent login failed or not available:', e);
+              }
             }
           }
         }
@@ -164,6 +186,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     loadToken();
   }, []);
+
+  // Create a separate silent auth request (prompt=none) for native silent refresh
+  const [silentRequest, silentResponse, promptSilentAsync] = useAuthRequest(
+    {
+      clientId: process.env.EXPO_PUBLIC_AUTH0_CLIENT_ID ?? '',
+      scopes: ['openid', 'profile', 'email'],
+      responseType: ResponseType.Token,
+      redirectUri: redirectUriNative,
+      extraParams: {
+        audience: process.env.EXPO_PUBLIC_AUTH0_AUDIENCE ?? '',
+        prompt: 'none',
+      },
+    },
+    discovery
+  );
+
+  // When silent auth succeeds, persist the new token
+  useEffect(() => {
+    if (silentResponse?.type === 'success') {
+      const newToken = silentResponse.params.access_token;
+      if (newToken) {
+        setTokenState(newToken);
+        AsyncStorage.setItem(TOKEN_KEY, newToken).catch(() => {});
+      }
+    }
+  }, [silentResponse]);
+
+  // Best-effort silent login for native platforms using existing browser session
+  const nativeSilentAttemptedRef = useRef(false);
+  const tryNativeSilentLogin = async () => {
+    if (Platform.OS === 'web') return; // Only relevant for native
+    if (nativeSilentAttemptedRef.current) return;
+    nativeSilentAttemptedRef.current = true;
+    try {
+      // Use system browser (no proxy) so existing Auth0 cookies can be used for SSO
+      await promptSilentAsync({ useProxy: false, preferEphemeralSession: false });
+    } catch (e) {
+      // Ignore errors; user may need to login interactively
+      throw e;
+    }
+  };
 
   // Listen for auth expired events from API calls
   useEffect(() => {
@@ -288,7 +351,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Redirect to home page after logout
     const returnTo = Platform.select({
       web: encodeURIComponent(`${window.location.origin}/`),
-      default: encodeURIComponent(redirectUri),
+      default: encodeURIComponent(redirectUriNative),
     });
     const logoutUrl = `https://${auth0Domain}/v2/logout?client_id=${process.env.EXPO_PUBLIC_AUTH0_CLIENT_ID}&returnTo=${returnTo}`;
 
@@ -300,7 +363,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // On mobile, use WebBrowser for logout
     try {
-      await WebBrowser.openAuthSessionAsync(logoutUrl, redirectUri);
+      await WebBrowser.openAuthSessionAsync(logoutUrl, redirectUriNative);
     } catch (error) {
       console.warn('Logout session failed, but local token cleared:', error);
     }
@@ -308,6 +371,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Navigate to home page (mobile only, web will redirect via Auth0)
     router.replace('/');
   };
+
+  // On native, when app becomes active and we're logged out, try a single silent login
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'active' && !token) {
+        tryNativeSilentLogin().catch(() => {});
+      }
+    });
+    return () => sub.remove();
+  }, [token]);
 
   return (
     <AuthContext.Provider value={{ token, loading, login, logout, validateToken }}>

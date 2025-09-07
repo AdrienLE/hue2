@@ -29,6 +29,7 @@ repos:
         exclude: '^frontend/package\.json$'  # package.json can have trailing commas
       - id: check-merge-conflict
       - id: check-added-large-files
+        exclude: '^(frontend/ios/.*/Images\.xcassets/.*\.png)$'
   # Local hook to run tests with coverage before commit
   - repo: local
     hooks:

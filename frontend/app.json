@@ -45,7 +45,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "./plugins/with-ios-widget"
     ],
     "experiments": {
       "typedRoutes": true

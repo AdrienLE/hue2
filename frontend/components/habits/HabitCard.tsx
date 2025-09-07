@@ -1489,16 +1489,15 @@ export function HabitCard({
                         style={[
                           styles.subHabitCheckboxInner,
                           {
-                            backgroundColor: checkedSubHabits.has(subHabit.id)
-                              ? liveHabitColor
-                              : 'transparent',
+                            backgroundColor: 'transparent',
                             borderColor: liveHabitColor,
                           },
                         ]}
                       >
                         {checkedSubHabits.has(subHabit.id) && (
                           <ThemedText
-                            style={[styles.subHabitCheckmark, { color: backgroundColor }]}
+                            allowFontScaling={false}
+                            style={[styles.subHabitCheckmark, { color: liveHabitColor }]}
                           >
                             ✓
                           </ThemedText>
@@ -2200,7 +2199,9 @@ const styles = StyleSheet.create({
   },
   subHabitCheckmark: {
     fontSize: 10,
+    lineHeight: 10,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
   subHabitNameInCard: {
     fontSize: 12,

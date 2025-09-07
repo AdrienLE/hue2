@@ -37,6 +37,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const hasLoaded = useRef(false);
   const { userSettings, updateUserSettings } = useUser();
+  const [isDirty, setIsDirty] = useState(false);
 
   // Local state for reward settings
   const [rewardUnit, setRewardUnit] = useState(userSettings.reward_unit || '$');
@@ -52,6 +53,7 @@ export default function SettingsScreen() {
     // Undefined means "span all habits"; for UI default to 12
     userSettings.color_frequency ?? 12
   );
+  const [isSlidingColors, setIsSlidingColors] = useState(false);
 
   // Compress image to reduce file size
   const compressImage = async (uri: string, fileName: string, mimeType: string) => {
@@ -161,13 +163,15 @@ export default function SettingsScreen() {
 
   // Update local state when userSettings change
   useEffect(() => {
+    // Avoid clobbering in-progress user edits (especially due to background polling)
+    if (isDirty || isSlidingColors) return;
     setRewardUnit(userSettings.reward_unit || '$');
     setRewardPosition(userSettings.reward_unit_position || 'before');
     setRolloverHour((userSettings.day_rollover_hour ?? 3).toString());
     setColorLightness(userSettings.color_brightness ?? 65);
     setColorChroma(userSettings.color_saturation ?? 15);
     setColorFrequency(userSettings.color_frequency ?? 12);
-  }, [userSettings]);
+  }, [userSettings, isDirty, isSlidingColors]);
 
   const save = async () => {
     if (!token) return;
@@ -422,7 +426,12 @@ export default function SettingsScreen() {
                     minimumValue={10}
                     maximumValue={90}
                     value={colorLightness}
-                    onValueChange={setColorLightness}
+                    onValueChange={v => {
+                      setIsDirty(true);
+                      setIsSlidingColors(true);
+                      setColorLightness(v);
+                    }}
+                    onSlidingComplete={() => setIsSlidingColors(false)}
                     minimumTrackTintColor="transparent"
                     maximumTrackTintColor="transparent"
                     thumbTintColor={Colors[colorScheme ?? 'light'].tint}
@@ -442,7 +451,12 @@ export default function SettingsScreen() {
                     minimumValue={0}
                     maximumValue={30}
                     value={colorChroma}
-                    onValueChange={setColorChroma}
+                    onValueChange={v => {
+                      setIsDirty(true);
+                      setIsSlidingColors(true);
+                      setColorChroma(v);
+                    }}
+                    onSlidingComplete={() => setIsSlidingColors(false)}
                     minimumTrackTintColor="transparent"
                     maximumTrackTintColor="transparent"
                     thumbTintColor={Colors[colorScheme ?? 'light'].tint}
@@ -453,7 +467,9 @@ export default function SettingsScreen() {
             </View>
 
             <View style={styles.sliderRow}>
-              <ThemedText style={styles.label}>Hue Frequency</ThemedText>
+              <ThemedText style={[styles.label, styles.labelWide]} numberOfLines={1}>
+                Hue Frequency
+              </ThemedText>
               <View style={styles.sliderContainer}>
                 <View style={styles.sliderWrapper}>
                   <View style={[styles.sliderTrack, styles.chromaTrack]} />
@@ -463,7 +479,12 @@ export default function SettingsScreen() {
                     maximumValue={24}
                     step={1}
                     value={colorFrequency}
-                    onValueChange={setColorFrequency}
+                    onValueChange={v => {
+                      setIsDirty(true);
+                      setIsSlidingColors(true);
+                      setColorFrequency(v);
+                    }}
+                    onSlidingComplete={() => setIsSlidingColors(false)}
                     minimumTrackTintColor="transparent"
                     maximumTrackTintColor="transparent"
                     thumbTintColor={Colors[colorScheme ?? 'light'].tint}
@@ -480,7 +501,14 @@ export default function SettingsScreen() {
                 color={Colors[colorScheme ?? 'light'].icon}
                 disabled={saving}
               />
-              <Button title={saving ? 'Saving...' : 'Save'} onPress={save} disabled={saving} />
+              <Button
+                title={saving ? 'Saving...' : 'Save'}
+                onPress={() => {
+                  setIsDirty(false);
+                  save();
+                }}
+                disabled={saving}
+              />
             </View>
           </ScrollView>
         </Pressable>
@@ -510,7 +538,8 @@ const styles = StyleSheet.create({
   content: { width: '100%', gap: 16 },
   pictureRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  label: { width: 90 },
+  label: { width: 100 },
+  labelWide: { width: 130 },
   input: {
     flex: 1,
     borderWidth: 1,

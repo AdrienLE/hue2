@@ -17,6 +17,7 @@ import { ThemedTextInput } from '@/components/ThemedTextInput';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { api } from '@/lib/api';
 import { Colors } from '@/constants/Colors';
+import { getHabitColorByIndex } from '@/constants/Colors';
 import { useAuth } from '@/auth/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useUser } from '@/contexts/UserContext';
@@ -164,14 +165,14 @@ export default function SettingsScreen() {
   // Update local state when userSettings change
   useEffect(() => {
     // Avoid clobbering in-progress user edits (especially due to background polling)
-    if (isDirty || isSlidingColors) return;
+    if (isDirty || isSlidingColors || saving) return;
     setRewardUnit(userSettings.reward_unit || '$');
     setRewardPosition(userSettings.reward_unit_position || 'before');
     setRolloverHour((userSettings.day_rollover_hour ?? 3).toString());
     setColorLightness(userSettings.color_brightness ?? 65);
     setColorChroma(userSettings.color_saturation ?? 15);
     setColorFrequency(userSettings.color_frequency ?? 12);
-  }, [userSettings, isDirty, isSlidingColors]);
+  }, [userSettings, isDirty, isSlidingColors, saving]);
 
   const save = async () => {
     if (!token) return;
@@ -231,7 +232,8 @@ export default function SettingsScreen() {
         color_saturation: colorChroma,
         color_frequency: Math.max(1, Math.round(colorFrequency)),
       });
-
+      setIsDirty(false);
+      setIsSlidingColors(false);
       router.back();
     } catch (e) {
       console.warn('Failed to save settings', e);
@@ -494,6 +496,23 @@ export default function SettingsScreen() {
               </View>
             </View>
 
+            {/* Live palette preview */}
+            <View style={styles.previewSection}>
+              <ThemedText style={styles.previewTitle}>Palette Preview</ThemedText>
+              <View style={styles.previewRow}>
+                {Array.from({ length: Math.max(1, Math.round(colorFrequency)) }).map((_, i) => {
+                  const color = getHabitColorByIndex(
+                    i,
+                    Math.max(1, Math.round(colorFrequency)),
+                    colorLightness,
+                    colorChroma,
+                    colorScheme === 'dark'
+                  );
+                  return <View key={i} style={[styles.previewSwatch, { borderColor: color }]} />;
+                })}
+              </View>
+            </View>
+
             <View style={styles.buttonRow}>
               <Button
                 title="Cancel"
@@ -501,14 +520,7 @@ export default function SettingsScreen() {
                 color={Colors[colorScheme ?? 'light'].icon}
                 disabled={saving}
               />
-              <Button
-                title={saving ? 'Saving...' : 'Save'}
-                onPress={() => {
-                  setIsDirty(false);
-                  save();
-                }}
-                disabled={saving}
-              />
+              <Button title={saving ? 'Saving...' : 'Save'} onPress={save} disabled={saving} />
             </View>
           </ScrollView>
         </Pressable>
@@ -540,6 +552,17 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   label: { width: 100 },
   labelWide: { width: 130 },
+  previewSection: { marginTop: 8, marginBottom: 12 },
+  previewTitle: { marginBottom: 8 },
+  previewRow: { flexDirection: 'row', flexWrap: 'wrap' },
+  previewSwatch: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 2,
+    marginRight: 6,
+    marginBottom: 6,
+  },
   input: {
     flex: 1,
     borderWidth: 1,

@@ -111,24 +111,30 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const updateUserSettings = async (newSettings: Partial<UserSettings>) => {
     if (!token) return;
 
+    const previous = userSettings;
+    const updatedSettings = { ...userSettings, ...newSettings };
+
+    // Optimistic update
+    setUserSettings(updatedSettings);
+    if (newSettings.total_rewards !== undefined) {
+      setTotalRewards(newSettings.total_rewards);
+    }
+
     try {
-      const updatedSettings = { ...userSettings, ...newSettings };
+      const response = await HabitService.updateCurrentUser({ settings: updatedSettings }, token);
 
-      const response = await HabitService.updateCurrentUser(
-        {
-          settings: updatedSettings,
-        },
-        token
-      );
-
-      if (response.data) {
-        setUserSettings(updatedSettings);
-        if (newSettings.total_rewards !== undefined) {
-          setTotalRewards(newSettings.total_rewards);
-        }
+      // If backend failed silently, keep optimistic state but log
+      if (!response.data) {
+        console.warn('updateUserSettings: no data returned from server; keeping optimistic state');
       }
     } catch (error) {
-      console.error('Error updating user settings:', error);
+      console.error('Error updating user settings, reverting:', error);
+      // Revert on error
+      setUserSettings(previous);
+      if (newSettings.total_rewards !== undefined) {
+        setTotalRewards(previous.total_rewards || 0);
+      }
+      throw error;
     }
   };
 

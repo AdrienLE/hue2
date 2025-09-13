@@ -123,19 +123,26 @@ export const getHabitColorByIndex = (
   globalChroma?: number,
   isDarkMode?: boolean
 ): string => {
-  const safeTotal = Math.max(1, total);
-  // Start from a pleasing sky-blue base and span the wheel
-  const baseHue = 200; // sky blue start
-  const hue = (baseHue + (360 * (index % safeTotal)) / safeTotal) % 360;
+  // Use golden-angle hue spacing for more natural distribution and less clumping
+  const GOLDEN_ANGLE = 137.508;
+  const baseHue = 200; // pleasant starting point (sky blue)
+  const hue = (baseHue + index * GOLDEN_ANGLE) % 360;
 
-  const defaultLightness = isDarkMode ? 75 : 65;
-  const lightness = globalLightness ?? defaultLightness;
-  const finalLightness =
-    globalLightness !== undefined && isDarkMode ? 100 - globalLightness : lightness;
-  const oklchLightness = finalLightness / 100;
+  // Base lightness from settings (in OKLCH percent). In dark mode, invert the control.
+  const baseL = globalLightness ?? (isDarkMode ? 75 : 65);
+  const effectiveL = globalLightness !== undefined && isDarkMode ? 100 - globalLightness : baseL;
 
-  const chroma = globalChroma ?? 15;
-  const oklchChroma = chroma / 100;
+  // Alternate lightness slightly to increase discriminability across neighbors
+  const altAmplitude = 8; // +/- points in [0..100]
+  const lOffset = (index % 2 === 0 ? 1 : -1) * altAmplitude;
+  const finalL = Math.max(10, Math.min(90, effectiveL + lOffset));
+  const oklchLightness = finalL / 100;
+
+  // Chroma from settings with a tiny wobble to avoid near-equal neighbors in CVD ranges
+  const baseC = globalChroma ?? 15; // [0..30] mapped to [0..0.3]
+  const wobble = Math.sin((index * Math.PI) / 3) * 2; // ~[-2..2]
+  const finalC = Math.max(6, Math.min(30, baseC + wobble));
+  const oklchChroma = finalC / 100;
 
   return oklchToHex(oklchLightness, oklchChroma, hue);
 };

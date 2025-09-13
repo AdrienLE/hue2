@@ -29,6 +29,8 @@ BUILD_MODE="local"   # local|cloud
 API_URL=""
 DO_DIAWI=0
 DIAWI_TOKEN_IN="${DIAWI_TOKEN:-}"
+SKIP_BUILD=0
+ARTIFACT_FILE=""
 
 EXTRA_EAS_ARGS=()
 
@@ -50,6 +52,8 @@ while [[ $# -gt 0 ]]; do
     --api-url) API_URL="${2:-}"; shift 2;;
     --diawi) DO_DIAWI=1; shift;;
     --token) DIAWI_TOKEN_IN="${2:-}"; shift 2;;
+    --skip-build) SKIP_BUILD=1; shift;;
+    --file) ARTIFACT_FILE="${2:-}"; shift 2;;
     --) shift; while [[ $# -gt 0 ]]; do EXTRA_EAS_ARGS+=("$1"); shift; done;;
     *) EXTRA_EAS_ARGS+=("$1"); shift;;
   esac
@@ -81,6 +85,9 @@ if (( DO_DIAWI )); then
     EXTRA_EAS_ARGS+=("$API_URL")
   fi
   DIAWI_CMD=("$REPO_ROOT/scripts/build_and_upload_diawi.sh" ios)
+  # If provided, select a specific artifact and/or skip the build step
+  if (( SKIP_BUILD )); then DIAWI_CMD+=(--skip-build); fi
+  if [[ -n "$ARTIFACT_FILE" ]]; then DIAWI_CMD+=(--file "$ARTIFACT_FILE"); fi
   # Force local/cloud
   if [[ "$BUILD_MODE" == "local" ]]; then
     DIAWI_CMD+=(-- --local)

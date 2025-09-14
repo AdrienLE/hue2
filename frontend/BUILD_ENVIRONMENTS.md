@@ -120,6 +120,26 @@ The app uses these environment variables:
 - `EXPO_PUBLIC_AUTH0_DOMAIN`: Auth0 domain
 - `EXPO_PUBLIC_AUTH0_CLIENT_ID`: Auth0 client ID
 - `EXPO_PUBLIC_AUTH0_AUDIENCE`: Auth0 audience
+- `EXPO_PUBLIC_AUTH_USE_PROXY`: Set to `true` or `false` to force using the Expo AuthSession proxy on native (defaults to `true`).
+
+## Auth0 Redirect URIs (iOS/Android/Web)
+
+For Auth0 to accept logins, ensure these URLs are added in your Auth0 Application settings:
+
+- Allowed Callback URLs:
+
+  - Native (recommended): `baseapp://redirect` (or `<your-scheme>://redirect`).
+  - Optional (for Expo proxy): `https://auth.expo.io/@YOUR_EXPO_USERNAME/hue-2`.
+
+- Allowed Logout URLs:
+  - `baseapp://redirect` (or `<your-scheme>://redirect`).
+
+Notes:
+
+- The canonical app URL scheme is `baseapp` (also set in `app.json`). If you change it, update both the scheme and Auth0 settings.
+- You can temporarily use the Expo proxy in native builds by setting `EXPO_PUBLIC_AUTH_USE_PROXY=true`.
+- If you change the app slug or Expo account, update the Expo proxy URL accordingly.
+- You can override the URL scheme via `EXPO_PUBLIC_URL_SCHEME`; it must match `expo.scheme` in `app.json`.
 
 ## Build Profiles
 

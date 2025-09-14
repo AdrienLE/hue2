@@ -33,13 +33,20 @@ const discovery = {
 
 const TOKEN_KEY = 'auth_token';
 const SILENT_AUTH_ATTEMPT_KEY = 'auth_silent_attempted';
-const URL_SCHEME = process.env.EXPO_PUBLIC_URL_SCHEME || 'hue2';
+// Canonical app URL scheme. Keep this set to 'baseapp' unless the
+// product name changes and you update both app.json (expo.scheme)
+// and Auth0 Allowed Callback/Logout URLs accordingly.
+const URL_SCHEME = process.env.EXPO_PUBLIC_URL_SCHEME || 'baseapp';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setTokenState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const useProxy = Platform.select({ web: false, default: true });
+  // Allow override via env; default to native (no Expo proxy) on iOS/Android
+  const authUseProxyEnv = process.env.EXPO_PUBLIC_AUTH_USE_PROXY;
+  const forcedUseProxy =
+    authUseProxyEnv === 'true' ? true : authUseProxyEnv === 'false' ? false : undefined;
+  const useProxy = Platform.select({ web: false, default: forcedUseProxy ?? false });
   const redirectUriWeb = makeRedirectUri({ useProxy: false });
   const redirectUriProxy = makeRedirectUri({
     scheme: URL_SCHEME,
@@ -53,11 +60,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
   const redirectUri = Platform.select({
     web: redirectUriWeb,
-    default: redirectUriProxy,
+    default: useProxy ? redirectUriProxy : redirectUriNative,
   });
 
   useEffect(() => {
-    console.log(`Auth redirect URI: ${redirectUri}`);
+    console.log(`Auth env EXPO_PUBLIC_AUTH_USE_PROXY: ${authUseProxyEnv ?? '(unset)'}`);
+    console.log(`Auth redirect URI (computed): ${redirectUri}`);
+    console.log(`Auth redirect URI (native): ${redirectUriNative}`);
+    console.log(`Auth redirect URI (proxy): ${redirectUriProxy}`);
     console.log(`Auth useProxy: ${useProxy}`);
   }, [redirectUri, useProxy]);
 

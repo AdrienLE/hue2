@@ -43,11 +43,18 @@ target 'Hue2' do
   )
 
   post_install do |installer|
+    # Enable ccache only if requested and available on the system
+    ccache_requested = podfile_properties['apple.ccacheEnabled'] == 'true'
+    ccache_present = system('which ccache >/dev/null 2>&1')
+    if ccache_requested && !ccache_present
+      puts "[Podfile] ccache requested but not found; skipping. Install with: brew install ccache"
+    end
+
     react_native_post_install(
       installer,
       config[:reactNativePath],
       :mac_catalyst_enabled => false,
-      :ccache_enabled => podfile_properties['apple.ccacheEnabled'] == 'true',
+      :ccache_enabled => (ccache_requested && ccache_present),
     )
 
     # This is necessary for Xcode 14, because it signs resource bundles by default

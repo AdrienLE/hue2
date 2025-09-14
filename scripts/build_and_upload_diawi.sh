@@ -4,7 +4,7 @@ set -euo pipefail
 # Build (locally) and upload iOS/Android artifact to Diawi, then print QR
 #
 # Usage:
-#   scripts/build_and_upload_diawi.sh [ios|android] [--file <path>] [--token <token>] [--skip-build] [--auto-yes] [--interactive] [--verbose] [--] [extra build args]
+#   scripts/build_and_upload_diawi.sh [ios|android] [--file <path>] [--token <token>|--token-file <path>] [--skip-build] [--auto-yes] [--interactive] [--verbose] [--] [extra build args]
 #
 # Examples:
 #   scripts/build_and_upload_diawi.sh                 # iOS local build (default), upload to Diawi
@@ -17,7 +17,7 @@ set -euo pipefail
 # - Requires DIAWI_TOKEN env var or --token <token>.
 # - Uses ./scripts/build-prod.sh under the hood for building.
 # - Prints an ANSI QR code with `qrencode` if available; otherwise prints install instructions.
-# - Use --verbose to debug this script itself (shell trace); does not change build type.
+# - Use --verbose to print structured debug logs (masked by default); does not change build type.
 # - Non-interactive by default; use --interactive to allow prompts.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -28,6 +28,7 @@ BUILD_SCRIPT="$REPO_ROOT/scripts/build-prod.sh"
 PLATFORM="ios"        # default
 ARTIFACT_FILE=""
 TOKEN="${DIAWI_TOKEN:-}"
+TOKEN_FILE=""
 SKIP_BUILD=0
 VERBOSE=0
 # Whether to pass --auto-yes to build script (disabled by default)
@@ -68,6 +69,8 @@ while [[ $# -gt 0 ]]; do
       FORCE_INTERACTIVE=1; shift;;
     --verbose)
       VERBOSE=1; shift;;
+    --token-file)
+      TOKEN_FILE="${2:-}"; shift 2;;
     --)
       shift
       # The rest goes straight to the build script
@@ -79,6 +82,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ -z "$TOKEN" && -n "$TOKEN_FILE" ]]; then
+  if [[ -f "$TOKEN_FILE" ]]; then
+    TOKEN="$(cat "$TOKEN_FILE" 2>/dev/null || true)"
+  fi
+fi
+
 if [[ -z "$TOKEN" ]]; then
   err "DIAWI_TOKEN is required. Set env var or pass --token <token>."
   echo "Export once: export DIAWI_TOKEN=your_token_here" >&2
@@ -87,9 +96,44 @@ fi
 
 require_cmd curl
 
-if (( VERBOSE )); then
-  set -x
-fi
+# Note: Avoid shell xtrace to prevent leaking secrets; we provide
+# structured debug logs when --verbose is set instead.
+
+# Helpers
+mask_token() {
+  local tok="$1"
+  local len=${#tok}
+  if (( len <= 8 )); then
+    printf '*%.0s' $(seq 1 "$len")
+  else
+    local head=${tok:0:4}
+    local tail=${tok: -4}
+    local mid_len=$((len-8))
+    local mid_mask
+    mid_mask=$(printf '*%.0s' $(seq 1 "$mid_len"))
+    printf '%s%s%s' "$head" "$mid_mask" "$tail"
+  fi
+}
+
+file_size_bytes() {
+  local f="$1"
+  if stat -f '%z' "$f" >/dev/null 2>&1; then
+    stat -f '%z' "$f"   # macOS
+  else
+    stat -c '%s' "$f"   # Linux
+  fi
+}
+
+# Shell-safe quoting for debug output
+q() { printf %q "$1"; }
+
+### no preflight or curl preview — upload directly
+
+print_upload_curl() {
+  : # no-op; debug preview removed
+}
+
+### no preflight token verify — upload directly
 
 # Optional JSON parser: prefer jq, fallback to python3
 JSON_PARSER=""
@@ -134,6 +178,28 @@ else:
 PY
   fi
 }
+
+# Remove surrounding quotes, common prefixes, and whitespace/newlines
+sanitize_token() {
+  local t="$1"
+  # Remove CR/LF
+  t="${t//$'\r'/}"
+  t="${t//$'\n'/}"
+  # Trim leading/trailing whitespace
+  # shellcheck disable=SC2001
+  t="$(printf '%s' "$t" | sed -e 's/^\s\+//' -e 's/\s\+$//')"
+  # Strip surrounding quotes
+  if [[ "$t" =~ ^".*"$ ]]; then t="${t:1:${#t}-2}"; fi
+  if [[ "$t" =~ ^'.*'$ ]]; then t="${t:1:${#t}-2}"; fi
+  # Strip common auth prefixes (case-insensitive)
+  case "$t" in
+    [Tt][Oo][Kk][Ee][Nn]\ * ) t="${t#* }" ;;
+    [Bb][Ee][Aa][Rr][Ee][Rr]\ * ) t="${t#* }" ;;
+  esac
+  printf '%s' "$t"
+}
+
+TOKEN="$(sanitize_token "$TOKEN")"
 
 list_artifacts() {
   case "$PLATFORM" in
@@ -261,15 +327,74 @@ upload_to_diawi() {
   if [[ ! -f "$file" ]]; then
     err "Artifact not found: $file"; exit 1
   fi
-  info "Uploading to Diawi: $file"
-  local resp
-  resp=$(curl -fsS -X POST "https://upload.diawi.com/" \
+  local size
+  size=$(file_size_bytes "$file" 2>/dev/null || echo "")
+  if (( VERBOSE )); then
+    local masked
+    masked=$(mask_token "$TOKEN")
+    info "Uploading to Diawi: $file (size: ${size:-unknown} bytes)"
+    info "Using token (masked): $masked (length: ${#TOKEN})"
+  else
+    info "Uploading to Diawi: $file"
+  fi
+
+  # Trim trailing newlines from token to avoid 401 due to stray characters
+  TOKEN=$(printf '%s' "$TOKEN" | tr -d '\r\n')
+
+  # Perform upload; capture HTTP status and response body for diagnostics
+  local tmp_body http_code curl_exit
+  tmp_body=$(mktemp)
+  http_code=0
+  curl_exit=0
+  # No curl preview; rely on masked verbose logs
+  http_code=$(curl -sS --retry 2 --retry-delay 2 -X POST "https://upload.diawi.com/" \
+    -H 'Accept: application/json' \
     -F "token=$TOKEN" \
     -F "file=@$file" \
     -F "find_by_udid=0" \
-    -F "wall_of_apps=0") || { err "Upload failed."; exit 1; }
+    -F "wall_of_apps=0" \
+    -o "$tmp_body" -w "%{http_code}" 2>/dev/null) || curl_exit=$?
 
-  local success job message
+  if (( curl_exit != 0 )); then
+    err "Upload failed (curl exit=$curl_exit)."
+    if (( VERBOSE )); then
+      echo "--- Diawi response (if any) ---" >&2
+      cat "$tmp_body" 2>/dev/null >&2 || true
+      echo "-------------------------------" >&2
+    fi
+    rm -f "$tmp_body"
+    exit 1
+  fi
+
+  if [[ ! "$http_code" =~ ^[0-9][0-9][0-9]$ ]]; then
+    err "Unexpected HTTP status code: $http_code"
+    if (( VERBOSE )); then
+      echo "--- Diawi response ---" >&2
+      cat "$tmp_body" 2>/dev/null >&2 || true
+      echo "----------------------" >&2
+    fi
+    rm -f "$tmp_body"
+    exit 1
+  fi
+
+  if (( http_code < 200 || http_code >= 300 )); then
+    err "Diawi upload HTTP $http_code."
+    if (( VERBOSE )); then
+      echo "--- Diawi response body ---" >&2
+      cat "$tmp_body" 2>/dev/null >&2 || true
+      echo "---------------------------" >&2
+    fi
+    if [[ "$http_code" == "401" ]]; then
+      err "Unauthorized. Check DIAWI_TOKEN (is it fresh, no whitespace/newlines, correct permissions?)."
+      err "Tip: pass with --token or export DIAWI_TOKEN and re-run."
+    fi
+    rm -f "$tmp_body"
+    exit 1
+  fi
+
+  local resp success job message
+  resp=$(cat "$tmp_body")
+  rm -f "$tmp_body"
   success=$(echo "$resp" | json_get success || true)
   job=$(echo "$resp" | json_get job || true)
   message=$(echo "$resp" | json_get message || true)
@@ -288,11 +413,22 @@ upload_to_diawi() {
   while (( attempts < max_attempts )); do
     sleep 5
     attempts=$((attempts+1))
-    local sresp
-    sresp=$(curl -sS -G "https://upload.diawi.com/status" \
+    local sresp scode
+    scode=$(curl -sS --retry 2 --retry-delay 2 -o /dev/null -w "%{http_code}" -G "https://upload.diawi.com/status" \
+      --data-urlencode "token=$TOKEN" \
+      --data-urlencode "job=$job" \
+      -H 'Accept: application/json' || echo "000")
+    sresp=$(curl -sS --retry 2 --retry-delay 2 -G "https://upload.diawi.com/status" \
       --data-urlencode "token=$TOKEN" \
       --data-urlencode "job=$job" \
       -H 'Accept: application/json' || true)
+    if (( VERBOSE )); then
+      echo "Diawi status HTTP: $scode" >&2
+    fi
+    if [[ "$scode" == "401" ]]; then
+      err "Diawi status check unauthorized (401). Token may be invalid/revoked."
+      exit 1
+    fi
     status=$(echo "$sresp" | json_get status || true)
     link=$(echo "$sresp" | json_get link || true)
     if [[ -z "$link" || "$link" == "null" ]]; then

@@ -3,7 +3,7 @@
 // ios/<ProjectName>Widget/. It does NOT fully register the Xcode target —
 // open Xcode once after prebuild to add the target and link the folder.
 
-const { withDangerousMod } = require('@expo/config-plugins');
+const { withDangerousMod } = require('expo/config-plugins');
 const fs = require('fs');
 const path = require('path');
 

@@ -7,7 +7,9 @@ set -euo pipefail
 # - Optionally uploads the resulting .ipa to Diawi
 #
 # Usage:
-#   scripts/ios_widget_workflow.sh [--no-prebuild] [--profile <name>] [--local|--cloud] [--api-url <url>] [--diawi] [--token <DIAWI_TOKEN>] [--token-file <path>] [--verbose] [--] [extra EAS args]
+#   scripts/ios_widget_workflow.sh [--no-prebuild] [--profile <name>] [--local|--cloud] [--api-url <url>] \
+#                                  [--interactive|--non-interactive] [--diawi] [--token <DIAWI_TOKEN>] \
+#                                  [--token-file <path>] [--dev-run] [--xcode-open] [--verbose] [--] [extra EAS args]
 #
 # Examples:
 #   scripts/ios_widget_workflow.sh --diawi --token "$DIAWI_TOKEN" --verbose
@@ -39,6 +41,10 @@ DEV_RUN=0
 XCODE_OPEN=0
 VERBOSE=0
 
+# Interactivity control (forwarded to underlying build script)
+FORCE_INTERACTIVE=0
+FORCE_NON_INTERACTIVE=0
+
 EXTRA_EAS_ARGS=()
 
 print_usage() {
@@ -67,6 +73,8 @@ while [[ $# -gt 0 ]]; do
     --no-pod-install) RUN_PODS=0; shift;;
     --dev-run) DEV_RUN=1; shift;;
     --xcode-open) XCODE_OPEN=1; shift;;
+    --interactive) FORCE_INTERACTIVE=1; FORCE_NON_INTERACTIVE=0; shift;;
+    --non-interactive) FORCE_NON_INTERACTIVE=1; FORCE_INTERACTIVE=0; shift;;
     --verbose) VERBOSE=1; shift;;
     --) shift; while [[ $# -gt 0 ]]; do EXTRA_EAS_ARGS+=("$1"); shift; done;;
     *) EXTRA_EAS_ARGS+=("$1"); shift;;
@@ -169,6 +177,12 @@ fi
   else
     DIAWI_CMD+=(-- --non-interactive)
   fi
+  # Respect interactive preference for the Diawi helper (which then forwards to build script)
+  if (( FORCE_INTERACTIVE )); then
+    DIAWI_CMD=("${DIAWI_CMD[@]:0:1}" --interactive "${DIAWI_CMD[@]:1}")
+  elif (( FORCE_NON_INTERACTIVE )); then
+    DIAWI_CMD=("${DIAWI_CMD[@]:0:1}" --non-interactive "${DIAWI_CMD[@]:1}")
+  fi
   # Pass token if provided explicitly
   if [[ -n "$DIAWI_TOKEN_IN" ]]; then
     export DIAWI_TOKEN="$DIAWI_TOKEN_IN"
@@ -188,6 +202,12 @@ else
   BUILD_CMD=("$REPO_ROOT/scripts/build-prod.sh" ios)
   [[ "$BUILD_MODE" == "local" ]] && BUILD_CMD+=(--local)
   BUILD_CMD+=(--profile "$PROFILE")
+  # Respect interactive preference for underlying build
+  if (( FORCE_INTERACTIVE )); then
+    BUILD_CMD+=(--interactive)
+  elif (( FORCE_NON_INTERACTIVE )); then
+    BUILD_CMD+=(--non-interactive)
+  fi
   if [[ -n "$API_URL" ]]; then BUILD_CMD+=("$API_URL"); fi
   if [[ ${#EXTRA_EAS_ARGS[@]} -gt 0 ]]; then BUILD_CMD+=(-- "${EXTRA_EAS_ARGS[@]}"); fi
   "${BUILD_CMD[@]}"

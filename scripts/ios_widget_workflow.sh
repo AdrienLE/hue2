@@ -94,9 +94,9 @@ if (( DO_PREBUILD )); then
       info "iOS project exists; skipping prebuild (use --force-prebuild or --clean-prebuild to regenerate)."
     else
       if (( CLEAN_PREBUILD )); then
-        npx expo prebuild -p ios --clean --non-interactive
+        INCLUDE_NATIVE_CONFIG=1 npx expo prebuild -p ios --clean --non-interactive
       else
-        npx expo prebuild -p ios --non-interactive
+        INCLUDE_NATIVE_CONFIG=1 npx expo prebuild -p ios --non-interactive
       fi
     fi
     # Pods: optional; skip if requested

@@ -3,51 +3,12 @@
     "name": "Hue 2",
     "slug": "hue-2",
     "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "baseapp",
-    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.adrienle.hue2",
-      "associatedDomains": ["applinks:hue2-production.up.railway.app"],
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false,
-        "NSUserActivityTypes": ["NSUserActivityTypeBrowsingWeb"]
-      }
-    },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "package": "com.adrienle.hue2",
-      "edgeToEdgeEnabled": true
-    },
     "web": {
       "bundler": "metro",
       "output": "static",
       "favicon": "./assets/images/favicon-48x48.png"
     },
-    "plugins": [
-      [
-        "expo-router",
-        {
-          "origin": "https://hue2-production.up.railway.app"
-        }
-      ],
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
-        }
-      ],
-      "./plugins/with-ios-widget"
-    ],
     "experiments": {
       "typedRoutes": true
     },

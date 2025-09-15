@@ -63,6 +63,7 @@ target 'Hue2' do
         user_projects = installer.aggregate_targets.map(&:user_project).uniq.compact
         user_projects.each do |proj|
           modified = false
+          # Scrub target-level overrides
           proj.native_targets.each do |t|
             t.build_configurations.each do |cfg|
               %w[CC CXX LD LDPLUSPLUS CCACHE_BINARY].each do |key|
@@ -74,6 +75,19 @@ target 'Hue2' do
                   cfg.build_settings.delete(key)
                   modified = true
                 end
+              end
+            end
+          end
+          # Scrub project-level defaults (affect all targets inheriting settings)
+          proj.build_configurations.each do |cfg|
+            %w[CC CXX LD LDPLUSPLUS CCACHE_BINARY].each do |key|
+              val = cfg.build_settings[key]
+              if val && val.to_s.include?('ccache-clang')
+                cfg.build_settings.delete(key)
+                modified = true
+              elsif key == 'CCACHE_BINARY' && val
+                cfg.build_settings.delete(key)
+                modified = true
               end
             end
           end

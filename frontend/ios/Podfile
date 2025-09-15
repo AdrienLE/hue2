@@ -57,6 +57,33 @@ target 'Hue2' do
       :ccache_enabled => (ccache_requested && ccache_present),
     )
 
+    # If ccache is disabled, scrub any stale ccache wrapper settings from user targets
+    if !(ccache_requested && ccache_present)
+      begin
+        user_projects = installer.aggregate_targets.map(&:user_project).uniq.compact
+        user_projects.each do |proj|
+          modified = false
+          proj.native_targets.each do |t|
+            t.build_configurations.each do |cfg|
+              %w[CC CXX LD LDPLUSPLUS CCACHE_BINARY].each do |key|
+                val = cfg.build_settings[key]
+                if val && val.to_s.include?('ccache-clang')
+                  cfg.build_settings.delete(key)
+                  modified = true
+                elsif key == 'CCACHE_BINARY' && val
+                  cfg.build_settings.delete(key)
+                  modified = true
+                end
+              end
+            end
+          end
+          proj.save if modified
+        end
+      rescue => e
+        puts "[Podfile] Warning: failed to scrub ccache settings: #{e}"
+      end
+    end
+
     # This is necessary for Xcode 14, because it signs resource bundles by default
     # when building for devices.
     installer.target_installation_results.pod_target_installation_results

@@ -103,6 +103,20 @@ if (( DO_PREBUILD )); then
   info "Prebuild complete. iOS project ready."
 fi
 
+# Sanity check: verify Widget extension target seems present in Xcode project
+PBXPROJ="$FRONTEND_DIR/ios/Hue2.xcodeproj/project.pbxproj"
+if [[ -f "$PBXPROJ" ]]; then
+  if ! rg -n "com.apple.widgetkit-extension|WidgetKit" "$PBXPROJ" >/dev/null 2>&1; then
+    echo "" >&2
+    echo "[Warning] No WidgetKit extension target detected in the Xcode project." >&2
+    echo "          The files exist under ios/<AppName>Widget/, but the Xcode target" >&2
+    echo "          must be added and embedded once for widgets to appear." >&2
+    echo "          Quick fix: run with --xcode-open and add ‘Widget Extension’ target in Xcode," >&2
+    echo "          pointing it at ios/Hue2Widget/, then rebuild." >&2
+    echo "" >&2
+  fi
+fi
+
 # Fast dev path: run the native app (incremental Xcode build) for testing widget/app without generating an .ipa
 if (( DEV_RUN )); then
   info "Launching dev run (incremental) via Expo run:ios..."

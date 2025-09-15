@@ -1,33 +1,84 @@
+//
+//  Hue2Widget.swift
+//  Hue2Widget
+//
+//  Created by Adrien Ecoffet on 9/14/25.
+//
+
 import WidgetKit
 import SwiftUI
 
-struct Hue2WidgetEntry: TimelineEntry { let date: Date }
-
-struct Hue2WidgetProvider: TimelineProvider {
-    func placeholder(in context: Context) -> Hue2WidgetEntry { .init(date: .now) }
-    func getSnapshot(in context: Context, completion: @escaping (Hue2WidgetEntry) -> ()) { completion(.init(date: .now)) }
-    func getTimeline(in context: Context, completion: @escaping (Timeline<Hue2WidgetEntry>) -> ()) {
-        completion(Timeline(entries: [.init(date: .now)], policy: .atEnd))
+struct Provider: TimelineProvider {
+    func placeholder(in context: Context) -> SimpleEntry {
+        SimpleEntry(date: Date(), emoji: "😀")
     }
+
+    func getSnapshot(in context: Context, completion: @escaping (SimpleEntry) -> ()) {
+        let entry = SimpleEntry(date: Date(), emoji: "😀")
+        completion(entry)
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
+        var entries: [SimpleEntry] = []
+
+        // Generate a timeline consisting of five entries an hour apart, starting from the current date.
+        let currentDate = Date()
+        for hourOffset in 0 ..< 5 {
+            let entryDate = Calendar.current.date(byAdding: .hour, value: hourOffset, to: currentDate)!
+            let entry = SimpleEntry(date: entryDate, emoji: "😀")
+            entries.append(entry)
+        }
+
+        let timeline = Timeline(entries: entries, policy: .atEnd)
+        completion(timeline)
+    }
+
+//    func relevances() async -> WidgetRelevances<Void> {
+//        // Generate a list containing the contexts this widget is relevant in.
+//    }
 }
 
-struct Hue2WidgetView: View {
-    var entry: Hue2WidgetEntry
+struct SimpleEntry: TimelineEntry {
+    let date: Date
+    let emoji: String
+}
+
+struct Hue2WidgetEntryView : View {
+    var entry: Provider.Entry
+
     var body: some View {
-        ZStack {
-            Color(.systemBackground)
-            Text("Hue 2 Widget")
+        VStack {
+            Text("Time:")
+            Text(entry.date, style: .time)
+
+            Text("Emoji:")
+            Text(entry.emoji)
         }
     }
 }
 
 struct Hue2Widget: Widget {
+    let kind: String = "Hue2Widget"
+
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "Hue2Widget", provider: Hue2WidgetProvider()) { entry in
-            Hue2WidgetView(entry: entry)
+        StaticConfiguration(kind: kind, provider: Provider()) { entry in
+            if #available(iOS 17.0, *) {
+                Hue2WidgetEntryView(entry: entry)
+                    .containerBackground(.fill.tertiary, for: .widget)
+            } else {
+                Hue2WidgetEntryView(entry: entry)
+                    .padding()
+                    .background()
+            }
         }
-        .configurationDisplayName("Hue 2")
-        .description("Quick view of your habits.")
-        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .configurationDisplayName("My Widget")
+        .description("This is an example widget.")
     }
+}
+
+#Preview(as: .systemSmall) {
+    Hue2Widget()
+} timeline: {
+    SimpleEntry(date: .now, emoji: "😀")
+    SimpleEntry(date: .now, emoji: "🤩")
 }

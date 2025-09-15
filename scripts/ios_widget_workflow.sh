@@ -105,8 +105,21 @@ fi
 
 # Sanity check: verify Widget extension target seems present in Xcode project
 PBXPROJ="$FRONTEND_DIR/ios/Hue2.xcodeproj/project.pbxproj"
+WIDGET_PLIST="$FRONTEND_DIR/ios/Hue2Widget/Info.plist"
 if [[ -f "$PBXPROJ" ]]; then
-  if ! rg -n "com.apple.widgetkit-extension|WidgetKit" "$PBXPROJ" >/dev/null 2>&1; then
+  EXT_PRESENT=0
+  # Heuristic 1: any app extension target entries or .appex product references
+  if rg -n "wrapper\.app-extension|\\.appex|PBXNativeTarget.*Widget" "$PBXPROJ" >/dev/null 2>&1; then
+    EXT_PRESENT=1
+  fi
+  # Heuristic 2: Info.plist declares a WidgetKit extension
+  if [[ $EXT_PRESENT -eq 0 && -f "$WIDGET_PLIST" ]]; then
+    if rg -n "com\\.apple\\.widgetkit-extension" "$WIDGET_PLIST" >/dev/null 2>&1 || \
+       grep -q "com.apple.widgetkit-extension" "$WIDGET_PLIST"; then
+      EXT_PRESENT=1
+    fi
+  fi
+  if [[ $EXT_PRESENT -eq 0 ]]; then
     echo "" >&2
     echo "[Warning] No WidgetKit extension target detected in the Xcode project." >&2
     echo "          The files exist under ios/<AppName>Widget/, but the Xcode target" >&2

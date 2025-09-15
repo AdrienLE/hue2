@@ -74,11 +74,11 @@
     "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",
-    "react-native-slider": "^0.11.0",
     "react-native-web": "~0.20.0",
     "react-native-webview": "13.13.5"
   },
   "devDependencies": {
+    "@expo/config-plugins": "^9.0.0",
     "@babel/core": "^7.25.2",
     "@babel/preset-react": "^7.27.1",
     "@testing-library/jest-native": "^5.4.3",

@@ -1,0 +1,5 @@
+source "https://rubygems.org"
+
+# Pin to versions compatible with Xcode 16 (objectVersion 70)
+gem "cocoapods", ">= 1.16.3"
+gem "xcodeproj", ">= 1.28.0"

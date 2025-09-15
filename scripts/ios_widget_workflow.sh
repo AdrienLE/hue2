@@ -101,8 +101,18 @@ if (( DO_PREBUILD )); then
     fi
     # Pods: optional; skip if requested
     if (( RUN_PODS )); then
-      if command -v pod >/dev/null 2>&1; then
-        npx pod-install || (cd ios && pod install)
+      # Prefer Bundler if a Gemfile is present (more compatible with Xcode 16)
+      if [[ -f Gemfile ]] && command -v bundle >/dev/null 2>&1; then
+        echo "Using Bundler for CocoaPods (Gemfile detected)"
+        bundle install --quiet || bundle install
+        (cd ios && bundle exec pod install)
+      else
+        if command -v pod >/dev/null 2>&1; then
+          # Try the community pod-install helper first; fallback to raw pod
+          npx pod-install || (cd ios && pod install)
+        else
+          echo "Warning: 'pod' not found; skipping CocoaPods install."
+        fi
       fi
     else
       info "Skipping CocoaPods install (--no-pod-install)"

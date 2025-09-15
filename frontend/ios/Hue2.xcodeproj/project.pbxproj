@@ -3,13 +3,19 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 70;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		40A90E88DC33E7E61DF5841E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 17188E11428C157FAEF378F4 /* PrivacyInfo.xcprivacy */; };
+		7A79257D2E77EA3000497466 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7A7925752E77EA3000497466 /* Assets.xcassets */; };
+		7A79257F2E77EA3000497466 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 7A79257B2E77EA3000497466 /* README.md */; };
+		7A7925802E77EA3000497466 /* Hue2Widget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A7925762E77EA3000497466 /* Hue2Widget.swift */; };
+		7A7925812E77EA3000497466 /* Hue2WidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A7925772E77EA3000497466 /* Hue2WidgetBundle.swift */; };
+		7A7925822E77EA3000497466 /* Hue2WidgetControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A7925782E77EA3000497466 /* Hue2WidgetControl.swift */; };
+		7A7925832E77EA3000497466 /* Hue2WidgetLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A7925792E77EA3000497466 /* Hue2WidgetLiveActivity.swift */; };
 		7AC881612E778959004D5F8F /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7AC881602E778959004D5F8F /* WidgetKit.framework */; };
 		7AC881632E778959004D5F8F /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7AC881622E778959004D5F8F /* SwiftUI.framework */; };
 		7AC881722E77895A004D5F8F /* Hue2WidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7AC8815F2E778959004D5F8F /* Hue2WidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -49,6 +55,13 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Hue2/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Hue2/Info.plist; sourceTree = "<group>"; };
 		17188E11428C157FAEF378F4 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = Hue2/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		7A7925752E77EA3000497466 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		7A7925762E77EA3000497466 /* Hue2Widget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Hue2Widget.swift; sourceTree = "<group>"; };
+		7A7925772E77EA3000497466 /* Hue2WidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Hue2WidgetBundle.swift; sourceTree = "<group>"; };
+		7A7925782E77EA3000497466 /* Hue2WidgetControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Hue2WidgetControl.swift; sourceTree = "<group>"; };
+		7A7925792E77EA3000497466 /* Hue2WidgetLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Hue2WidgetLiveActivity.swift; sourceTree = "<group>"; };
+		7A79257A2E77EA3000497466 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		7A79257B2E77EA3000497466 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		7AC8815F2E778959004D5F8F /* Hue2WidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = Hue2WidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		7AC881602E778959004D5F8F /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		7AC881622E778959004D5F8F /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
@@ -61,20 +74,6 @@
 		F11748442D0722820044C1D9 /* Hue2-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Hue2-Bridging-Header.h"; path = "Hue2/Hue2-Bridging-Header.h"; sourceTree = "<group>"; };
 		F17B0A0F6BF2769A84702AA1 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Hue2/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
-
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		7AC881762E77895A004D5F8F /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 7AC8815E2E778959004D5F8F /* Hue2WidgetExtension */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		7AC881642E778959004D5F8F /* Hue2Widget */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (7AC881762E77895A004D5F8F /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = Hue2Widget; sourceTree = "<group>"; };
-/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		13B07F8C1A680F5B00A75B9A /* Frameworks */ = {
@@ -130,6 +129,20 @@
 			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
+		7A79257C2E77EA3000497466 /* Hue2Widget */ = {
+			isa = PBXGroup;
+			children = (
+				7A7925752E77EA3000497466 /* Assets.xcassets */,
+				7A7925762E77EA3000497466 /* Hue2Widget.swift */,
+				7A7925772E77EA3000497466 /* Hue2WidgetBundle.swift */,
+				7A7925782E77EA3000497466 /* Hue2WidgetControl.swift */,
+				7A7925792E77EA3000497466 /* Hue2WidgetLiveActivity.swift */,
+				7A79257A2E77EA3000497466 /* Info.plist */,
+				7A79257B2E77EA3000497466 /* README.md */,
+			);
+			path = Hue2Widget;
+			sourceTree = "<group>";
+		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
 			isa = PBXGroup;
 			children = (
@@ -142,7 +155,7 @@
 			children = (
 				13B07FAE1A68108700A75B9A /* Hue2 */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
-				7AC881642E778959004D5F8F /* Hue2Widget */,
+				7A79257C2E77EA3000497466 /* Hue2Widget */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				FAABD6BDC084F1F11158820A /* Pods */,
@@ -227,9 +240,6 @@
 			);
 			dependencies = (
 			);
-			fileSystemSynchronizedGroups = (
-				7AC881642E778959004D5F8F /* Hue2Widget */,
-			);
 			name = Hue2WidgetExtension;
 			packageProductDependencies = (
 			);
@@ -289,6 +299,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7A79257D2E77EA3000497466 /* Assets.xcassets in Resources */,
+				7A79257F2E77EA3000497466 /* README.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -425,6 +437,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7A7925802E77EA3000497466 /* Hue2Widget.swift in Sources */,
+				7A7925812E77EA3000497466 /* Hue2WidgetBundle.swift in Sources */,
+				7A7925822E77EA3000497466 /* Hue2WidgetControl.swift in Sources */,
+				7A7925832E77EA3000497466 /* Hue2WidgetLiveActivity.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

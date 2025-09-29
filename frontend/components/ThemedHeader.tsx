@@ -35,6 +35,7 @@ import { useDevDate } from '@/contexts/DevDateContext';
 import { HueColors } from '@/constants/Colors';
 import { DevTools } from './DevTools';
 import { RewardAnimation } from './ui/RewardAnimation';
+import { IconSymbol } from '@/components/ui/IconSymbol';
 
 interface ThemedHeaderProps {
   title: string;
@@ -155,17 +156,15 @@ export function ThemedHeader({
             },
           ]}
           onPress={onToggleCheckedHabits}
+          accessibilityLabel={
+            showCheckedHabits ? 'Show all habits (unhide)' : 'Show only unchecked habits'
+          }
         >
-          <ThemedText
-            style={[
-              styles.visibilityButtonText,
-              {
-                color: showCheckedHabits ? backgroundColor : tintColor,
-              },
-            ]}
-          >
-            {showCheckedHabits ? '◉' : '◯'}
-          </ThemedText>
+          <IconSymbol
+            name={showCheckedHabits ? 'eye' : 'eye.slash'}
+            size={18}
+            color={showCheckedHabits ? (backgroundColor as string) : (tintColor as string)}
+          />
         </TouchableOpacity>
 
         <ProfileMenu />

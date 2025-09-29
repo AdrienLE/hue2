@@ -9,6 +9,7 @@ interface HabitItemProps {
   onChecked?: (habitId: number) => void;
   onUnchecked?: (habitId: number) => void;
   isCheckedToday?: boolean;
+  isInactive?: boolean; // e.g., unscheduled today when unhide mode is on
   isDraggable?: boolean;
   onDrag?: () => void;
   isActive?: boolean;
@@ -26,6 +27,7 @@ export function HabitItem({
   onChecked,
   onUnchecked,
   isCheckedToday,
+  isInactive,
   isDraggable,
   onDrag,
   isActive,
@@ -46,6 +48,7 @@ export function HabitItem({
       onChecked={onChecked}
       onUnchecked={onUnchecked}
       isCheckedToday={isCheckedToday}
+      isInactive={isInactive}
       isDraggable={isDraggable}
       onDrag={onDrag}
       isActive={isActive}

@@ -161,19 +161,20 @@ export function HabitList() {
   const [y, m, d] = todayLogical.split('-').map(Number);
   const currentDayOfWeek = new Date(y, m - 1, d).getDay();
 
-  // Filter habits based on visibility setting and weekday schedule
+  // Determine scheduled status per habit and compute visible list
+  const unscheduledHabitIds = new Set<number>();
   const visibleHabits = habits.filter(habit => {
-    // Check weekday schedule
     const weekdays = habit.schedule_settings?.weekdays || [0, 1, 2, 3, 4, 5, 6];
-    if (!weekdays.includes(currentDayOfWeek)) {
-      return false;
+    const isScheduledToday = weekdays.includes(currentDayOfWeek);
+    if (!isScheduledToday) unscheduledHabitIds.add(habit.id);
+
+    // When not in unhide mode, apply filters (scheduled today and not checked)
+    if (!showCheckedHabits) {
+      if (!isScheduledToday) return false;
+      if (checkedHabitsToday.has(habit.id)) return false;
     }
 
-    // Check completion visibility
-    if (!showCheckedHabits && checkedHabitsToday.has(habit.id)) {
-      return false;
-    }
-
+    // In unhide mode, show all habits regardless of schedule/completion
     return true;
   });
 
@@ -240,6 +241,7 @@ export function HabitList() {
             onHabitChecked={handleHabitChecked}
             onHabitUnchecked={handleHabitUnchecked}
             checkedHabitsToday={checkedHabitsToday}
+            inactiveHabitIds={showCheckedHabits ? unscheduledHabitIds : undefined}
             editingHabitId={editingHabitId}
             onStartEditing={handleStartEditing}
             onCancelEditing={handleCancelEditing}
@@ -263,6 +265,7 @@ export function HabitList() {
                     onChecked={handleHabitChecked}
                     onUnchecked={handleHabitUnchecked}
                     isCheckedToday={checkedHabitsToday.has(item.id)}
+                    isInactive={showCheckedHabits ? unscheduledHabitIds.has(item.id) : false}
                     isDraggable={true}
                     onDrag={drag}
                     isActive={isActive}
@@ -307,6 +310,7 @@ export function HabitList() {
               onChecked={handleHabitChecked}
               onUnchecked={handleHabitUnchecked}
               isCheckedToday={checkedHabitsToday.has(habit.id)}
+              isInactive={showCheckedHabits ? unscheduledHabitIds.has(habit.id) : false}
               isEditing={editingHabitId === habit.id}
               onStartEditing={() => handleStartEditing(habit.id)}
               onCancelEditing={handleCancelEditing}

@@ -27,6 +27,7 @@ interface HabitCardProps {
   onChecked?: (habitId: number) => void;
   onUnchecked?: (habitId: number) => void;
   isCheckedToday?: boolean;
+  isInactive?: boolean; // visually de-emphasize (e.g., unscheduled today)
   isDraggable?: boolean;
   onDrag?: () => void;
   isActive?: boolean;
@@ -45,6 +46,7 @@ export function HabitCard({
   onChecked,
   onUnchecked,
   isCheckedToday,
+  isInactive,
   isDraggable,
   onDrag,
   isActive,
@@ -1396,7 +1398,7 @@ export function HabitCard({
             borderColor: liveHabitColor,
             borderLeftWidth: 4,
             borderLeftColor: liveHabitColor,
-            opacity: isActive ? 0.7 : 1,
+            opacity: isInactive ? 0.4 : isActive ? 0.7 : 1,
           },
         ]}
       >
@@ -1432,11 +1434,22 @@ export function HabitCard({
           </TouchableOpacity>
 
           <View style={styles.leftSection}>
-            <ThemedText style={styles.habitName} numberOfLines={1} ellipsizeMode="tail">
+            <ThemedText
+              style={[
+                styles.habitName,
+                isInactive ? { textDecorationLine: 'line-through', opacity: 0.8 } : null,
+              ]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
               {habit.name}
             </ThemedText>
             {habit.description && (
-              <ThemedText style={styles.description} numberOfLines={1} ellipsizeMode="tail">
+              <ThemedText
+                style={[styles.description, isInactive ? { opacity: 0.6 } : null]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
                 {habit.description}
               </ThemedText>
             )}

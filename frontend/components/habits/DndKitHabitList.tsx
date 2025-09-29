@@ -29,6 +29,7 @@ interface SortableHabitItemProps {
   onChecked: (habitId: number) => void;
   onUnchecked: (habitId: number) => void;
   isCheckedToday: boolean;
+  isInactive: boolean;
   editingHabitId: number | null;
   onStartEditing: (habitId: number) => void;
   onCancelEditing: () => void;
@@ -43,6 +44,7 @@ function SortableHabitItem({
   onChecked,
   onUnchecked,
   isCheckedToday,
+  isInactive,
   editingHabitId,
   onStartEditing,
   onCancelEditing,
@@ -90,6 +92,7 @@ function SortableHabitItem({
           onChecked={onChecked}
           onUnchecked={onUnchecked}
           isCheckedToday={isCheckedToday}
+          isInactive={isInactive}
           isDraggable={false}
           isEditing={editingHabitId === habit.id}
           onStartEditing={() => onStartEditing(habit.id)}
@@ -110,6 +113,7 @@ interface DndKitHabitListProps {
   onHabitChecked: (habitId: number) => void;
   onHabitUnchecked: (habitId: number) => void;
   checkedHabitsToday: Set<number>;
+  inactiveHabitIds?: Set<number>;
   editingHabitId: number | null;
   onStartEditing: (habitId: number) => void;
   onCancelEditing: () => void;
@@ -126,6 +130,7 @@ export function DndKitHabitList({
   onHabitChecked,
   onHabitUnchecked,
   checkedHabitsToday,
+  inactiveHabitIds,
   editingHabitId,
   onStartEditing,
   onCancelEditing,
@@ -173,6 +178,7 @@ export function DndKitHabitList({
               onChecked={onHabitChecked}
               onUnchecked={onHabitUnchecked}
               isCheckedToday={checkedHabitsToday.has(habit.id)}
+              isInactive={inactiveHabitIds ? inactiveHabitIds.has(habit.id) : false}
               editingHabitId={editingHabitId}
               onStartEditing={onStartEditing}
               onCancelEditing={onCancelEditing}

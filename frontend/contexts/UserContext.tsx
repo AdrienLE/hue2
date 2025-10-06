@@ -162,7 +162,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   };
 
   const subtractReward = async (amount: number) => {
-    const newTotal = Math.max(0, totalRewards - amount); // Don't go below 0
+    const newTotal = totalRewards - amount;
     // Optimistic update for immediate UI feedback
     setTotalRewards(newTotal);
 

@@ -19,6 +19,12 @@ This base app includes comprehensive testing for both frontend and backend compo
 
 # Run frontend tests in watch mode
 ./scripts/test.sh --watch
+
+# Reduce output in constrained/CI environments
+./scripts/test.sh --summary-only
+
+# Tip: in constrained environments, disable Watchman integration for Jest
+DISABLE_WATCHMAN=1 ./scripts/test.sh
 ```
 
 ## Frontend Tests
@@ -41,6 +47,9 @@ yarn test:watch
 
 # With coverage report
 yarn test:coverage
+
+# Tip: disable Watchman integration if needed (CI/sandbox)
+DISABLE_WATCHMAN=1 yarn test
 ```
 
 ### Frontend Test Structure
@@ -114,7 +123,7 @@ The test script is designed for easy CI/CD integration:
 
 ```bash
 # In your CI pipeline
-./scripts/test.sh --coverage
+CI=true DISABLE_WATCHMAN=1 ./scripts/test.sh --coverage --summary-only
 ```
 
 Exit codes:

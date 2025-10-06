@@ -30,6 +30,7 @@ FRONTEND_ONLY=false
 BACKEND_ONLY=false
 COVERAGE=false
 WATCH=false
+SUMMARY_ONLY=false
 
 # Determine Jest flags for environments where Watchman is unavailable (CI/sandbox)
 JEST_EXTRA_FLAGS=""
@@ -55,6 +56,10 @@ for arg in "$@"; do
             WATCH=true
             shift
             ;;
+        --summary-only)
+            SUMMARY_ONLY=true
+            shift
+            ;;
         --help)
             echo "Test runner for the base app"
             echo ""
@@ -65,6 +70,7 @@ for arg in "$@"; do
             echo "  --backend-only     Run only backend tests"
             echo "  --coverage         Run tests with coverage"
             echo "  --watch           Run frontend tests in watch mode"
+            echo "  --summary-only    Reduce output for CI/sandbox (quiet mode)"
             echo "  --help            Show this help message"
             echo ""
             exit 0
@@ -107,7 +113,11 @@ if [ "$FRONTEND_ONLY" = false ]; then
         fi
     else
         print_status "Running backend tests..."
-        if pytest tests/ -v; then
+        PYTEST_ARGS=""
+        if [ "$SUMMARY_ONLY" = true ]; then
+            PYTEST_ARGS="-q"
+        fi
+        if pytest tests/ $PYTEST_ARGS; then
             BACKEND_SUCCESS=true
             print_success "Backend tests passed!"
         else
@@ -130,13 +140,18 @@ if [ "$BACKEND_ONLY" = false ]; then
         yarn install
     fi
 
+    JEST_QUIET_FLAGS=""
+    if [ "$SUMMARY_ONLY" = true ]; then
+        JEST_QUIET_FLAGS="--silent --ci"
+    fi
+
     if [ "$WATCH" = true ]; then
         print_status "Running frontend tests in watch mode..."
-        yarn test:watch $JEST_EXTRA_FLAGS
+        yarn test:watch $JEST_EXTRA_FLAGS $JEST_QUIET_FLAGS
         FRONTEND_SUCCESS=true
     elif [ "$COVERAGE" = true ]; then
         print_status "Running frontend tests with coverage..."
-        if yarn test:coverage $JEST_EXTRA_FLAGS; then
+        if yarn test:coverage $JEST_EXTRA_FLAGS $JEST_QUIET_FLAGS; then
             FRONTEND_SUCCESS=true
             print_success "Frontend tests passed with coverage!"
             print_status "Frontend coverage report generated in coverage/"
@@ -145,7 +160,7 @@ if [ "$BACKEND_ONLY" = false ]; then
         fi
     else
         print_status "Running frontend tests..."
-        if yarn test $JEST_EXTRA_FLAGS; then
+        if yarn test $JEST_EXTRA_FLAGS $JEST_QUIET_FLAGS; then
             FRONTEND_SUCCESS=true
             print_success "Frontend tests passed!"
         else

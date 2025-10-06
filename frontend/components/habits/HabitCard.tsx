@@ -207,9 +207,33 @@ export function HabitCard({
       const response = await HabitService.getSubHabits(habit.id, token);
       if (response.data) {
         setSubHabits(response.data.sort((a, b) => a.order_index - b.order_index));
+        // After loading sub-habits, load today's checked state from server
+        await loadCheckedSubHabits(response.data.map(sh => sh.id));
       }
     } catch (error) {
       console.error('Error loading sub-habits:', error);
+    }
+  };
+
+  // Load which sub-habits are checked today from the server
+  const loadCheckedSubHabits = async (subHabitIds?: number[]) => {
+    if (!token) return;
+    try {
+      const rolloverHour = userSettings.day_rollover_hour ?? 3;
+      const today = getCheckDate(rolloverHour);
+      const resp = await HabitService.getChecks(token);
+      if (resp.data) {
+        const todayChecks = resp.data.filter(c => c.sub_habit_id && c.check_date.startsWith(today));
+        const idsSet = new Set<number>();
+        for (const c of todayChecks) {
+          if (!subHabitIds || subHabitIds.includes(c.sub_habit_id!)) {
+            idsSet.add(c.sub_habit_id!);
+          }
+        }
+        setCheckedSubHabits(idsSet);
+      }
+    } catch (err) {
+      console.error('Error loading checked sub-habits for today:', err);
     }
   };
 
@@ -235,7 +259,7 @@ export function HabitCard({
     }
   };
 
-  // Toggle sub-habit checked status
+  // Toggle sub-habit checked status (persist to server to avoid desync)
   const toggleSubHabit = async (subHabitId: number) => {
     const subHabitPoints = habit.reward_settings?.sub_habit_points || 0;
     const wasChecked = checkedSubHabits.has(subHabitId);
@@ -243,37 +267,48 @@ export function HabitCard({
     // Optimistic UI update
     setCheckedSubHabits(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(subHabitId)) {
-        newSet.delete(subHabitId);
-      } else {
-        newSet.add(subHabitId);
-      }
+      if (wasChecked) newSet.delete(subHabitId);
+      else newSet.add(subHabitId);
       return newSet;
     });
 
-    // Apply rewards for sub-habit checking
-    if (subHabitPoints > 0) {
-      try {
-        if (wasChecked) {
-          // Unchecking - remove reward
+    const rolloverHour = userSettings.day_rollover_hour ?? 3;
+    const today = getCheckDate(rolloverHour);
+
+    try {
+      if (wasChecked) {
+        // Find today's checks for this sub-habit and delete them
+        const resp = await HabitService.getChecks(token!);
+        const todays = (resp.data || [])
+          .filter(c => c.sub_habit_id === subHabitId)
+          .filter(c => c.check_date.startsWith(today));
+        for (const c of todays) {
+          await HabitService.deleteCheck(c.id, token!);
+        }
+        if (subHabitPoints > 0) {
           await subtractReward(subHabitPoints);
-        } else {
-          // Checking - add reward
+        }
+      } else {
+        // Create today's check for this sub-habit
+        const checkData = {
+          sub_habit_id: subHabitId,
+          checked: true,
+          check_date: today + 'T00:00:00.000',
+        };
+        const createResp = await HabitService.createCheck(checkData as any, token!);
+        if (createResp.data && subHabitPoints > 0) {
           await addReward(subHabitPoints);
         }
-      } catch (error) {
-        // Revert UI state on error
-        setCheckedSubHabits(prev => {
-          const newSet = new Set(prev);
-          if (wasChecked) {
-            newSet.add(subHabitId);
-          } else {
-            newSet.delete(subHabitId);
-          }
-          return newSet;
-        });
-        console.error('Error updating sub-habit reward:', error);
       }
+    } catch (error) {
+      // Revert UI on failure
+      setCheckedSubHabits(prev => {
+        const newSet = new Set(prev);
+        if (wasChecked) newSet.add(subHabitId);
+        else newSet.delete(subHabitId);
+        return newSet;
+      });
+      console.error('Error persisting sub-habit toggle:', error);
     }
   };
 

@@ -75,8 +75,12 @@ export function ThemedHeader({
   const formatReward = (amount: number) => {
     const unit = userSettings.reward_unit || '$';
     const position = userSettings.reward_unit_position || 'before';
-    const formatted = amount.toFixed(2);
-    return position === 'before' ? `${unit}${formatted}` : `${formatted}${unit}`;
+    const isNegative = amount < 0;
+    const absFormatted = Math.abs(amount).toFixed(2);
+    if (position === 'before') {
+      return isNegative ? `-${unit}${absFormatted}` : `${unit}${absFormatted}`;
+    }
+    return isNegative ? `-${absFormatted}${unit}` : `${absFormatted}${unit}`;
   };
 
   const handleSpend = async () => {

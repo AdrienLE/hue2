@@ -8,7 +8,7 @@ from fastapi import (
 )
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.exception_handlers import http_exception_handler
@@ -513,7 +513,7 @@ def delete_habit(
     if hard_delete:
         db.delete(habit)
     else:
-        habit.deleted_at = datetime.utcnow()
+        habit.deleted_at = datetime.now(timezone.utc)
 
     db.commit()
     return {"ok": True}

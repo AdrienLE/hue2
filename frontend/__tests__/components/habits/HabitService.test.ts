@@ -1,4 +1,5 @@
 import { HabitService } from '@/lib/services/habitService';
+import { getLogicalDateRange } from '@/lib/logicalTime';
 import { api } from '@/lib/api';
 import type { HabitCreate, CountCreate, WeightUpdateCreate } from '@/lib/types/habits';
 
@@ -507,6 +508,43 @@ describe('HabitService', () => {
 
       expect(mockApi.delete).toHaveBeenCalledWith('/api/habits/1?hard_delete=true', mockToken);
       expect(result.status).toBe(200);
+    });
+  });
+
+  describe('uncheckHabitToday', () => {
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('uses logical day boundaries including timezone offsets when fetching checks', async () => {
+      const getChecksSpy = jest.spyOn(HabitService, 'getChecks');
+      (getChecksSpy as any).mockResolvedValue({
+        data: [{ id: 42 }],
+        status: 200,
+      } as any);
+
+      const deleteCheckSpy = jest.spyOn(HabitService, 'deleteCheck');
+      (deleteCheckSpy as any).mockResolvedValue({
+        data: {},
+        status: 200,
+      } as any);
+
+      const simulatedNow = new Date('2024-06-01T02:15:00.000Z');
+
+      await HabitService.uncheckHabitToday(7, mockToken, {
+        rolloverHour: 3,
+        currentDate: simulatedNow,
+      });
+
+      const expectedRange = getLogicalDateRange(3, simulatedNow);
+
+      expect(getChecksSpy).toHaveBeenCalledWith(mockToken, {
+        habitId: 7,
+        startDate: expectedRange.startDate,
+        endDate: expectedRange.endDate,
+      });
+
+      expect(deleteCheckSpy).toHaveBeenCalledWith(42, mockToken);
     });
   });
 });

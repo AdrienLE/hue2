@@ -1,4 +1,5 @@
 import { api } from '../api';
+import { getLogicalDateRange } from '@/lib/logicalTime';
 import type {
   Habit,
   HabitCreate,
@@ -99,14 +100,21 @@ export class HabitService {
     return api.delete(`/api/checks/${checkId}`, token);
   }
 
-  static async uncheckHabitToday(habitId: number, token: string) {
-    // Get today's checks for this habit
-    // TODO: Get rollover hour from user settings
-    const today = new Date().toISOString().split('T')[0];
+  static async uncheckHabitToday(
+    habitId: number,
+    token: string,
+    options: {
+      rolloverHour?: number;
+      currentDate?: Date;
+    } = {}
+  ) {
+    const { rolloverHour = 3, currentDate = new Date() } = options;
+    const { startDate, endDate } = getLogicalDateRange(rolloverHour, currentDate);
+
     const checks = await this.getChecks(token, {
       habitId,
-      startDate: today,
-      endDate: today + 'T23:59:59.999Z',
+      startDate,
+      endDate,
     });
 
     // Delete all checks for today

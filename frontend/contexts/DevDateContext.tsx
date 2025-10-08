@@ -1,5 +1,14 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
+import {
+  getLogicalDate as computeLogicalDate,
+  getLogicalDateRange as computeLogicalDateRange,
+  getLogicalDateTimestamp as computeLogicalDateTimestamp,
+  getLocalTimestamp as computeLocalTimestamp,
+  getLogicalDayStartISO,
+  getLogicalDayEndISO,
+} from '@/lib/logicalTime';
+
 interface DevDateContextType {
   currentDate: Date;
   customDateOverride: Date | null;
@@ -102,85 +111,22 @@ export function getCurrentDate(): Date {
 // Helper function to get the "logical date" for habit tracking
 // This considers the day rollover hour (e.g., 3am) instead of midnight
 export function getLogicalDate(rolloverHour: number = 3, currentDate?: Date): string {
-  const now = currentDate || getCurrentDate();
-
-  // If it's before the rollover hour, use the previous day
-  const adjustedDate = new Date(now);
-  if (adjustedDate.getHours() < rolloverHour) {
-    adjustedDate.setDate(adjustedDate.getDate() - 1);
-  }
-
-  // Use local date methods to avoid timezone issues
-  const year = adjustedDate.getFullYear();
-  const month = String(adjustedDate.getMonth() + 1).padStart(2, '0');
-  const day = String(adjustedDate.getDate()).padStart(2, '0');
-
-  return `${year}-${month}-${day}`;
+  return computeLogicalDate(rolloverHour, currentDate || getCurrentDate());
 }
 
-// Helper function to get date range for API calls
 export function getLogicalDateRange(
   rolloverHour: number = 3,
   currentDate?: Date
 ): { startDate: string; endDate: string } {
-  const now = currentDate || getCurrentDate();
-  const logicalDate = getLogicalDate(rolloverHour, now);
-
-  // Create start and end times for the logical day using local time
-  // Parse the date string without timezone to get local midnight
-  const [year, month, day] = logicalDate.split('-').map(Number);
-  const startDate = new Date(year, month - 1, day, rolloverHour, 0, 0, 0);
-
-  const endDate = new Date(startDate);
-  endDate.setDate(endDate.getDate() + 1);
-  endDate.setSeconds(endDate.getSeconds() - 1); // End at 2:59:59
-
-  return {
-    startDate: startDate.toISOString(),
-    endDate: endDate.toISOString(),
-  };
+  return computeLogicalDateRange(rolloverHour, currentDate || getCurrentDate());
 }
 
-// Helper function to create a timestamp for the logical date
-// This ensures the timestamp aligns with the logical date used for filtering
 export function getLogicalDateTimestamp(rolloverHour: number = 3, currentDate?: Date): string {
-  const now = currentDate || getCurrentDate();
-  const logicalDate = getLogicalDate(rolloverHour, now);
-
-  // Create timestamp using logical date but current time
-  // This ensures the date part matches what getLogicalDate() returns
-  const timestamp = new Date(now);
-  const logicalDateObj = new Date(logicalDate + 'T00:00:00.000');
-
-  // Set the date part to match the logical date, keep the time part from now
-  timestamp.setFullYear(logicalDateObj.getFullYear());
-  timestamp.setMonth(logicalDateObj.getMonth());
-  timestamp.setDate(logicalDateObj.getDate());
-
-  // Return local time instead of UTC - server should store what client sends
-  // Format: YYYY-MM-DDTHH:mm:ss.sss (no timezone suffix)
-  const year = timestamp.getFullYear();
-  const month = String(timestamp.getMonth() + 1).padStart(2, '0');
-  const day = String(timestamp.getDate()).padStart(2, '0');
-  const hours = String(timestamp.getHours()).padStart(2, '0');
-  const minutes = String(timestamp.getMinutes()).padStart(2, '0');
-  const seconds = String(timestamp.getSeconds()).padStart(2, '0');
-  const milliseconds = String(timestamp.getMilliseconds()).padStart(3, '0');
-
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}`;
+  return computeLogicalDateTimestamp(rolloverHour, currentDate || getCurrentDate());
 }
 
-// Helper function to get current local timestamp (no timezone conversion)
 export function getLocalTimestamp(date?: Date): string {
-  const timestamp = date || getCurrentDate();
-
-  const year = timestamp.getFullYear();
-  const month = String(timestamp.getMonth() + 1).padStart(2, '0');
-  const day = String(timestamp.getDate()).padStart(2, '0');
-  const hours = String(timestamp.getHours()).padStart(2, '0');
-  const minutes = String(timestamp.getMinutes()).padStart(2, '0');
-  const seconds = String(timestamp.getSeconds()).padStart(2, '0');
-  const milliseconds = String(timestamp.getMilliseconds()).padStart(3, '0');
-
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}`;
+  return computeLocalTimestamp(date || getCurrentDate());
 }
+
+export { getLogicalDayStartISO, getLogicalDayEndISO };

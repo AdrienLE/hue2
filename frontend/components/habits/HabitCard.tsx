@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Pressable, Modal, TextInput } from 'react-native';
 import Slider from '@react-native-community/slider';
-import { getLogicalDateTimestamp, getCurrentDate, getLogicalDate } from '@/contexts/DevDateContext';
+import { getCurrentDate } from '@/contexts/DevDateContext';
+import { getLogicalDate, getLogicalDateRange, getLogicalDateTimestamp } from '@/lib/logicalTime';
 import DraggableFlatList, {
   ScaleDecorator,
   RenderItemParams,
@@ -290,10 +291,11 @@ export function HabitCard({
         }
       } else {
         // Create today's check for this sub-habit
+        const baseDate = checkDate || getCurrentDate();
         const checkData = {
           sub_habit_id: subHabitId,
           checked: true,
-          check_date: today + 'T00:00:00.000',
+          check_date: getLogicalDateTimestamp(rolloverHour, baseDate),
         };
         const createResp = await HabitService.createCheck(checkData as any, token!);
         if (createResp.data && subHabitPoints > 0) {
@@ -371,22 +373,13 @@ export function HabitCard({
 
     setLoading(true);
     try {
-      const today = getCurrentDate();
-      const startOfDay = new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        today.getDate()
-      ).toISOString();
-      const endOfDay = new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        today.getDate() + 1
-      ).toISOString();
+      const rolloverHour = userSettings.day_rollover_hour ?? 3;
+      const { startDate, endDate } = getLogicalDateRange(rolloverHour, getCurrentDate());
 
       const response = await HabitService.getCounts(token, {
         habitId: habit.id,
-        startDate: startOfDay,
-        endDate: endOfDay,
+        startDate,
+        endDate,
       });
 
       if (response.data && response.data.length > 0) {
@@ -438,9 +431,14 @@ export function HabitCard({
       const countCheckPenalty = habit.reward_settings?.count_check_penalty || 0;
       const weightCheckBonus = habit.reward_settings?.weight_check_bonus || 0;
       const weightCheckPenalty = habit.reward_settings?.weight_check_penalty || 0;
+      const rolloverHour = userSettings.day_rollover_hour ?? 3;
+      const baseDate = checkDate || getCurrentDate();
 
       if (isCheckedToday) {
-        await HabitService.uncheckHabitToday(habit.id, token);
+        await HabitService.uncheckHabitToday(habit.id, token, {
+          rolloverHour,
+          currentDate: baseDate,
+        });
 
         // Apply rewards/penalties for unchecking
         if (successReward > 0) {
@@ -490,11 +488,10 @@ export function HabitCard({
         console.log('Success: Habit unchecked!');
         onUnchecked?.(habit.id);
       } else {
-        const rolloverHour = userSettings.day_rollover_hour ?? 3;
         const checkData = {
           habit_id: habit.id,
           checked: true,
-          check_date: getCheckDate(rolloverHour) + 'T00:00:00.000',
+          check_date: getLogicalDateTimestamp(rolloverHour, baseDate),
         };
 
         const response = await HabitService.createCheck(checkData, token);
@@ -573,7 +570,7 @@ export function HabitCard({
       const countData = {
         habit_id: habit.id,
         value: change,
-        count_date: getCheckDate(rolloverHour) + 'T00:00:00.000',
+        count_date: getLogicalDateTimestamp(rolloverHour),
       };
 
       // Optimistic UI update
@@ -634,10 +631,11 @@ export function HabitCard({
       setCurrentWeight(weight);
 
       const rolloverHour = userSettings.day_rollover_hour ?? 3;
+      const baseDate = checkDate || getCurrentDate();
       const weightData = {
         habit_id: habit.id,
         weight,
-        update_date: getLogicalDateTimestamp(rolloverHour),
+        update_date: getLogicalDateTimestamp(rolloverHour, baseDate),
       };
 
       const response = await HabitService.createWeightUpdate(weightData, token);

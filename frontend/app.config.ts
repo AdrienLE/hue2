@@ -12,6 +12,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     slug: 'hue-2',
     version: '1.0.0',
     newArchEnabled: true,
+    scheme: 'hue2',
     web: {
       bundler: 'metro',
       output: 'static',
@@ -20,6 +21,24 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     experiments: {
       typedRoutes: true,
     },
+    plugins: [
+      [
+        'expo-router',
+        {
+          origin: 'https://hue2-production.up.railway.app',
+        },
+      ],
+      [
+        'expo-splash-screen',
+        {
+          image: './assets/images/splash-icon.png',
+          imageWidth: 200,
+          resizeMode: 'contain',
+          backgroundColor: '#ffffff',
+        },
+      ],
+      './plugins/with-ios-widget',
+    ],
     extra: {
       router: {},
       eas: {
@@ -33,7 +52,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     Object.assign(base, {
       orientation: 'portrait',
       icon: './assets/images/icon.png',
-      scheme: 'baseapp',
       userInterfaceStyle: 'automatic',
       ios: {
         supportsTablet: true,
@@ -52,24 +70,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         package: 'com.adrienle.hue2',
         edgeToEdgeEnabled: true,
       },
-      plugins: [
-        [
-          'expo-router',
-          {
-            origin: 'https://hue2-production.up.railway.app',
-          },
-        ],
-        [
-          'expo-splash-screen',
-          {
-            image: './assets/images/splash-icon.png',
-            imageWidth: 200,
-            resizeMode: 'contain',
-            backgroundColor: '#ffffff',
-          },
-        ],
-        './plugins/with-ios-widget',
-      ],
     });
   }
 

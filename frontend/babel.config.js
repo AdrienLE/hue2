@@ -3,7 +3,7 @@ module.exports = function (api) {
   api.cache(true);
   return {
     presets: ['babel-preset-expo'],
-    // If you use Reanimated, add this as the LAST plugin:
-    // plugins: ['react-native-reanimated/plugin'],
+    // React Native Reanimated requires its Babel plugin to run worklets in production builds.
+    plugins: ['react-native-reanimated/plugin'],
   };
 };

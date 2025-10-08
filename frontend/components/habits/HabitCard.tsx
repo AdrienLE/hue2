@@ -637,7 +637,7 @@ export function HabitCard({
       const weightData = {
         habit_id: habit.id,
         weight,
-        update_date: getCheckDate(rolloverHour) + 'T00:00:00.000',
+        update_date: getLogicalDateTimestamp(rolloverHour),
       };
 
       const response = await HabitService.createWeightUpdate(weightData, token);

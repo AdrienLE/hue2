@@ -2,7 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Pressable, Modal, TextInput } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { getCurrentDate } from '@/contexts/DevDateContext';
-import { getLogicalDate, getLogicalDateRange, getLogicalDateTimestamp } from '@/lib/logicalTime';
+import {
+  getLogicalDate,
+  getLogicalDateRange,
+  getLogicalDateTimestamp,
+  isTimestampOnLogicalDay,
+} from '@/lib/logicalTime';
 import DraggableFlatList, {
   ScaleDecorator,
   RenderItemParams,
@@ -221,14 +226,23 @@ export function HabitCard({
     if (!token) return;
     try {
       const rolloverHour = userSettings.day_rollover_hour ?? 3;
-      const today = getCheckDate(rolloverHour);
-      const resp = await HabitService.getChecks(token);
+      const baseDate = checkDate || getCurrentDate();
+      const { startDate, endDate } = getLogicalDateRange(rolloverHour, baseDate);
+
+      const resp = await HabitService.getChecks(token, {
+        habitId: habit.id,
+        startDate,
+        endDate,
+      });
+
       if (resp.data) {
-        const todayChecks = resp.data.filter(c => c.sub_habit_id && c.check_date.startsWith(today));
+        const todayLogical = getLogicalDate(rolloverHour, baseDate);
         const idsSet = new Set<number>();
-        for (const c of todayChecks) {
-          if (!subHabitIds || subHabitIds.includes(c.sub_habit_id!)) {
-            idsSet.add(c.sub_habit_id!);
+        for (const c of resp.data) {
+          if (!c.sub_habit_id) continue;
+          if (!isTimestampOnLogicalDay(c.check_date, rolloverHour, baseDate)) continue;
+          if (!subHabitIds || subHabitIds.includes(c.sub_habit_id)) {
+            idsSet.add(c.sub_habit_id);
           }
         }
         setCheckedSubHabits(idsSet);
@@ -274,15 +288,22 @@ export function HabitCard({
     });
 
     const rolloverHour = userSettings.day_rollover_hour ?? 3;
-    const today = getCheckDate(rolloverHour);
+    const baseDate = checkDate || getCurrentDate();
 
     try {
       if (wasChecked) {
         // Find today's checks for this sub-habit and delete them
-        const resp = await HabitService.getChecks(token!);
-        const todays = (resp.data || [])
-          .filter(c => c.sub_habit_id === subHabitId)
-          .filter(c => c.check_date.startsWith(today));
+        const { startDate, endDate } = getLogicalDateRange(rolloverHour, baseDate);
+        const resp = await HabitService.getChecks(token!, {
+          habitId: habit.id,
+          subHabitId,
+          startDate,
+          endDate,
+        });
+        const todays = (resp.data || []).filter(c => {
+          if (c.sub_habit_id !== subHabitId) return false;
+          return isTimestampOnLogicalDay(c.check_date, rolloverHour, baseDate);
+        });
         for (const c of todays) {
           await HabitService.deleteCheck(c.id, token!);
         }
@@ -291,7 +312,6 @@ export function HabitCard({
         }
       } else {
         // Create today's check for this sub-habit
-        const baseDate = checkDate || getCurrentDate();
         const checkData = {
           sub_habit_id: subHabitId,
           checked: true,

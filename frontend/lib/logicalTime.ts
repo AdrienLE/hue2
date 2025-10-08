@@ -80,3 +80,12 @@ export function getLogicalDateTimestamp(
 export function getLocalTimestamp(date: Date = new Date()): string {
   return date.toISOString();
 }
+
+export function isTimestampOnLogicalDay(
+  timestamp: string | Date,
+  rolloverHour: number,
+  baseDate: Date
+): boolean {
+  const checkDate = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
+  return getLogicalDate(rolloverHour, checkDate) === getLogicalDate(rolloverHour, baseDate);
+}

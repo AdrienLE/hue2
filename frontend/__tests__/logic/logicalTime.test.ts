@@ -1,4 +1,9 @@
-import { getLogicalDate, getLogicalDateRange, getLogicalDateTimestamp } from '@/lib/logicalTime';
+import {
+  getLogicalDate,
+  getLogicalDateRange,
+  getLogicalDateTimestamp,
+  isTimestampOnLogicalDay,
+} from '@/lib/logicalTime';
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
@@ -79,6 +84,22 @@ describe('logical time utilities', () => {
 
       expect(startDate.startsWith(expectedStart.toISOString().split('T')[0])).toBe(true);
       expect(end.getTime() - start.getTime()).toBe(DAY_IN_MS - 1);
+    });
+  });
+
+  describe('isTimestampOnLogicalDay', () => {
+    it('returns true when timestamp falls within the logical day window', () => {
+      const baseDate = new Date(Date.UTC(2024, 5, 1, 12, 0, 0));
+      const timestamp = '2024-06-01T14:00:00.000Z';
+
+      expect(isTimestampOnLogicalDay(timestamp, 3, baseDate)).toBe(true);
+    });
+
+    it('returns false when timestamp lies outside the logical day window', () => {
+      const baseDate = new Date(Date.UTC(2024, 5, 1, 12, 0, 0));
+      const timestamp = '2024-06-01T02:00:00.000Z';
+
+      expect(isTimestampOnLogicalDay(timestamp, 3, baseDate)).toBe(false);
     });
   });
 });

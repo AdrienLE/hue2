@@ -519,7 +519,13 @@ describe('HabitService', () => {
     it('uses logical day boundaries including timezone offsets when fetching checks', async () => {
       const getChecksSpy = jest.spyOn(HabitService, 'getChecks');
       (getChecksSpy as any).mockResolvedValue({
-        data: [{ id: 42 }],
+        data: [
+          {
+            id: 42,
+            sub_habit_id: 11,
+            check_date: '2024-06-01T02:15:30.000Z',
+          },
+        ],
         status: 200,
       } as any);
 
@@ -545,6 +551,36 @@ describe('HabitService', () => {
       });
 
       expect(deleteCheckSpy).toHaveBeenCalledWith(42, mockToken);
+    });
+
+    it('removes matching sub-habit checks even when stored in UTC', async () => {
+      const getChecksSpy = jest.spyOn(HabitService, 'getChecks');
+      (getChecksSpy as any).mockResolvedValue({
+        data: [
+          {
+            id: 99,
+            sub_habit_id: 5,
+            check_date: '2024-06-01T09:30:00.000Z',
+          },
+        ],
+        status: 200,
+      } as any);
+
+      const deleteCheckSpy = jest.spyOn(HabitService, 'deleteCheck');
+      (deleteCheckSpy as any).mockResolvedValue({
+        data: {},
+        status: 200,
+      } as any);
+
+      const simulatedLocalMorning = new Date('2024-06-01T04:05:00');
+
+      await HabitService.uncheckHabitToday(3, mockToken, {
+        rolloverHour: 3,
+        currentDate: simulatedLocalMorning,
+      });
+
+      expect(deleteCheckSpy).toHaveBeenCalledWith(99, mockToken);
+      expect(getChecksSpy).toHaveBeenCalled();
     });
   });
 });

@@ -120,7 +120,7 @@ The app uses these environment variables:
 - `EXPO_PUBLIC_AUTH0_DOMAIN`: Auth0 domain
 - `EXPO_PUBLIC_AUTH0_CLIENT_ID`: Auth0 client ID
 - `EXPO_PUBLIC_AUTH0_AUDIENCE`: Auth0 audience
-- `EXPO_PUBLIC_AUTH_USE_PROXY`: Set to `true` or `false` to force using the Expo AuthSession proxy on native (defaults to `true`).
+- `EXPO_PUBLIC_AUTH_USE_PROXY`: Set to `true` or `false` to force using the Expo AuthSession proxy on native (defaults to native redirects when unset).
 
 ## Auth0 Redirect URIs (iOS/Android/Web)
 

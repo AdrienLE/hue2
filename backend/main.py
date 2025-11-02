@@ -11,6 +11,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse, FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exception_handlers import http_exception_handler
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -83,6 +84,32 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+
+# Configure CORS to support Expo/web dev hosts. Override with CORS_ALLOW_ORIGINS.
+_cors_env = os.getenv("CORS_ALLOW_ORIGINS", "")
+if _cors_env:
+    allowed_origins = [origin.strip() for origin in _cors_env.split(",") if origin.strip()]
+else:
+    allowed_origins = [
+        "http://localhost:8081",
+        "http://127.0.0.1:8081",
+        "http://localhost:19006",
+        "http://localhost:19000",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost",
+        "http://127.0.0.1",
+    ]
+
+if allowed_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allowed_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 
 # Startup logs handled by lifespan above
@@ -1062,16 +1089,38 @@ if os.path.isdir(frontend_path):
     if os.path.isdir(expo_static_dir):
         app.mount("/_expo/static", StaticFiles(directory=expo_static_dir), name="expo-static")
 
+    def _resolve_favicon(ext: str | None = None) -> str | None:
+        dist_root = os.path.realpath(frontend_path)
+        search_paths: list[str] = []
+        if ext:
+            search_paths.append(os.path.join(dist_root, f"favicon.{ext}"))
+            if ext != "ico":
+                search_paths.append(os.path.join(dist_root, "favicon.ico"))
+        else:
+            search_paths.append(os.path.join(dist_root, "favicon.ico"))
+
+        search_paths.append(os.path.join(dist_root, "assets", "images", "favicon.ico"))
+        search_paths.append(
+            os.path.join(os.path.dirname(__file__), "..", "frontend", "assets", "images", "favicon.ico")
+        )
+
+        for candidate in search_paths:
+            if candidate and os.path.isfile(candidate):
+                return candidate
+        return None
+
     @app.get("/favicon.{ext}")
-    async def serve_favicon(ext: str):
-        # Handle favicon requests
-        favicon_file = os.path.join(frontend_path, f"favicon.{ext}")
-        if os.path.isfile(favicon_file):
-            return FileResponse(favicon_file)
-        # Fallback to favicon.ico if other extensions are requested
-        favicon_ico = os.path.join(frontend_path, "favicon.ico")
-        if os.path.isfile(favicon_ico):
-            return FileResponse(favicon_ico)
+    async def serve_favicon_with_ext(ext: str):
+        favicon_path = _resolve_favicon(ext)
+        if favicon_path:
+            return FileResponse(favicon_path)
+        raise HTTPException(status_code=404, detail="Favicon not found")
+
+    @app.get("/favicon.ico")
+    async def serve_favicon_ico():
+        favicon_path = _resolve_favicon("ico")
+        if favicon_path:
+            return FileResponse(favicon_path)
         raise HTTPException(status_code=404, detail="Favicon not found")
 
     @app.get("/{path:path}")
@@ -1079,14 +1128,15 @@ if os.path.isdir(frontend_path):
         # Do not catch API paths
         if path.startswith("api/"):
             raise HTTPException(status_code=404, detail="Not Found")
-        # Serve static files in dist root if requested path exists (e.g., favicons, manifest)
-        direct_file = os.path.join(frontend_path, path)
-        if os.path.isfile(direct_file):
+        # Serve static files in dist root if requested path exists (e.g., manifest)
+        dist_root = os.path.realpath(frontend_path)
+        direct_file = os.path.realpath(os.path.join(frontend_path, path))
+        if os.path.commonpath([direct_file, dist_root]) == dist_root and os.path.isfile(direct_file):
             return FileResponse(direct_file)
 
         # Serve HTML for routes (path -> path.html)
-        html_file = os.path.join(frontend_path, f"{path}.html")
-        if os.path.isfile(html_file):
+        html_file = os.path.realpath(os.path.join(frontend_path, f"{path}.html"))
+        if os.path.commonpath([html_file, dist_root]) == dist_root and os.path.isfile(html_file):
             return FileResponse(html_file)
 
         # Fallback to index.html for SPA routing (client-side routing)

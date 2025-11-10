@@ -92,8 +92,10 @@ export function HabitList() {
       const { startDate, endDate } = getLogicalDateRange(rolloverHour, currentDate);
       const response = await HabitService.getChecks(token, { startDate, endDate });
       if (response.data) {
-        const todaysChecks = response.data.filter(check =>
-          isTimestampOnLogicalDay(check.check_date, rolloverHour, currentDate)
+        const todaysChecks = response.data.filter(
+          check =>
+            !check.sub_habit_id &&
+            isTimestampOnLogicalDay(check.check_date, rolloverHour, currentDate)
         );
         const checkedHabitIds = new Set(
           todaysChecks

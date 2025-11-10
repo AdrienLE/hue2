@@ -133,7 +133,9 @@ function RootLayoutNav() {
           return;
         }
 
-        if (lastActiveDate && lastActiveDate !== today) {
+        const lastSessionIsStale = Boolean(lastActiveDate && lastActiveDate !== today);
+
+        if (lastSessionIsStale) {
           // User was last active on a different day
           const lastDate = new Date(lastActiveDate + 'T00:00:00');
           const currentDate = new Date(today + 'T00:00:00');
@@ -173,7 +175,7 @@ function RootLayoutNav() {
         }
 
         // Only update last active date if we already have one (to avoid the race condition)
-        if (lastActiveDate) {
+        if (lastSessionIsStale) {
           await updateLastSessionDate(today);
         }
       } catch (error) {

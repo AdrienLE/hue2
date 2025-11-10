@@ -52,6 +52,28 @@ try:
             logger.info("Adding email column to user_settings table")
             connection.execute(text("ALTER TABLE user_settings ADD COLUMN email TEXT"))
             connection.commit()
+
+        # Ensure sub-habit checks retain their parent habit relationship
+        pending_backfill = connection.execute(
+            text("SELECT COUNT(1) FROM checks WHERE habit_id IS NULL AND sub_habit_id IS NOT NULL")
+        ).scalar()
+        if pending_backfill:
+            logger.info("Backfilling habit_id for %s sub-habit checks", pending_backfill)
+            connection.execute(
+                text(
+                    """
+                    UPDATE checks
+                    SET habit_id = (
+                        SELECT parent_habit_id
+                        FROM sub_habits
+                        WHERE sub_habits.id = checks.sub_habit_id
+                    )
+                    WHERE habit_id IS NULL
+                      AND sub_habit_id IS NOT NULL
+                    """
+                )
+            )
+            connection.commit()
 except Exception as e:
     logger.error(f"Migration failed: {e}")
     # Continue anyway - columns might already exist
@@ -675,15 +697,19 @@ def create_check(
     current_user=Depends(verify_jwt),
 ):
     # Verify ownership of habit or sub-habit
-    if check.habit_id:
+    resolved_habit_id = check.habit_id
+    if resolved_habit_id:
         habit = (
             db.query(models.Habit)
-            .filter(models.Habit.id == check.habit_id, models.Habit.user_id == current_user["sub"])
+            .filter(
+                models.Habit.id == resolved_habit_id, models.Habit.user_id == current_user["sub"]
+            )
             .first()
         )
         if not habit:
             raise HTTPException(status_code=404, detail="Habit not found")
 
+    sub_habit_parent_id = None
     if check.sub_habit_id:
         sub_habit = (
             db.query(models.SubHabit)
@@ -695,8 +721,15 @@ def create_check(
         )
         if not sub_habit:
             raise HTTPException(status_code=404, detail="Sub-habit not found")
+        sub_habit_parent_id = sub_habit.parent_habit_id
+        if resolved_habit_id and resolved_habit_id != sub_habit_parent_id:
+            raise HTTPException(status_code=400, detail="Sub-habit does not belong to habit")
+        resolved_habit_id = resolved_habit_id or sub_habit_parent_id
 
-    db_check = models.Check(user_id=current_user["sub"], **check.dict())
+    check_data = check.dict()
+    check_data["habit_id"] = resolved_habit_id
+
+    db_check = models.Check(user_id=current_user["sub"], **check_data)
     db.add(db_check)
     db.commit()
     db.refresh(db_check)
@@ -1101,7 +1134,9 @@ if os.path.isdir(frontend_path):
 
         search_paths.append(os.path.join(dist_root, "assets", "images", "favicon.ico"))
         search_paths.append(
-            os.path.join(os.path.dirname(__file__), "..", "frontend", "assets", "images", "favicon.ico")
+            os.path.join(
+                os.path.dirname(__file__), "..", "frontend", "assets", "images", "favicon.ico"
+            )
         )
 
         for candidate in search_paths:
@@ -1131,7 +1166,9 @@ if os.path.isdir(frontend_path):
         # Serve static files in dist root if requested path exists (e.g., manifest)
         dist_root = os.path.realpath(frontend_path)
         direct_file = os.path.realpath(os.path.join(frontend_path, path))
-        if os.path.commonpath([direct_file, dist_root]) == dist_root and os.path.isfile(direct_file):
+        if os.path.commonpath([direct_file, dist_root]) == dist_root and os.path.isfile(
+            direct_file
+        ):
             return FileResponse(direct_file)
 
         # Serve HTML for routes (path -> path.html)

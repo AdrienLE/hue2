@@ -313,6 +313,7 @@ export function HabitCard({
       } else {
         // Create today's check for this sub-habit
         const checkData = {
+          habit_id: habit.id,
           sub_habit_id: subHabitId,
           checked: true,
           check_date: getLogicalDateTimestamp(rolloverHour, baseDate),

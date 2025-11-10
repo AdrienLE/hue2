@@ -1,11 +1,13 @@
-import json
 import os
+import logging
 from functools import lru_cache
 
 import requests
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwt
+
+logger = logging.getLogger(__name__)
 
 AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN")
 AUTH0_AUDIENCE = os.getenv("AUTH0_AUDIENCE")
@@ -16,6 +18,7 @@ if not AUTH0_DOMAIN or not AUTH0_AUDIENCE:
     print("Warning: AUTH0_DOMAIN or AUTH0_AUDIENCE not set for Auth0 integration")
 
 http_bearer = HTTPBearer()
+LOG_JWT_PAYLOADS = os.getenv("LOG_JWT_PAYLOADS", "").lower() in {"1", "true", "yes"}
 
 
 @lru_cache()
@@ -55,10 +58,10 @@ def verify_jwt(credentials: HTTPAuthorizationCredentials = Depends(http_bearer))
             audience=AUTH0_AUDIENCE,
             issuer=f"https://{AUTH0_DOMAIN}/",
         )
-        # Log payload to see what profile info is available
-        import logging
-
-        logging.getLogger(__name__).info(f"JWT payload: {payload}")
+        if LOG_JWT_PAYLOADS:
+            logger.info("JWT payload: %s", payload)
+        else:
+            logger.debug("JWT validated for user %s", payload.get("sub"))
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

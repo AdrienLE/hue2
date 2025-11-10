@@ -241,7 +241,7 @@ describe('HabitService', () => {
       const result = await HabitService.getChecks(mockToken, filters);
 
       expect(mockApi.get).toHaveBeenCalledWith(
-        '/api/checks?habitId=1&startDate=2024-01-01T00%3A00%3A00Z&endDate=2024-01-02T00%3A00%3A00Z',
+        '/api/checks?habit_id=1&start_date=2024-01-01T00%3A00%3A00Z&end_date=2024-01-02T00%3A00%3A00Z',
         mockToken
       );
       expect(result.data).toEqual(mockChecks);
@@ -288,7 +288,7 @@ describe('HabitService', () => {
       const filters = { habitId: 1 };
       const result = await HabitService.getCounts(mockToken, filters);
 
-      expect(mockApi.get).toHaveBeenCalledWith('/api/counts?habitId=1', mockToken);
+      expect(mockApi.get).toHaveBeenCalledWith('/api/counts?habit_id=1', mockToken);
       expect(result.data).toEqual(mockCounts);
     });
 
@@ -332,7 +332,7 @@ describe('HabitService', () => {
 
       const result = await HabitService.getWeightUpdates(mockToken, { habitId: 1 });
 
-      expect(mockApi.get).toHaveBeenCalledWith('/api/weight-updates?habitId=1', mockToken);
+      expect(mockApi.get).toHaveBeenCalledWith('/api/weight-updates?habit_id=1', mockToken);
       expect(result.data).toEqual(mockWeightUpdates);
     });
 
@@ -375,7 +375,7 @@ describe('HabitService', () => {
 
       const result = await HabitService.getActiveDays(mockToken);
 
-      expect(mockApi.get).toHaveBeenCalledWith('/api/active-days?', mockToken);
+      expect(mockApi.get).toHaveBeenCalledWith('/api/active-days', mockToken);
       expect(result.data).toEqual(mockActiveDays);
     });
 

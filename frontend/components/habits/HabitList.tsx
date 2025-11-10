@@ -16,9 +16,14 @@ import { HabitService } from '@/lib/services/habitService';
 import { useAuth } from '@/auth/AuthContext';
 import { useUser } from '@/contexts/UserContext';
 import { useHabitVisibility } from '@/contexts/HabitVisibilityContext';
-import { getLogicalDate } from '@/contexts/DevDateContext';
+import {
+  getLogicalDate,
+  getLogicalDateRange,
+  getCurrentDate,
+  useDevDate,
+} from '@/contexts/DevDateContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
-import { getCurrentDate, useDevDate } from '@/contexts/DevDateContext';
+import { isTimestampOnLogicalDay } from '@/lib/logicalTime';
 import type { Habit } from '@/lib/types/habits';
 import { HabitItem } from './HabitItem';
 import { QuickAddHabit } from './QuickAddHabit';
@@ -84,11 +89,17 @@ export function HabitList() {
     try {
       const rolloverHour = userSettings.day_rollover_hour ?? 3;
       const currentDate = getCurrentDate(); // This will use custom date if set
-      const today = getLogicalDate(rolloverHour, currentDate); // Pass current date to use override
-      const response = await HabitService.getChecks(token);
+      const { startDate, endDate } = getLogicalDateRange(rolloverHour, currentDate);
+      const response = await HabitService.getChecks(token, { startDate, endDate });
       if (response.data) {
-        const todaysChecks = response.data.filter(check => check.check_date.startsWith(today));
-        const checkedHabitIds = new Set(todaysChecks.map(check => check.habit_id));
+        const todaysChecks = response.data.filter(check =>
+          isTimestampOnLogicalDay(check.check_date, rolloverHour, currentDate)
+        );
+        const checkedHabitIds = new Set(
+          todaysChecks
+            .map(check => check.habit_id)
+            .filter((habitId): habitId is number => typeof habitId === 'number')
+        );
         setCheckedHabitsToday(checkedHabitIds);
       }
     } catch (error) {

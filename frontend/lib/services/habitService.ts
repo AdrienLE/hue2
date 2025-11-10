@@ -16,6 +16,28 @@ import type {
   User,
 } from '../types/habits';
 
+type FilterValue = string | number | boolean;
+
+const QUERY_PARAM_ALIASES: Record<string, string> = {
+  habitId: 'habit_id',
+  subHabitId: 'sub_habit_id',
+  startDate: 'start_date',
+  endDate: 'end_date',
+};
+
+const buildQueryString = (filters: Record<string, FilterValue | undefined> = {}) => {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value === undefined || value === null) {
+      return;
+    }
+    const paramKey = QUERY_PARAM_ALIASES[key] ?? key;
+    params.append(paramKey, value.toString());
+  });
+  const query = params.toString();
+  return query ? `?${query}` : '';
+};
+
 export class HabitService {
   // User management
   static async getCurrentUser(token: string) {
@@ -82,13 +104,7 @@ export class HabitService {
       limit?: number;
     } = {}
   ) {
-    const params = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined) {
-        params.append(key, value.toString());
-      }
-    });
-    const endpoint = `/api/checks?${params.toString()}`;
+    const endpoint = `/api/checks${buildQueryString(filters)}`;
     return api.get<Check[]>(endpoint, token);
   }
 
@@ -137,13 +153,7 @@ export class HabitService {
       limit?: number;
     } = {}
   ) {
-    const params = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined) {
-        params.append(key, value.toString());
-      }
-    });
-    const endpoint = `/api/counts?${params.toString()}`;
+    const endpoint = `/api/counts${buildQueryString(filters)}`;
     return api.get<Count[]>(endpoint, token);
   }
 
@@ -162,13 +172,7 @@ export class HabitService {
       limit?: number;
     } = {}
   ) {
-    const params = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined) {
-        params.append(key, value.toString());
-      }
-    });
-    const endpoint = `/api/weight-updates?${params.toString()}`;
+    const endpoint = `/api/weight-updates${buildQueryString(filters)}`;
     return api.get<WeightUpdate[]>(endpoint, token);
   }
 
@@ -186,13 +190,7 @@ export class HabitService {
       limit?: number;
     } = {}
   ) {
-    const params = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined) {
-        params.append(key, value.toString());
-      }
-    });
-    const endpoint = `/api/active-days?${params.toString()}`;
+    const endpoint = `/api/active-days${buildQueryString(filters)}`;
     return api.get<ActiveDay[]>(endpoint, token);
   }
 

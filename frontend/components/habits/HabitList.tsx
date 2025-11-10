@@ -24,6 +24,7 @@ import {
 } from '@/contexts/DevDateContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { isTimestampOnLogicalDay } from '@/lib/logicalTime';
+import { getCheckedHabitIdsToday } from '@/lib/habits/checkFilters';
 import type { Habit } from '@/lib/types/habits';
 import { HabitItem } from './HabitItem';
 import { QuickAddHabit } from './QuickAddHabit';
@@ -92,17 +93,7 @@ export function HabitList() {
       const { startDate, endDate } = getLogicalDateRange(rolloverHour, currentDate);
       const response = await HabitService.getChecks(token, { startDate, endDate });
       if (response.data) {
-        const todaysChecks = response.data.filter(
-          check =>
-            !check.sub_habit_id &&
-            isTimestampOnLogicalDay(check.check_date, rolloverHour, currentDate)
-        );
-        const checkedHabitIds = new Set(
-          todaysChecks
-            .map(check => check.habit_id)
-            .filter((habitId): habitId is number => typeof habitId === 'number')
-        );
-        setCheckedHabitsToday(checkedHabitIds);
+        setCheckedHabitsToday(getCheckedHabitIdsToday(response.data, rolloverHour, currentDate));
       }
     } catch (error) {
       console.error("Error loading today's checks:", error);

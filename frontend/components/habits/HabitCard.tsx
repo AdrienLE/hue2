@@ -8,6 +8,7 @@ import {
   getLogicalDateTimestamp,
   isTimestampOnLogicalDay,
 } from '@/lib/logicalTime';
+import { getCheckedSubHabitIdsToday } from '@/lib/habits/checkFilters';
 import DraggableFlatList, {
   ScaleDecorator,
   RenderItemParams,
@@ -236,16 +237,9 @@ export function HabitCard({
       });
 
       if (resp.data) {
-        const todayLogical = getLogicalDate(rolloverHour, baseDate);
-        const idsSet = new Set<number>();
-        for (const c of resp.data) {
-          if (!c.sub_habit_id) continue;
-          if (!isTimestampOnLogicalDay(c.check_date, rolloverHour, baseDate)) continue;
-          if (!subHabitIds || subHabitIds.includes(c.sub_habit_id)) {
-            idsSet.add(c.sub_habit_id);
-          }
-        }
-        setCheckedSubHabits(idsSet);
+        setCheckedSubHabits(
+          getCheckedSubHabitIdsToday(resp.data, rolloverHour, baseDate, subHabitIds)
+        );
       }
     } catch (err) {
       console.error('Error loading checked sub-habits for today:', err);

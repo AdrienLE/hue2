@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -182,6 +182,19 @@ export function HabitList() {
     return true;
   });
 
+  const colorIndexLookup = useMemo(() => {
+    const lookup = new Map<number, number>();
+    habits.forEach((habit, index) => {
+      lookup.set(habit.id, index);
+    });
+    return lookup;
+  }, [habits]);
+
+  const getColorIndex = useCallback(
+    (habitId: number) => colorIndexLookup.get(habitId) ?? 0,
+    [colorIndexLookup]
+  );
+
   useEffect(() => {
     console.log('🔄 useEffect triggered - token:', token ? 'EXISTS' : 'MISSING');
     loadHabits();
@@ -213,10 +226,9 @@ export function HabitList() {
   }
 
   // Determine palette size (hue frequency): span this many distinct hues, then repeat
-  const paletteSize = Math.max(
-    1,
-    Math.min(userSettings.color_frequency ?? visibleHabits.length, visibleHabits.length)
-  );
+  const totalHabitsForPalette = Math.max(habits.length, 1);
+  const palettePreference = userSettings.color_frequency ?? totalHabitsForPalette;
+  const paletteSize = Math.max(1, Math.min(palettePreference, totalHabitsForPalette));
 
   return (
     <ThemedView style={styles.fullContainer}>
@@ -252,6 +264,7 @@ export function HabitList() {
             refreshing={refreshing}
             onRefresh={() => loadHabits(true)}
             colorTotal={paletteSize}
+            getColorIndex={getColorIndex}
           />
         ) : (
           <GestureHandlerRootView style={{ flex: 1 }}>
@@ -276,7 +289,7 @@ export function HabitList() {
                     isEditing={editingHabitId === item.id}
                     onStartEditing={() => handleStartEditing(item.id)}
                     onCancelEditing={handleCancelEditing}
-                    colorIndex={index}
+                    colorIndex={getColorIndex(item.id)}
                     colorTotal={paletteSize}
                   />
                 </ScaleDecorator>
@@ -318,7 +331,7 @@ export function HabitList() {
               isEditing={editingHabitId === habit.id}
               onStartEditing={() => handleStartEditing(habit.id)}
               onCancelEditing={handleCancelEditing}
-              colorIndex={index}
+              colorIndex={getColorIndex(habit.id)}
               colorTotal={paletteSize}
             />
           ))}

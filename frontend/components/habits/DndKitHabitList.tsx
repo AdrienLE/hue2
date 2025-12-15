@@ -120,6 +120,7 @@ interface DndKitHabitListProps {
   refreshing: boolean;
   onRefresh: () => void;
   colorTotal: number; // palette size (hue frequency)
+  getColorIndex: (habitId: number) => number;
 }
 
 export function DndKitHabitList({
@@ -137,6 +138,7 @@ export function DndKitHabitList({
   refreshing,
   onRefresh,
   colorTotal,
+  getColorIndex,
 }: DndKitHabitListProps) {
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -169,7 +171,7 @@ export function DndKitHabitList({
         }
       >
         <SortableContext items={habits.map(h => h.id)} strategy={verticalListSortingStrategy}>
-          {habits.map((habit, index) => (
+          {habits.map(habit => (
             <SortableHabitItem
               key={habit.id}
               habit={habit}
@@ -182,7 +184,7 @@ export function DndKitHabitList({
               editingHabitId={editingHabitId}
               onStartEditing={onStartEditing}
               onCancelEditing={onCancelEditing}
-              colorIndex={index}
+              colorIndex={getColorIndex(habit.id)}
               colorTotal={colorTotal}
             />
           ))}

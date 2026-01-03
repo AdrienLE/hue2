@@ -19,16 +19,7 @@ function getLogicalDate(rolloverHour: number = 3, currentDate?: Date): string {
 
 function getLogicalDateTimestamp(rolloverHour: number = 3, currentDate?: Date): string {
   const now = currentDate || new Date();
-  const targetDate = new Date(now);
-
-  // If it's before the rollover hour, use the previous day but keep current time
-  if (now.getUTCHours() < rolloverHour) {
-    targetDate.setUTCDate(targetDate.getUTCDate() - 1);
-    // Keep the current time (hours, minutes, seconds, ms)
-  }
-  // If after rollover hour, keep current date and time
-
-  return targetDate.toISOString();
+  return now.toISOString();
 }
 
 function getLogicalDateRange(
@@ -119,14 +110,14 @@ describe('DevDateContext', () => {
   });
 
   describe('getLogicalDateTimestamp', () => {
-    it('should create timestamp with logical date but current time', () => {
-      // 2am on Jan 15th should create timestamp for Jan 14th at 2am
+    it('should keep the provided timestamp before the rollover hour', () => {
+      // 2am on Jan 15th should keep timestamp for Jan 15th at 2am
       const testDate = new Date('2024-01-15T02:30:45.123Z');
       const result = getLogicalDateTimestamp(3, testDate);
 
       const resultDate = new Date(result);
-      expect(resultDate.getUTCDate()).toBe(14); // Logical date
-      expect(resultDate.getUTCHours()).toBe(2); // Current time
+      expect(resultDate.getUTCDate()).toBe(15);
+      expect(resultDate.getUTCHours()).toBe(2);
       expect(resultDate.getUTCMinutes()).toBe(30);
     });
 

@@ -37,19 +37,17 @@ describe('logical time utilities', () => {
       expect(timestamp.endsWith('Z')).toBe(true);
     });
 
-    it('aligns timestamp with the logical day when before the rollover hour', () => {
+    it('keeps the provided timestamp when before the rollover hour', () => {
       const date = new Date(2024, 5, 1, 2, 15, 30, 0);
-      const expected = new Date(date);
-      expected.setDate(expected.getDate() - 1);
       const timestamp = getLogicalDateTimestamp(3, date);
 
-      expect(timestamp.startsWith(formatLocalDate(expected))).toBe(true);
+      expect(timestamp).toBe(date.toISOString());
     });
 
-    it('keeps timestamp on the same day when after the rollover hour', () => {
+    it('keeps the provided timestamp when after the rollover hour', () => {
       const date = new Date(2024, 5, 1, 10, 15, 30, 0);
       const timestamp = getLogicalDateTimestamp(3, date);
-      expect(timestamp.startsWith(formatLocalDate(date))).toBe(true);
+      expect(timestamp).toBe(date.toISOString());
     });
   });
 

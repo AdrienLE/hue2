@@ -9,6 +9,7 @@ import { HabitService } from '@/lib/services/habitService';
 import { getHabitColor } from '@/constants/Colors';
 import { HabitCard } from './habits/HabitCard';
 import { getLogicalDate, getCurrentDate } from '@/contexts/DevDateContext';
+import { isTimestampOnLogicalDay } from '@/lib/logicalTime';
 import type { Habit } from '@/lib/types/habits';
 
 interface DailyReviewModalProps {
@@ -79,9 +80,10 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
         return;
       }
 
-      // Convert reviewDate directly to YYYY-MM-DD format - no rollover logic needed
-      // since reviewDate is already the correct date for the review
-      const reviewDateStr = reviewDate.toLocaleDateString('en-CA'); // YYYY-MM-DD format
+      const rolloverHour = userSettings?.day_rollover_hour ?? 3;
+      const reviewBaseDate = new Date(reviewDate);
+      reviewBaseDate.setHours(rolloverHour, 0, 0, 0);
+      const reviewDateStr = getLogicalDate(rolloverHour, reviewBaseDate);
       console.log(
         'DailyReview: Review date string:',
         reviewDateStr,
@@ -105,9 +107,9 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
 
       // Normal habits: checked in checks table
       const allChecks = checksResponse.data || [];
-      console.log('DailyReview: Filtering checks for date:', reviewDateStr);
+      console.log('DailyReview: Filtering checks for logical date:', reviewDateStr);
       allChecks.forEach(check => {
-        const matches = check.check_date.startsWith(reviewDateStr);
+        const matches = isTimestampOnLogicalDay(check.check_date, rolloverHour, reviewBaseDate);
         console.log('DailyReview: Check comparison:', {
           check_date: check.check_date,
           reviewDateStr,
@@ -122,7 +124,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
 
       // Count habits: have count entries for the date
       (countsResponse.data || [])
-        .filter(count => count.count_date.startsWith(reviewDateStr))
+        .filter(count => isTimestampOnLogicalDay(count.count_date, rolloverHour, reviewBaseDate))
         .forEach(count => {
           console.log('DailyReview: Count habit tracked:', count.habit_id);
           trackedHabitIds.add(count.habit_id);
@@ -130,7 +132,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
 
       // Weight habits: have weight updates for the date
       (weightsResponse.data || [])
-        .filter(weight => weight.update_date.startsWith(reviewDateStr))
+        .filter(weight => isTimestampOnLogicalDay(weight.update_date, rolloverHour, reviewBaseDate))
         .forEach(weight => {
           console.log('DailyReview: Weight habit tracked:', weight.habit_id);
           trackedHabitIds.add(weight.habit_id);

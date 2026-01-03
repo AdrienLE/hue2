@@ -66,15 +66,7 @@ export function getLogicalDateTimestamp(
   rolloverHour: number = 3,
   currentDate: Date = new Date()
 ): string {
-  const date = new Date(currentDate.getTime());
-  const rawStart = new Date(currentDate.getTime());
-  rawStart.setHours(rolloverHour, 0, 0, 0);
-
-  if (date.getTime() < rawStart.getTime()) {
-    date.setTime(date.getTime() - MS_IN_DAY);
-  }
-
-  return date.toISOString();
+  return new Date(currentDate.getTime()).toISOString();
 }
 
 export function getLocalTimestamp(date: Date = new Date()): string {

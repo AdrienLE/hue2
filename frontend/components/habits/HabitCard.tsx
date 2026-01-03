@@ -72,6 +72,15 @@ export function HabitCard({
     }
   };
 
+  const getBaseDate = (rolloverHour: number): Date => {
+    if (!checkDate) {
+      return getCurrentDate();
+    }
+    const normalized = new Date(checkDate);
+    normalized.setHours(rolloverHour, 0, 0, 0);
+    return normalized;
+  };
+
   // Common state
   const [showDropdown, setShowDropdown] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
@@ -227,7 +236,7 @@ export function HabitCard({
     if (!token) return;
     try {
       const rolloverHour = userSettings.day_rollover_hour ?? 3;
-      const baseDate = checkDate || getCurrentDate();
+      const baseDate = getBaseDate(rolloverHour);
       const { startDate, endDate } = getLogicalDateRange(rolloverHour, baseDate);
 
       const resp = await HabitService.getChecks(token, {
@@ -282,7 +291,7 @@ export function HabitCard({
     });
 
     const rolloverHour = userSettings.day_rollover_hour ?? 3;
-    const baseDate = checkDate || getCurrentDate();
+    const baseDate = getBaseDate(rolloverHour);
 
     try {
       if (wasChecked) {
@@ -389,7 +398,8 @@ export function HabitCard({
     setLoading(true);
     try {
       const rolloverHour = userSettings.day_rollover_hour ?? 3;
-      const { startDate, endDate } = getLogicalDateRange(rolloverHour, getCurrentDate());
+      const baseDate = getBaseDate(rolloverHour);
+      const { startDate, endDate } = getLogicalDateRange(rolloverHour, baseDate);
 
       const response = await HabitService.getCounts(token, {
         habitId: habit.id,
@@ -447,7 +457,7 @@ export function HabitCard({
       const weightCheckBonus = habit.reward_settings?.weight_check_bonus || 0;
       const weightCheckPenalty = habit.reward_settings?.weight_check_penalty || 0;
       const rolloverHour = userSettings.day_rollover_hour ?? 3;
-      const baseDate = checkDate || getCurrentDate();
+      const baseDate = getBaseDate(rolloverHour);
 
       if (isCheckedToday) {
         await HabitService.uncheckHabitToday(habit.id, token, {
@@ -582,10 +592,11 @@ export function HabitCard({
       const newValue = Math.max(0, todayCount + change);
 
       const rolloverHour = userSettings.day_rollover_hour ?? 3;
+      const baseDate = getBaseDate(rolloverHour);
       const countData = {
         habit_id: habit.id,
         value: change,
-        count_date: getLogicalDateTimestamp(rolloverHour),
+        count_date: getLogicalDateTimestamp(rolloverHour, baseDate),
       };
 
       // Optimistic UI update
@@ -646,7 +657,7 @@ export function HabitCard({
       setCurrentWeight(weight);
 
       const rolloverHour = userSettings.day_rollover_hour ?? 3;
-      const baseDate = checkDate || getCurrentDate();
+      const baseDate = getBaseDate(rolloverHour);
       const weightData = {
         habit_id: habit.id,
         weight,

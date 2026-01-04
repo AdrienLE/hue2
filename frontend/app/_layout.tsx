@@ -174,10 +174,7 @@ function RootLayoutNav() {
           console.log('🔵 No lastActiveDate found - should be initialized by UserContext');
         }
 
-        // Only update last active date if we already have one (to avoid the race condition)
-        if (lastSessionIsStale) {
-          await updateLastSessionDate(today);
-        }
+        // Defer updating last session date until the daily review is completed.
       } catch (error) {
         console.error('Error checking for daily review:', error);
       } finally {

@@ -10,6 +10,7 @@ import { getHabitColor } from '@/constants/Colors';
 import { HabitCard } from './habits/HabitCard';
 import { getLogicalDate, getCurrentDate } from '@/contexts/DevDateContext';
 import { isTimestampOnLogicalDay } from '@/lib/logicalTime';
+import { getCheckedHabitIdsToday } from '@/lib/habits/checkFilters';
 import type { Habit } from '@/lib/types/habits';
 
 interface DailyReviewModalProps {
@@ -108,18 +109,10 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
       // Normal habits: checked in checks table
       const allChecks = checksResponse.data || [];
       console.log('DailyReview: Filtering checks for logical date:', reviewDateStr);
-      allChecks.forEach(check => {
-        const matches = isTimestampOnLogicalDay(check.check_date, rolloverHour, reviewBaseDate);
-        console.log('DailyReview: Check comparison:', {
-          check_date: check.check_date,
-          reviewDateStr,
-          matches,
-          habit_id: check.habit_id,
-        });
-        if (matches) {
-          console.log('DailyReview: Normal habit checked:', check.habit_id);
-          trackedHabitIds.add(check.habit_id);
-        }
+      const checkedHabitIds = getCheckedHabitIdsToday(allChecks, rolloverHour, reviewBaseDate);
+      checkedHabitIds.forEach(habitId => {
+        console.log('DailyReview: Normal habit checked:', habitId);
+        trackedHabitIds.add(habitId);
       });
 
       // Count habits: have count entries for the date

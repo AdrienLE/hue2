@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { HabitService } from '@/lib/services/habitService';
 import { useAuth } from '@/auth/AuthContext';
 import { useRefetchOnFocus } from '@/hooks/useRefetchOnFocus';
@@ -27,6 +27,7 @@ interface RewardAnimation {
 interface UserContextType {
   userSettings: UserSettings;
   totalRewards: number;
+  settingsLoaded: boolean;
   updateUserSettings: (settings: Partial<UserSettings>) => Promise<void>;
   addReward: (amount: number) => Promise<void>;
   subtractReward: (amount: number) => Promise<void>;
@@ -54,62 +55,96 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   });
   const [totalRewards, setTotalRewards] = useState(0);
   const [rewardAnimations, setRewardAnimations] = useState<RewardAnimation[]>([]);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const { token } = useAuth();
+  const settingsLoadedRef = useRef(false);
+  const loadUserDataPromiseRef = useRef<Promise<void> | null>(null);
 
   const loadUserData = async () => {
     if (!token) return;
+    if (loadUserDataPromiseRef.current) {
+      await loadUserDataPromiseRef.current;
+      return;
+    }
 
-    try {
-      const response = await HabitService.getCurrentUser(token);
-      console.log('📅 loadUserData response:', JSON.stringify(response.data, null, 2));
-      console.log('📅 response.data exists:', !!response.data);
-      console.log('📅 response.data.settings exists:', !!(response.data && response.data.settings));
-      if (response.data) {
-        const settings = response.data.settings || {}; // Handle case where settings is null/undefined
-        console.log('📅 User settings from server:', JSON.stringify(settings, null, 2));
+    const loadPromise = (async () => {
+      try {
+        const response = await HabitService.getCurrentUser(token);
+        console.log('📅 loadUserData response:', JSON.stringify(response.data, null, 2));
+        console.log('📅 response.data exists:', !!response.data);
         console.log(
-          '📅 last_session_date value:',
-          settings.last_session_date,
-          'type:',
-          typeof settings.last_session_date
+          '📅 response.data.settings exists:',
+          !!(response.data && response.data.settings)
         );
+        if (response.data) {
+          const settings = response.data.settings || {}; // Handle case where settings is null/undefined
+          console.log('📅 User settings from server:', JSON.stringify(settings, null, 2));
+          console.log(
+            '📅 last_session_date value:',
+            settings.last_session_date,
+            'type:',
+            typeof settings.last_session_date
+          );
 
-        const userSettings = {
-          reward_unit: settings.reward_unit || '$',
-          reward_unit_position: settings.reward_unit_position || 'before',
-          total_rewards: settings.total_rewards || 0,
-          day_rollover_hour: settings.day_rollover_hour ?? 3,
-          color_brightness: settings.color_brightness ?? 50,
-          color_saturation: settings.color_saturation ?? 60,
-          color_frequency: settings.color_frequency, // optional, undefined means span all habits
-          last_session_date: settings.last_session_date,
-          pending_daily_review: settings.pending_daily_review || null,
-        };
+          let userSettings = {
+            reward_unit: settings.reward_unit || '$',
+            reward_unit_position: settings.reward_unit_position || 'before',
+            total_rewards: settings.total_rewards || 0,
+            day_rollover_hour: settings.day_rollover_hour ?? 3,
+            color_brightness: settings.color_brightness ?? 50,
+            color_saturation: settings.color_saturation ?? 60,
+            color_frequency: settings.color_frequency, // optional, undefined means span all habits
+            last_session_date: settings.last_session_date,
+            pending_daily_review: settings.pending_daily_review || null,
+          };
 
-        setUserSettings(userSettings);
-        setTotalRewards(settings.total_rewards || 0);
+          const shouldInitLastSession = !settings.last_session_date;
+          if (shouldInitLastSession) {
+            console.log('📅 No last_session_date found, initializing with current date');
+            const { getLogicalDate } = await import('@/contexts/DevDateContext');
+            const rolloverHour = settings.day_rollover_hour ?? 3;
+            const todayLogical = getLogicalDate(rolloverHour);
+            userSettings = { ...userSettings, last_session_date: todayLogical };
+            console.log('📅 Initialized last_session_date to:', todayLogical);
+          }
 
-        // If last_session_date is null, initialize it with today's logical date
-        if (!settings.last_session_date) {
-          console.log('📅 No last_session_date found, initializing with current date');
-          const { getLogicalDate } = await import('@/contexts/DevDateContext');
-          const rolloverHour = settings.day_rollover_hour ?? 3;
-          const todayLogical = getLogicalDate(rolloverHour);
-          await updateUserSettings({ last_session_date: todayLogical });
-          console.log('📅 Initialized last_session_date to:', todayLogical);
+          setUserSettings(userSettings);
+          setTotalRewards(settings.total_rewards || 0);
+          settingsLoadedRef.current = true;
+          setSettingsLoaded(true);
+
+          if (shouldInitLastSession) {
+            await HabitService.updateCurrentUser({ settings: userSettings }, token);
+          } else {
+            console.log('📅 last_session_date already exists:', settings.last_session_date);
+          }
         } else {
-          console.log('📅 last_session_date already exists:', settings.last_session_date);
+          console.log('📅 No user data found in response');
         }
-      } else {
-        console.log('📅 No user data found in response');
+      } catch (error) {
+        console.error('Error loading user data:', error);
       }
-    } catch (error) {
-      console.error('Error loading user data:', error);
+    })();
+
+    loadUserDataPromiseRef.current = loadPromise;
+    try {
+      await loadPromise;
+    } finally {
+      if (loadUserDataPromiseRef.current === loadPromise) {
+        loadUserDataPromiseRef.current = null;
+      }
     }
   };
 
   const updateUserSettings = async (newSettings: Partial<UserSettings>) => {
     if (!token) return;
+    if (!settingsLoadedRef.current) {
+      await loadUserData();
+      if (!settingsLoadedRef.current) {
+        console.warn('updateUserSettings: user settings not loaded; skipping update');
+        return;
+      }
+    }
 
     let previous: UserSettings | null = null;
     let updatedSettings: UserSettings | null = null;
@@ -213,6 +248,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    settingsLoadedRef.current = false;
+    setSettingsLoaded(false);
     loadUserData();
   }, [token]);
 
@@ -229,6 +266,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       value={{
         userSettings,
         totalRewards,
+        settingsLoaded,
         updateUserSettings,
         addReward,
         subtractReward,

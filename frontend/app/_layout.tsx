@@ -36,8 +36,13 @@ export default function RootLayout() {
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
   const { token, loading } = useAuth();
-  const { userSettings, setPendingDailyReview, clearPendingDailyReview, updateLastSessionDate } =
-    useUser();
+  const {
+    userSettings,
+    setPendingDailyReview,
+    clearPendingDailyReview,
+    updateLastSessionDate,
+    settingsLoaded,
+  } = useUser();
   const { showCheckedHabits, toggleCheckedHabits } = useHabitVisibility();
   const { advanceDay, resetToToday } = useDevDate();
   const [showDailyReview, setShowDailyReview] = useState(false);
@@ -93,7 +98,7 @@ function RootLayoutNav() {
   // Unified daily review check reused by mount/focus/interval
   const checkForDailyReview = useCallback(
     async (source: string = 'manual') => {
-      if (!token || !userSettings) return;
+      if (!token || !userSettings || !settingsLoaded) return;
       if (showDailyReview) {
         console.log(`⏭️ ${source} check - Skipping (daily review modal open)`);
         return;
@@ -181,7 +186,14 @@ function RootLayoutNav() {
         isCheckingRef.current = false;
       }
     },
-    [token, userSettings, showDailyReview, setPendingDailyReview, updateLastSessionDate]
+    [
+      token,
+      userSettings,
+      settingsLoaded,
+      showDailyReview,
+      setPendingDailyReview,
+      updateLastSessionDate,
+    ]
   );
 
   // Check immediately on mount when user + settings are ready

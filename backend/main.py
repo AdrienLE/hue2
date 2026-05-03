@@ -26,6 +26,7 @@ import requests
 
 from .database import Base, engine, SessionLocal
 from . import models
+from .mcp_server import habit_mcp, protected_resource_metadata
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -93,16 +94,19 @@ except Exception as e:
     s3_client = None
     S3_BUCKET = None
 
+mcp_http_app = habit_mcp.streamable_http_app()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if os.getenv("DEBUG_STARTUP") in {"1", "true", "TRUE"}:
-        logger.info("🚀 FastAPI application starting up...")
-        logger.info(f"Python version: {__import__('sys').version}")
-        logger.info(f"Working directory: {os.getcwd()}")
-        logger.info(f"Environment variables: PORT={os.getenv('PORT')}")
-        logger.info(f"Frontend dist exists: {os.path.exists('frontend/dist')}")
-    yield
+    async with habit_mcp.session_manager.run():
+        if os.getenv("DEBUG_STARTUP") in {"1", "true", "TRUE"}:
+            logger.info("🚀 FastAPI application starting up...")
+            logger.info(f"Python version: {__import__('sys').version}")
+            logger.info(f"Working directory: {os.getcwd()}")
+            logger.info(f"Environment variables: PORT={os.getenv('PORT')}")
+            logger.info(f"Frontend dist exists: {os.path.exists('frontend/dist')}")
+        yield
 
 
 app = FastAPI(lifespan=lifespan)
@@ -132,6 +136,9 @@ if allowed_origins:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+
+app.mount("/mcp", mcp_http_app)
 
 
 # Startup logs handled by lifespan above
@@ -165,6 +172,12 @@ async def log_http_exception(request: Request, exc: HTTPException):
 async def log_unhandled_exception(request: Request, exc: Exception):
     logger.exception("Unhandled exception for %s %s", request.method, request.url)
     return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
+
+
+@app.get("/.well-known/oauth-protected-resource/mcp")
+@app.options("/.well-known/oauth-protected-resource/mcp")
+def mcp_protected_resource_metadata():
+    return protected_resource_metadata()
 
 
 def get_db():

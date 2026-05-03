@@ -47,8 +47,7 @@ def _get_rsa_key(token: str):
     raise HTTPException(status_code=401, detail="Invalid authorization header")
 
 
-def verify_jwt(credentials: HTTPAuthorizationCredentials = Depends(http_bearer)):
-    token = credentials.credentials
+def verify_jwt_token(token: str) -> dict:
     try:
         rsa_key = _get_rsa_key(token)
         payload = jwt.decode(
@@ -68,3 +67,7 @@ def verify_jwt(credentials: HTTPAuthorizationCredentials = Depends(http_bearer))
             detail="Could not validate credentials",
         )
     return payload
+
+
+def verify_jwt(credentials: HTTPAuthorizationCredentials = Depends(http_bearer)):
+    return verify_jwt_token(credentials.credentials)

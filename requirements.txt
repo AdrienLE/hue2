@@ -1,11 +1,14 @@
 # Version ranges are pinned to at least the minor level to reduce breaking
 # changes. When adding dependencies, specify a version requirement.
 fastapi~=0.116
+starlette~=0.47
 uvicorn~=0.35
 sqlalchemy~=2.0
 psycopg2-binary~=2.9
 pillow~=11.3
 openai~=1.97
+mcp~=1.27.0
+sse-starlette~=2.3.6
 python-jose[cryptography]~=3.5
 python-multipart~=0.0
 requests~=2.32

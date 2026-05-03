@@ -126,7 +126,9 @@ export function HabitCard({
   const [editWeightTarget, setEditWeightTarget] = useState(
     habit.weight_settings?.target_weight?.toString() || '150'
   );
-  const [editWeightUnit, setEditWeightUnit] = useState(habit.weight_settings?.unit || 'lbs');
+  const [editWeightUnit, setEditWeightUnit] = useState<string>(
+    habit.weight_settings?.unit || 'lbs'
+  );
 
   // Reward settings with defaults
   const [editSuccessReward, setEditSuccessReward] = useState(
@@ -2223,8 +2225,6 @@ const styles = StyleSheet.create({
     right: 16,
     height: 8,
     borderRadius: 4,
-    background:
-      'linear-gradient(to right, #ff0000 0%, #ffff00 16.67%, #00ff00 33.33%, #00ffff 50%, #0000ff 66.67%, #ff00ff 83.33%, #ff0000 100%)',
     backgroundColor: '#ff0000', // Fallback for platforms that don't support gradients
   },
   hueThumb: {

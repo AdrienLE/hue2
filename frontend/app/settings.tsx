@@ -22,6 +22,36 @@ import { useAuth } from '@/auth/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useUser } from '@/contexts/UserContext';
 
+interface SettingsResponse {
+  name?: string;
+  nickname?: string;
+  email?: string;
+  imageUrl?: string;
+}
+
+interface UploadProfilePictureResponse {
+  url: string;
+}
+
+const webBrightnessTrackLight =
+  Platform.OS === 'web'
+    ? ({
+        background: 'linear-gradient(to right, #000000 0%, #ffffff 100%)',
+      } as any)
+    : undefined;
+const webBrightnessTrackDark =
+  Platform.OS === 'web'
+    ? ({
+        background: 'linear-gradient(to right, #ffffff 0%, #000000 100%)',
+      } as any)
+    : undefined;
+const webChromaTrack =
+  Platform.OS === 'web'
+    ? ({
+        background: 'linear-gradient(to right, #808080 0%, #ff0000 100%)',
+      } as any)
+    : undefined;
+
 export default function SettingsScreen() {
   const [name, setName] = useState('');
   const [nickname, setNickname] = useState('');
@@ -147,7 +177,7 @@ export default function SettingsScreen() {
       if (!token || hasLoaded.current) return;
       hasLoaded.current = true;
       try {
-        const response = await api.get('/api/settings', token);
+        const response = await api.get<SettingsResponse>('/api/settings', token);
         if (response.data) {
           setName(response.data.name ?? '');
           setNickname(response.data.nickname ?? '');
@@ -203,7 +233,11 @@ export default function SettingsScreen() {
           } as any);
         }
 
-        const uploadResponse = await api.upload('/api/upload-profile-picture', formData, token);
+        const uploadResponse = await api.upload<UploadProfilePictureResponse>(
+          '/api/upload-profile-picture',
+          formData,
+          token
+        );
 
         if (uploadResponse.data) {
           finalImageUrl = uploadResponse.data.url;
@@ -421,6 +455,7 @@ export default function SettingsScreen() {
                       colorScheme === 'dark'
                         ? styles.brightnessTrackDark
                         : styles.brightnessTrackLight,
+                      colorScheme === 'dark' ? webBrightnessTrackDark : webBrightnessTrackLight,
                     ]}
                   />
                   <Slider
@@ -447,7 +482,7 @@ export default function SettingsScreen() {
               <ThemedText style={styles.label}>Chroma</ThemedText>
               <View style={styles.sliderContainer}>
                 <View style={styles.sliderWrapper}>
-                  <View style={[styles.sliderTrack, styles.chromaTrack]} />
+                  <View style={[styles.sliderTrack, styles.chromaTrack, webChromaTrack]} />
                   <Slider
                     style={styles.slider}
                     minimumValue={0}
@@ -474,7 +509,7 @@ export default function SettingsScreen() {
               </ThemedText>
               <View style={styles.sliderContainer}>
                 <View style={styles.sliderWrapper}>
-                  <View style={[styles.sliderTrack, styles.chromaTrack]} />
+                  <View style={[styles.sliderTrack, styles.chromaTrack, webChromaTrack]} />
                   <Slider
                     style={styles.slider}
                     minimumValue={1}
@@ -647,14 +682,12 @@ const styles = StyleSheet.create({
   },
   brightnessTrackLight: {
     backgroundColor: '#000',
-    background: 'linear-gradient(to right, #000000 0%, #ffffff 100%)',
   },
   brightnessTrackDark: {
     backgroundColor: '#fff',
-    background: 'linear-gradient(to right, #ffffff 0%, #000000 100%)',
   },
   chromaTrack: {
-    background: 'linear-gradient(to right, #808080 0%, #ff0000 100%)',
+    backgroundColor: '#808080',
   },
   slider: {
     flex: 1,

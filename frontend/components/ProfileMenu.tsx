@@ -13,6 +13,10 @@ import { ThemedView } from '@/components/ThemedView';
 import { api } from '@/lib/api';
 import { useRouter } from 'expo-router';
 
+interface SettingsResponse {
+  imageUrl?: string;
+}
+
 export function ProfileMenu() {
   const { logout, token } = useAuth();
   const colorScheme = useColorScheme();
@@ -24,7 +28,7 @@ export function ProfileMenu() {
   const loadProfileImage = async () => {
     if (!token) return;
     try {
-      const response = await api.get('/api/settings', token);
+      const response = await api.get<SettingsResponse>('/api/settings', token);
       if (response.data) {
         setProfileImageUrl(response.data.imageUrl ?? '');
       }

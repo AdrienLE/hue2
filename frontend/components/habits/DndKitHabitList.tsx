@@ -60,14 +60,23 @@ function SortableHabitItem({
     transition,
     opacity: isDragging ? 0.5 : 1,
   };
+  const setSortableNodeRef = React.useCallback(
+    (node: View | null) => {
+      setNodeRef(node as unknown as HTMLElement | null);
+    },
+    [setNodeRef]
+  );
+  const dragHandleCursor =
+    Platform.OS === 'web' ? ({ cursor: isDragging ? 'default' : 'grab' } as any) : undefined;
+  const dragHandleProps = { ...attributes, ...listeners } as any;
 
   const borderColor = useThemeColor({ light: '#e1e5e9', dark: '#444' }, 'border');
   const textColor = useThemeColor({}, 'text');
 
   return (
-    <View ref={setNodeRef} style={[styles.sortableItem, style]}>
+    <View ref={setSortableNodeRef} style={[styles.sortableItem, style]}>
       {Platform.OS === 'web' && (
-        <View style={[styles.dragHandle, { borderColor }]} {...attributes} {...listeners}>
+        <View style={[styles.dragHandle, dragHandleCursor, { borderColor }]} {...dragHandleProps}>
           <View style={styles.dragDots}>
             <View style={styles.dotRow}>
               <View style={[styles.dot, { backgroundColor: textColor }]} />
@@ -214,7 +223,6 @@ const styles = StyleSheet.create({
     marginRight: 8,
     borderRadius: 4,
     borderWidth: 1,
-    cursor: Platform.OS === 'web' ? 'grab' : 'default',
     justifyContent: 'center',
     alignItems: 'center',
   },

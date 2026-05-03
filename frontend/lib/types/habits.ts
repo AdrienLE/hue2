@@ -16,6 +16,7 @@ export interface Habit {
   description?: string;
   has_counts: boolean;
   is_weight: boolean;
+  is_bad?: boolean;
   count_settings?: CountSettings;
   weight_settings?: WeightSettings;
   schedule_settings?: ScheduleSettings;
@@ -31,12 +32,14 @@ export interface CountSettings {
   unit?: string;
   step_size?: number;
   goal_type?: 'above' | 'below' | 'exact';
+  count_is_good?: boolean;
 }
 
 export interface WeightSettings {
   target_weight?: number;
-  unit?: 'kg' | 'lbs';
+  unit?: string;
   starting_weight?: number;
+  step_size?: number;
 }
 
 export interface ScheduleSettings {
@@ -57,6 +60,7 @@ export interface RewardSettings {
   sub_habit_points?: number; // Points for checking individual sub-habits
 
   // Count habit rewards
+  count_reward?: number; // Points per unit counted
   count_per_unit?: number; // Points per unit counted
   count_check_bonus?: number; // Bonus points for checking/tracking the count
   count_check_penalty?: number; // Penalty for not checking/tracking the count
@@ -138,8 +142,8 @@ export interface HabitCreate {
   description?: string;
   has_counts?: boolean;
   is_weight?: boolean;
-  count_settings?: CountSettings;
-  weight_settings?: WeightSettings;
+  count_settings?: CountSettings | null;
+  weight_settings?: WeightSettings | null;
   schedule_settings?: ScheduleSettings;
   reward_settings?: RewardSettings;
   display_settings?: DisplaySettings;
@@ -150,8 +154,8 @@ export interface HabitUpdate {
   description?: string;
   has_counts?: boolean;
   is_weight?: boolean;
-  count_settings?: CountSettings;
-  weight_settings?: WeightSettings;
+  count_settings?: CountSettings | null;
+  weight_settings?: WeightSettings | null;
   schedule_settings?: ScheduleSettings;
   reward_settings?: RewardSettings;
   display_settings?: DisplaySettings;

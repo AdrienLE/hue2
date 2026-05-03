@@ -35,6 +35,11 @@ const TOKEN_KEY = 'auth_token';
 const SILENT_AUTH_ATTEMPT_KEY = 'auth_silent_attempted';
 // Must match expo.scheme in app.config.ts and Auth0 native callback/logout URLs.
 const URL_SCHEME = process.env.EXPO_PUBLIC_URL_SCHEME || 'hue2';
+type RedirectUriOptionsWithProxy = NonNullable<Parameters<typeof makeRedirectUri>[0]> & {
+  useProxy?: boolean;
+};
+const makeRedirectUriWithProxy = (options: RedirectUriOptionsWithProxy) =>
+  makeRedirectUri(options as unknown as Parameters<typeof makeRedirectUri>[0]);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setTokenState] = useState<string | null>(null);
@@ -45,13 +50,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const forcedUseProxy =
     authUseProxyEnv === 'true' ? true : authUseProxyEnv === 'false' ? false : undefined;
   const useProxy = Platform.select({ web: false, default: forcedUseProxy ?? false });
-  const redirectUriWeb = makeRedirectUri({ useProxy: false });
-  const redirectUriProxy = makeRedirectUri({
+  const redirectUriWeb = makeRedirectUriWithProxy({ useProxy: false });
+  const redirectUriProxy = makeRedirectUriWithProxy({
     scheme: URL_SCHEME,
     useProxy: true,
     path: 'redirect',
   });
-  const redirectUriNative = makeRedirectUri({
+  const redirectUriNative = makeRedirectUriWithProxy({
     scheme: URL_SCHEME,
     useProxy: false,
     path: 'redirect',
@@ -229,7 +234,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     nativeSilentAttemptedRef.current = true;
     try {
       // Use system browser (no proxy) so existing Auth0 cookies can be used for SSO
-      await promptSilentAsync({ useProxy: false, preferEphemeralSession: false });
+      await promptSilentAsync({
+        useProxy: false,
+        preferEphemeralSession: false,
+      } as unknown as Parameters<typeof promptSilentAsync>[0]);
     } catch (e) {
       // Ignore errors; user may need to login interactively
       throw e;
@@ -328,7 +336,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // On mobile, use the existing popup approach
-    promptAsync({ useProxy });
+    promptAsync({ useProxy } as unknown as Parameters<typeof promptAsync>[0]);
   };
 
   // Simple token validation - just checks if expired

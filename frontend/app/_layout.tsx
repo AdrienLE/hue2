@@ -280,7 +280,6 @@ function RootLayoutNav() {
             screenOptions={{
               headerShown: false,
               headerTitle: '',
-              headerStyle: { display: 'none' },
               contentStyle: Platform.OS === 'web' ? { marginTop: 0 } : undefined,
             }}
           >

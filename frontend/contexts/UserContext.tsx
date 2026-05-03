@@ -148,9 +148,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     let previous: UserSettings | null = null;
     let updatedSettings: UserSettings | null = null;
+    let previousTotalRewards = userSettings.total_rewards ?? 0;
 
     setUserSettings(prev => {
       previous = prev;
+      previousTotalRewards = prev.total_rewards ?? 0;
       updatedSettings = { ...prev, ...newSettings };
       return updatedSettings;
     });
@@ -175,7 +177,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setUserSettings(previous);
       }
       if (newSettings.total_rewards !== undefined) {
-        setTotalRewards(previous?.total_rewards || 0);
+        setTotalRewards(previousTotalRewards);
       }
       throw error;
     }

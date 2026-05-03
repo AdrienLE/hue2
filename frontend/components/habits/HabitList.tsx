@@ -272,7 +272,7 @@ export function HabitList() {
               data={visibleHabits}
               onDragEnd={({ data }) => handleHabitReorder(data)}
               keyExtractor={item => item.id.toString()}
-              renderItem={({ item, drag, isActive, index }) => (
+              renderItem={({ item, drag, isActive }) => (
                 <ScaleDecorator activeScale={1.05}>
                   <HabitItem
                     key={item.id}

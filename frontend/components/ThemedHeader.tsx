@@ -32,7 +32,6 @@ import { ProfileMenu } from './ProfileMenu';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { useUser } from '@/contexts/UserContext';
 import { useDevDate } from '@/contexts/DevDateContext';
-import { HueColors } from '@/constants/Colors';
 import { DevTools } from './DevTools';
 import { RewardAnimation } from './ui/RewardAnimation';
 import { IconSymbol } from '@/components/ui/IconSymbol';
@@ -465,7 +464,7 @@ export function ThemedHeader({
                         value={tempCustomDate || new Date()}
                         mode="datetime"
                         display="spinner"
-                        onChange={(event, selectedDate) => {
+                        onChange={(_event: unknown, selectedDate?: Date) => {
                           if (selectedDate) {
                             setTempCustomDate(selectedDate);
                           }
@@ -482,7 +481,7 @@ export function ThemedHeader({
                   value={tempCustomDate || new Date()}
                   mode="date"
                   display="default"
-                  onChange={(event, selectedDate) => {
+                  onChange={(_event: unknown, selectedDate?: Date) => {
                     setShowDatePicker(false);
                     if (selectedDate) {
                       setTempCustomDate(selectedDate);
@@ -498,7 +497,7 @@ export function ThemedHeader({
                   value={tempCustomDate || new Date()}
                   mode="time"
                   display="default"
-                  onChange={(event, selectedDate) => {
+                  onChange={(_event: unknown, selectedDate?: Date) => {
                     setShowTimePicker(false);
                     if (selectedDate) {
                       setCustomDateOverride(selectedDate);

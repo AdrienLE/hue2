@@ -128,18 +128,18 @@ For Auth0 to accept logins, ensure these URLs are added in your Auth0 Applicatio
 
 - Allowed Callback URLs:
 
-  - Native (recommended): `baseapp://redirect` (or `<your-scheme>://redirect`).
+  - Native (recommended): `hue2://redirect` (or `<your-scheme>://redirect`).
   - Optional (for Expo proxy): `https://auth.expo.io/@YOUR_EXPO_USERNAME/hue-2`.
 
 - Allowed Logout URLs:
-  - `baseapp://redirect` (or `<your-scheme>://redirect`).
+  - `hue2://redirect` (or `<your-scheme>://redirect`).
 
 Notes:
 
-- The canonical app URL scheme is `baseapp` (also set in `app.json`). If you change it, update both the scheme and Auth0 settings.
+- The canonical app URL scheme is `hue2` (also set in `app.config.ts`). If you change it, update both the scheme and Auth0 settings.
 - You can temporarily use the Expo proxy in native builds by setting `EXPO_PUBLIC_AUTH_USE_PROXY=true`.
 - If you change the app slug or Expo account, update the Expo proxy URL accordingly.
-- You can override the URL scheme via `EXPO_PUBLIC_URL_SCHEME`; it must match `expo.scheme` in `app.json`.
+- You can override the URL scheme via `EXPO_PUBLIC_URL_SCHEME`; it must match `expo.scheme` in `app.config.ts`.
 
 ## Build Profiles
 

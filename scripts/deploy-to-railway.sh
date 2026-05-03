@@ -118,7 +118,7 @@ echo ""
 checklist_items=(
     "Environment variables configured in .env.local"
     "Auth0 application created and configured"
-    "AWS S3 bucket created (if using file uploads)"
+    "Railway Bucket created (if using file uploads)"
     "OpenAI API key obtained (if using AI features)"
     "Code pushed to GitHub/GitLab/Bitbucket"
     "Database migration plan ready (if switching from SQLite)"

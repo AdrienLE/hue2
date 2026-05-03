@@ -47,10 +47,13 @@ AUTH0_DOMAIN=your-domain.auth0.com
 AUTH0_AUDIENCE=your-api-identifier
 AUTH0_CLIENT_ID=your-client-id
 
-# AWS S3 (if using file uploads)
-AWS_ACCESS_KEY_ID=your-access-key
-AWS_SECRET_ACCESS_KEY=your-secret-key
-AWS_S3_BUCKET=your-bucket-name
+# Railway Bucket (if using file uploads)
+RAILWAY_BUCKET_NAME=${{ your-bucket.BUCKET }}
+RAILWAY_BUCKET_ACCESS_KEY_ID=${{ your-bucket.ACCESS_KEY_ID }}
+RAILWAY_BUCKET_SECRET_ACCESS_KEY=${{ your-bucket.SECRET_ACCESS_KEY }}
+RAILWAY_BUCKET_REGION=${{ your-bucket.REGION }}
+RAILWAY_BUCKET_ENDPOINT=${{ your-bucket.ENDPOINT }}
+PUBLIC_BASE_URL=https://your-production-api.railway.app
 
 # OpenAI (if using AI features)
 OPENAI_API_KEY=your-openai-key
@@ -213,7 +216,7 @@ Railway automatically deploys when you push to your connected Git branch:
 - [ ] `/health` endpoint returns 200
 - [ ] Database connection working
 - [ ] Auth0 JWT validation working
-- [ ] File uploads working (if using S3)
+- [ ] File uploads working (if using Railway Buckets)
 - [ ] All API endpoints accessible
 
 ### Frontend

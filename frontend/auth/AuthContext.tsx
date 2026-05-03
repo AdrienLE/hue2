@@ -33,10 +33,8 @@ const discovery = {
 
 const TOKEN_KEY = 'auth_token';
 const SILENT_AUTH_ATTEMPT_KEY = 'auth_silent_attempted';
-// Canonical app URL scheme. Keep this set to 'baseapp' unless the
-// product name changes and you update both app.json (expo.scheme)
-// and Auth0 Allowed Callback/Logout URLs accordingly.
-const URL_SCHEME = process.env.EXPO_PUBLIC_URL_SCHEME || 'baseapp';
+// Must match expo.scheme in app.config.ts and Auth0 native callback/logout URLs.
+const URL_SCHEME = process.env.EXPO_PUBLIC_URL_SCHEME || 'hue2';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setTokenState] = useState<string | null>(null);

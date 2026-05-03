@@ -6,7 +6,7 @@ This is a modular React Native/Expo base app that can be used as a foundation fo
 
 ✅ **Authentication** - Auth0 integration with automatic profile population
 ✅ **User Settings** - Profile picture, name, nickname, email
-✅ **Image Handling** - Client-side compression and S3 upload
+✅ **Image Handling** - Client-side compression and Railway Bucket upload
 ✅ **Modular API Client** - Centralized HTTP client with error handling
 ✅ **Cross-platform** - iOS, Android, and Web support
 ✅ **Dark Mode** - Built-in theme support

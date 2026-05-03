@@ -42,5 +42,9 @@ test.db
 *~
 
 .env
+.env.local
+.env.*.local
+!.env.example
+!frontend/.env.example
 
 \#*\#

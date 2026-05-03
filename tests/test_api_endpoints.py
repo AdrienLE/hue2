@@ -39,15 +39,19 @@ def client(tmp_path, monkeypatch):
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[verify_jwt] = mock_auth
 
-    # Mock S3 operations
     uploads = {}
 
-    class DummyS3:
-        def upload_fileobj(self, fileobj, bucket, key, ExtraArgs=None):
+    class DummyStorage:
+        def upload_fileobj(self, fileobj, key, content_type=None):
             uploads[key] = fileobj.read()
 
-    monkeypatch.setattr("backend.main.s3_client", DummyS3())
-    monkeypatch.setattr("backend.main.S3_BUCKET", "test-bucket")
+        def public_object_url(self, key, request_base_url):
+            return f"{request_base_url.rstrip('/')}/api/profile-picture/{key}"
+
+        def presigned_get_url(self, key, expires_in=3600):
+            return f"https://storage.example/{key}?signed=1"
+
+    monkeypatch.setattr("backend.main.profile_picture_storage", DummyStorage())
 
     client = TestClient(app)
     yield client, uploads
@@ -125,8 +129,7 @@ class TestFileUpload:
         assert response.status_code == 200
         data = response.json()
         assert "url" in data
-        assert "test-bucket.s3.amazonaws.com" in data["url"]
-        assert "profile_pics/test_user/" in data["url"]
+        assert "/api/profile-picture/profile_pics/" in data["url"]
 
         # Verify file was "uploaded"
         assert len(uploads) == 1

@@ -10,23 +10,24 @@ from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exception_handlers import http_exception_handler
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from .auth import verify_jwt, AUTH0_DOMAIN
 import os
 from contextlib import asynccontextmanager
 from openai import OpenAI
-import boto3
 from uuid import uuid4
+from hashlib import sha256
 import logging
 import requests
 
 from .database import Base, engine, SessionLocal
 from . import models
 from .mcp_server import habit_mcp, protected_resource_metadata
+from .storage import ObjectStorage
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -39,20 +40,21 @@ models.Base.metadata.create_all(bind=engine)
 
 # Manual migration to add new columns if they don't exist
 try:
-    with engine.connect() as connection:
-        # Check if nickname column exists
-        result = connection.execute(text("PRAGMA table_info(user_settings)"))
-        columns = [row[1] for row in result.fetchall()]
+    with engine.begin() as connection:
+        inspector = inspect(connection)
+        columns = (
+            [column["name"] for column in inspector.get_columns("user_settings")]
+            if inspector.has_table("user_settings")
+            else []
+        )
 
         if "nickname" not in columns:
             logger.info("Adding nickname column to user_settings table")
             connection.execute(text("ALTER TABLE user_settings ADD COLUMN nickname TEXT"))
-            connection.commit()
 
         if "email" not in columns:
             logger.info("Adding email column to user_settings table")
             connection.execute(text("ALTER TABLE user_settings ADD COLUMN email TEXT"))
-            connection.commit()
 
         # Ensure sub-habit checks retain their parent habit relationship
         pending_backfill = connection.execute(
@@ -74,7 +76,6 @@ try:
                     """
                 )
             )
-            connection.commit()
 except Exception as e:
     logger.error(f"Migration failed: {e}")
     # Continue anyway - columns might already exist
@@ -87,12 +88,10 @@ except Exception as e:
     client = None
 
 try:
-    s3_client = boto3.client("s3") if os.getenv("AWS_ACCESS_KEY_ID") else None
-    S3_BUCKET = os.getenv("AWS_S3_BUCKET")
+    profile_picture_storage = ObjectStorage.from_env()
 except Exception as e:
-    logger.warning(f"S3 client initialization failed: {e}")
-    s3_client = None
-    S3_BUCKET = None
+    logger.warning(f"Object storage initialization failed: {e}")
+    profile_picture_storage = None
 
 mcp_http_app = habit_mcp.streamable_http_app()
 
@@ -151,20 +150,15 @@ def health_check():
         "status": "healthy",
         "service": "base-app-api",
         "openai": "configured" if client else "not configured",
-        "s3": "configured" if s3_client else "not configured",
+        "storage": "configured" if profile_picture_storage else "not configured",
         "database": "connected",
     }
 
 
 @app.exception_handler(HTTPException)
 async def log_http_exception(request: Request, exc: HTTPException):
-    logger.error(
-        "HTTPException %s %s: %s",
-        request.method,
-        request.url,
-        exc.detail,
-        exc_info=True,
-    )
+    log_method = logger.error if exc.status_code >= 500 else logger.info
+    log_method("HTTPException %s %s: %s", request.method, request.url, exc.detail)
     return await http_exception_handler(request, exc)
 
 
@@ -934,8 +928,26 @@ ALLOWED_CONTENT_TYPES = {
 MAX_UPLOAD_SIZE = int(os.getenv("MAX_UPLOAD_SIZE", str(5 * 1024 * 1024)))  # 5 MB default
 
 
+def _profile_picture_key(user_sub: str, filename: str | None, content_type: str) -> str:
+    ext = os.path.splitext(filename or "image")[1]
+    if not ext:
+        ext = ALLOWED_CONTENT_TYPES[content_type]
+
+    user_hash = sha256(user_sub.encode("utf-8")).hexdigest()[:32]
+    return f"profile_pics/{user_hash}/{uuid4().hex}{ext.lower()}"
+
+
+def _request_base_url(request: Request) -> str:
+    if os.getenv("PUBLIC_BASE_URL"):
+        return os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
+    if os.getenv("RAILWAY_PUBLIC_DOMAIN"):
+        return f"https://{os.getenv('RAILWAY_PUBLIC_DOMAIN')}"
+    return str(request.base_url).rstrip("/")
+
+
 @app.post("/api/upload-profile-picture")
 def upload_profile_picture(
+    request: Request,
     file: UploadFile = File(...),
     user=Depends(verify_jwt),
 ):
@@ -943,8 +955,8 @@ def upload_profile_picture(
         f"Upload request - filename: {file.filename}, content_type: {file.content_type}, size: {getattr(file, 'size', 'unknown')}"
     )
 
-    if not S3_BUCKET:
-        raise HTTPException(status_code=500, detail="S3 bucket not configured")
+    if not profile_picture_storage:
+        raise HTTPException(status_code=500, detail="Object storage bucket not configured")
 
     try:
         # Validate content type
@@ -964,22 +976,11 @@ def upload_profile_picture(
         if size and size > MAX_UPLOAD_SIZE:
             raise HTTPException(status_code=413, detail="File too large")
 
-        # Determine extension, prefer MIME-derived when missing
-        ext = os.path.splitext(file.filename or "image")[1]
-        if not ext:
-            ext = ALLOWED_CONTENT_TYPES[content_type]
-        key = f"profile_pics/{user['sub']}/{uuid4().hex}{ext}"
-        logger.info(f"Uploading to S3 key: {key}")
+        key = _profile_picture_key(user["sub"], file.filename, content_type)
+        logger.info(f"Uploading profile picture to object storage key: {key}")
 
-        s3_client.upload_fileobj(
-            file.file,
-            S3_BUCKET,
-            key,
-            ExtraArgs={
-                "ContentType": file.content_type,
-            },
-        )
-        url = f"https://{S3_BUCKET}.s3.amazonaws.com/{key}"
+        profile_picture_storage.upload_fileobj(file.file, key, content_type=file.content_type)
+        url = profile_picture_storage.public_object_url(key, _request_base_url(request))
         logger.info(f"Upload successful, URL: {url}")
         return {"url": url}
     except HTTPException:
@@ -987,6 +988,22 @@ def upload_profile_picture(
     except Exception as e:
         logger.error(f"Upload failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
+@app.get("/api/profile-picture/{object_key:path}")
+def get_profile_picture(object_key: str):
+    if not object_key.startswith("profile_pics/"):
+        raise HTTPException(status_code=404, detail="Profile picture not found")
+    if not profile_picture_storage:
+        raise HTTPException(status_code=404, detail="Profile picture not found")
+
+    try:
+        signed_url = profile_picture_storage.presigned_get_url(object_key, expires_in=3600)
+    except Exception as e:
+        logger.error(f"Failed to generate profile picture URL: {e}")
+        raise HTTPException(status_code=404, detail="Profile picture not found")
+
+    return RedirectResponse(signed_url, status_code=307)
 
 
 def fetch_auth0_userinfo(access_token: str) -> dict:

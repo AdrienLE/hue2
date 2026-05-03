@@ -245,9 +245,11 @@ EXPO_PUBLIC_AUTH0_AUDIENCE=your-audience
 
 # Optional services
 OPENAI_API_KEY=your-openai-key
-AWS_S3_BUCKET=your-s3-bucket
-AWS_ACCESS_KEY_ID=your-access-key
-AWS_SECRET_ACCESS_KEY=your-secret-key
+RAILWAY_BUCKET_NAME=your-railway-bucket-name
+RAILWAY_BUCKET_ACCESS_KEY_ID=your-railway-bucket-access-key
+RAILWAY_BUCKET_SECRET_ACCESS_KEY=your-railway-bucket-secret-key
+RAILWAY_BUCKET_REGION=auto
+RAILWAY_BUCKET_ENDPOINT=https://storage.railway.app
 ```
 
 ## Environment Setup
@@ -509,7 +511,7 @@ When creating a new app from this base, follow this checklist:
 ### Feature Configuration
 - [ ] Review and configure feature flags
 - [ ] Disable unused features
-- [ ] Configure enabled services (S3, OpenAI, etc.)
+- [ ] Configure enabled services (Railway Buckets, OpenAI, etc.)
 - [ ] Update API endpoints as needed
 - [ ] Configure navigation structure
 

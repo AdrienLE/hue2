@@ -33,15 +33,19 @@ def client(tmp_path, monkeypatch):
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[verify_jwt] = mock_auth
 
-    # Mock S3 operations
     uploads = {}
 
-    class DummyS3:
-        def upload_fileobj(self, fileobj, bucket, key, ExtraArgs=None):
+    class DummyStorage:
+        def upload_fileobj(self, fileobj, key, content_type=None):
             uploads[key] = fileobj.read()
 
-    monkeypatch.setattr("backend.main.s3_client", DummyS3())
-    monkeypatch.setattr("backend.main.S3_BUCKET", "test-bucket")
+        def public_object_url(self, key, request_base_url):
+            return f"{request_base_url.rstrip('/')}/api/profile-picture/{key}"
+
+        def presigned_get_url(self, key, expires_in=3600):
+            return f"https://storage.example/{key}?signed=1"
+
+    monkeypatch.setattr("backend.main.profile_picture_storage", DummyStorage())
 
     client = TestClient(app)
     yield client, uploads
@@ -86,11 +90,18 @@ class TestNuggetGeneration:
 class TestErrorHandling:
     """Test error handling scenarios"""
 
-    @patch("backend.main.s3_client")
-    def test_upload_s3_error(self, mock_s3, client):
-        """Test S3 upload error handling"""
+    def test_upload_storage_error(self, client, monkeypatch):
+        """Test object storage upload error handling"""
         c, _ = client
-        mock_s3.upload_fileobj.side_effect = Exception("S3 Error")
+
+        class FailingStorage:
+            def upload_fileobj(self, fileobj, key, content_type=None):
+                raise Exception("Storage Error")
+
+            def public_object_url(self, key, request_base_url):
+                return f"{request_base_url.rstrip('/')}/api/profile-picture/{key}"
+
+        monkeypatch.setattr("backend.main.profile_picture_storage", FailingStorage())
 
         response = c.post(
             "/api/upload-profile-picture",
@@ -100,18 +111,16 @@ class TestErrorHandling:
         assert response.status_code == 500
         assert "Upload failed" in response.json()["detail"]
 
-    def test_upload_without_s3_config(self, client, monkeypatch):
-        """Test upload fails when S3 is not configured"""
-        # Remove S3 configuration
-        monkeypatch.setattr("backend.main.S3_BUCKET", None)
-        monkeypatch.setattr("backend.main.s3_client", None)
+    def test_upload_without_storage_config(self, client, monkeypatch):
+        """Test upload fails when object storage is not configured"""
+        monkeypatch.setattr("backend.main.profile_picture_storage", None)
         c, _ = client
         response = c.post(
             "/api/upload-profile-picture",
             files={"file": ("test.png", b"data", "image/png")},
         )
         assert response.status_code == 500
-        assert response.json().get("detail") == "S3 bucket not configured"
+        assert response.json().get("detail") == "Object storage bucket not configured"
 
 
 class TestHealthCheck:
@@ -141,7 +150,7 @@ class TestHealthAndSPA:
         assert data.get("status") == "healthy"
         assert data.get("service") == "base-app-api"
         assert data.get("database") == "connected"
-        assert "openai" in data and "s3" in data
+        assert "openai" in data and "storage" in data
 
     def test_spa_index_and_fallback(self, client):
         c, _ = client

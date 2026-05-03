@@ -71,9 +71,9 @@ def test_health_endpoint():
     data = resp.json()
     assert data["status"] == "healthy"
     assert data["service"] == "base-app-api"
-    # OpenAI and S3 statuses reflect configuration (may be configured in env)
+    # Optional service statuses reflect configuration (may be configured in env)
     assert data["openai"] in ("configured", "not configured")
-    assert data["s3"] in ("configured", "not configured")
+    assert data["storage"] in ("configured", "not configured")
     assert data["database"] == "connected"
 
 
@@ -117,13 +117,13 @@ def test_nugget_api_no_openai_fallback():
 
 
 def test_upload_profile_picture_not_configured():
-    # Since no S3 bucket is set, should return 500 error
+    # Since no object storage bucket is set, should return 500 error
     files = {"file": ("test.jpg", b"dummy data", "image/jpeg")}
     resp = client.post("/api/upload-profile-picture", files=files, headers=auth_headers)
     assert resp.status_code == 500
     detail = resp.json().get("detail", "")
     # Depending on env, either bucket not configured or upload fails
-    assert detail == "S3 bucket not configured" or detail.startswith("Upload failed")
+    assert detail == "Object storage bucket not configured" or detail.startswith("Upload failed")
 
 
 def test_serve_spa_root_and_fallback():

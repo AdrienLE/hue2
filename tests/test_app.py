@@ -10,7 +10,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from backend import models
-from backend.main import app, get_db, verify_jwt, generate_nugget, s3_client, S3_BUCKET
+from backend.main import app, get_db, verify_jwt, generate_nugget
 
 
 @pytest.fixture
@@ -30,15 +30,19 @@ def client(tmp_path, monkeypatch):
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[verify_jwt] = lambda: {"sub": "user"}
 
-    # Use dummy S3 client
     uploads = {}
 
-    class DummyS3:
-        def upload_fileobj(self, fileobj, bucket, key, ExtraArgs=None):
+    class DummyStorage:
+        def upload_fileobj(self, fileobj, key, content_type=None):
             uploads[key] = fileobj.read()
 
-    monkeypatch.setattr("backend.main.s3_client", DummyS3())
-    monkeypatch.setattr("backend.main.S3_BUCKET", "test-bucket")
+        def public_object_url(self, key, request_base_url):
+            return f"{request_base_url.rstrip('/')}/api/profile-picture/{key}"
+
+        def presigned_get_url(self, key, expires_in=3600):
+            return f"https://storage.example/{key}?signed=1"
+
+    monkeypatch.setattr("backend.main.profile_picture_storage", DummyStorage())
 
     client = TestClient(app)
     yield client, uploads
@@ -92,5 +96,5 @@ def test_upload_profile_picture(client):
     resp = c.post("/api/upload-profile-picture", files=data)
     assert resp.status_code == 200
     url = resp.json()["url"]
-    assert url.startswith("https://test-bucket.s3.amazonaws.com/profile_pics/user/")
+    assert url.startswith("http://testserver/api/profile-picture/profile_pics/")
     assert uploads

@@ -122,7 +122,7 @@ The backend exposes an authenticated MCP Streamable HTTP endpoint at `/mcp`. MCP
 should connect to:
 
 ```bash
-https://your-production-api.example.com/mcp
+https://your-production-api.example.com/mcp/
 ```
 
 The MCP server validates the same Auth0 bearer tokens as the REST API and exposes tools for
@@ -132,7 +132,7 @@ recording count or weight updates. In production, set:
 ```bash
 AUTH0_DOMAIN=your-domain.auth0.com
 AUTH0_AUDIENCE=your-auth0-audience
-MCP_RESOURCE_SERVER_URL=https://your-production-api.example.com/mcp
+MCP_RESOURCE_SERVER_URL=https://your-production-api.example.com/mcp/
 ```
 
 `MCP_ISSUER_URL` is optional and defaults to `https://${AUTH0_DOMAIN}/`.

@@ -75,18 +75,18 @@ def _auth_issuer_url() -> str:
 def _resource_server_url() -> str:
     explicit = os.getenv("MCP_RESOURCE_SERVER_URL")
     if explicit:
-        return explicit
+        return explicit.rstrip("/") + "/"
 
     for env_key in ("PUBLIC_API_URL", "EXPO_PUBLIC_API_URL_PRODUCTION", "EXPO_PUBLIC_API_URL"):
         value = os.getenv(env_key)
         if value:
-            return value.rstrip("/") + "/mcp"
+            return value.rstrip("/") + "/mcp/"
 
     railway_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN")
     if railway_domain:
-        return f"https://{railway_domain.strip('/')}/mcp"
+        return f"https://{railway_domain.strip('/')}/mcp/"
 
-    return "http://localhost:8000/mcp"
+    return "http://localhost:8000/mcp/"
 
 
 def protected_resource_metadata() -> dict[str, Any]:

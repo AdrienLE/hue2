@@ -32,7 +32,11 @@ def test_mcp_metadata_and_auth_challenge():
     with TestClient(app) as client:
         metadata = client.get("/.well-known/oauth-protected-resource/mcp")
         assert metadata.status_code == 200
-        assert metadata.json()["resource"].endswith("/mcp")
+        assert metadata.json()["resource"].endswith("/mcp/")
+
+        no_slash = client.post("/mcp", json={}, follow_redirects=False)
+        assert no_slash.status_code == 307
+        assert no_slash.headers["location"] == "/mcp/"
 
         response = client.post("/mcp/", json={})
         assert response.status_code == 401

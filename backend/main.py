@@ -137,6 +137,11 @@ if allowed_origins:
     )
 
 
+@app.api_route("/mcp", methods=["GET", "POST", "DELETE", "OPTIONS"])
+async def redirect_mcp_without_trailing_slash():
+    return RedirectResponse(url="/mcp/", status_code=307)
+
+
 app.mount("/mcp", mcp_http_app)
 
 

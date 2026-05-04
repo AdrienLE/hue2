@@ -2,12 +2,14 @@ import os
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any, Literal
+from urllib.parse import urlparse
 
 from fastapi import HTTPException
 from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.auth.provider import AccessToken, TokenVerifier
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 from pydantic import AnyHttpUrl
 from sqlalchemy.orm import Session
 
@@ -106,6 +108,39 @@ def protected_resource_metadata() -> dict[str, Any]:
     }
 
 
+def _split_env_list(env_key: str) -> list[str]:
+    return [value.strip() for value in os.getenv(env_key, "").split(",") if value.strip()]
+
+
+def _transport_security_settings() -> TransportSecuritySettings:
+    resource = urlparse(_resource_server_url())
+    resource_origin = (
+        f"{resource.scheme}://{resource.netloc}" if resource.scheme and resource.netloc else ""
+    )
+
+    allowed_hosts = [
+        "127.0.0.1:*",
+        "localhost:*",
+        "[::1]:*",
+        resource.netloc,
+        os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip("/"),
+        *_split_env_list("MCP_ALLOWED_HOSTS"),
+    ]
+    allowed_origins = [
+        "http://127.0.0.1:*",
+        "http://localhost:*",
+        "http://[::1]:*",
+        resource_origin,
+        *_split_env_list("MCP_ALLOWED_ORIGINS"),
+    ]
+
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=sorted({host for host in allowed_hosts if host}),
+        allowed_origins=sorted({origin for origin in allowed_origins if origin}),
+    )
+
+
 habit_mcp = FastMCP(
     "Hue Habits",
     instructions=(
@@ -121,6 +156,7 @@ habit_mcp = FastMCP(
     stateless_http=True,
     json_response=True,
     streamable_http_path="/",
+    transport_security=_transport_security_settings(),
 )
 
 

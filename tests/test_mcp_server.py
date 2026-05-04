@@ -60,6 +60,17 @@ def test_mcp_payload_resource_prefers_configured_resource(monkeypatch):
     assert mcp_server._payload_resource(payload) == "https://hue2-production.up.railway.app/mcp/"
 
 
+def test_mcp_transport_security_allows_configured_public_host(monkeypatch):
+    monkeypatch.setenv("MCP_RESOURCE_SERVER_URL", "https://hue2-production.up.railway.app/mcp/")
+
+    settings = mcp_server._transport_security_settings()
+
+    assert settings.enable_dns_rebinding_protection is True
+    assert "hue2-production.up.railway.app" in settings.allowed_hosts
+    assert "https://hue2-production.up.railway.app" in settings.allowed_origins
+    assert "127.0.0.1:*" in settings.allowed_hosts
+
+
 def test_mcp_habit_state_and_idempotent_check(isolated_mcp_db):
     created = mcp_server.create_habit(
         name="Drink water",

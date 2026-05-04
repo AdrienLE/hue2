@@ -58,7 +58,12 @@ def _payload_resource(payload: dict[str, Any]) -> str | None:
     if isinstance(audience, str):
         return audience
     if isinstance(audience, list) and audience:
-        return str(audience[0])
+        audiences = [str(value) for value in audience]
+        resource_url = _resource_server_url()
+        for candidate in audiences:
+            if candidate.rstrip("/") == resource_url.rstrip("/"):
+                return candidate
+        return audiences[0]
     return None
 
 

@@ -47,6 +47,19 @@ def test_mcp_metadata_and_auth_challenge():
         assert response.json()["error"] == "invalid_token"
 
 
+def test_mcp_payload_resource_prefers_configured_resource(monkeypatch):
+    monkeypatch.setenv("MCP_RESOURCE_SERVER_URL", "https://hue2-production.up.railway.app/mcp/")
+
+    payload = {
+        "aud": [
+            "https://dev-dv5sxg3q0hnih5mb.us.auth0.com/userinfo",
+            "https://hue2-production.up.railway.app/mcp",
+        ]
+    }
+
+    assert mcp_server._payload_resource(payload) == "https://hue2-production.up.railway.app/mcp"
+
+
 def test_mcp_habit_state_and_idempotent_check(isolated_mcp_db):
     created = mcp_server.create_habit(
         name="Drink water",

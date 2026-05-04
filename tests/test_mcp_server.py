@@ -34,6 +34,10 @@ def test_mcp_metadata_and_auth_challenge():
         assert metadata.status_code == 200
         assert metadata.json()["resource"].endswith("/mcp/")
 
+        metadata_with_slash = client.get("/.well-known/oauth-protected-resource/mcp/")
+        assert metadata_with_slash.status_code == 200
+        assert metadata_with_slash.json() == metadata.json()
+
         no_slash = client.post("/mcp", json={}, follow_redirects=False)
         assert no_slash.status_code == 307
         assert no_slash.headers["location"] == "/mcp/"

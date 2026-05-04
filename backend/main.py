@@ -174,7 +174,9 @@ async def log_unhandled_exception(request: Request, exc: Exception):
 
 
 @app.get("/.well-known/oauth-protected-resource/mcp")
+@app.get("/.well-known/oauth-protected-resource/mcp/")
 @app.options("/.well-known/oauth-protected-resource/mcp")
+@app.options("/.well-known/oauth-protected-resource/mcp/")
 def mcp_protected_resource_metadata():
     return protected_resource_metadata()
 

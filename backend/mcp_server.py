@@ -62,7 +62,7 @@ def _payload_resource(payload: dict[str, Any]) -> str | None:
         resource_url = _resource_server_url()
         for candidate in audiences:
             if candidate.rstrip("/") == resource_url.rstrip("/"):
-                return candidate
+                return resource_url
         return audiences[0]
     return None
 

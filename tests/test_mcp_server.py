@@ -57,7 +57,7 @@ def test_mcp_payload_resource_prefers_configured_resource(monkeypatch):
         ]
     }
 
-    assert mcp_server._payload_resource(payload) == "https://hue2-production.up.railway.app/mcp"
+    assert mcp_server._payload_resource(payload) == "https://hue2-production.up.railway.app/mcp/"
 
 
 def test_mcp_habit_state_and_idempotent_check(isolated_mcp_db):

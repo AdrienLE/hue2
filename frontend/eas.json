@@ -10,7 +10,7 @@
       "env": {
         "EXPO_PUBLIC_ENVIRONMENT": "development",
         "EXPO_PUBLIC_AUTH0_DOMAIN": "dev-dv5sxg3q0hnih5mb.us.auth0.com",
-        "EXPO_PUBLIC_AUTH0_CLIENT_ID": "13AcdsTmghcCiqn9ex4ChDHOJabK1zVq",
+        "EXPO_PUBLIC_AUTH0_CLIENT_ID": "oIO2Q226dOaueczzCSjfSMYkbl3jbF2G",
         "EXPO_PUBLIC_AUTH0_AUDIENCE": "https://hue2-production.up.railway.app/mcp/"
       }
     },
@@ -19,7 +19,7 @@
       "env": {
         "EXPO_PUBLIC_ENVIRONMENT": "staging",
         "EXPO_PUBLIC_AUTH0_DOMAIN": "dev-dv5sxg3q0hnih5mb.us.auth0.com",
-        "EXPO_PUBLIC_AUTH0_CLIENT_ID": "13AcdsTmghcCiqn9ex4ChDHOJabK1zVq",
+        "EXPO_PUBLIC_AUTH0_CLIENT_ID": "oIO2Q226dOaueczzCSjfSMYkbl3jbF2G",
         "EXPO_PUBLIC_AUTH0_AUDIENCE": "https://hue2-production.up.railway.app/mcp/"
       }
     },
@@ -29,7 +29,7 @@
         "EXPO_PUBLIC_ENVIRONMENT": "production",
         "EXPO_PUBLIC_API_URL_PRODUCTION": "https://hue2-production.up.railway.app",
         "EXPO_PUBLIC_AUTH0_DOMAIN": "dev-dv5sxg3q0hnih5mb.us.auth0.com",
-        "EXPO_PUBLIC_AUTH0_CLIENT_ID": "13AcdsTmghcCiqn9ex4ChDHOJabK1zVq",
+        "EXPO_PUBLIC_AUTH0_CLIENT_ID": "oIO2Q226dOaueczzCSjfSMYkbl3jbF2G",
         "EXPO_PUBLIC_AUTH0_AUDIENCE": "https://hue2-production.up.railway.app/mcp/"
       }
     },
@@ -39,7 +39,7 @@
         "EXPO_PUBLIC_ENVIRONMENT": "production",
         "EXPO_PUBLIC_API_URL_PRODUCTION": "https://hue2-production.up.railway.app",
         "EXPO_PUBLIC_AUTH0_DOMAIN": "dev-dv5sxg3q0hnih5mb.us.auth0.com",
-        "EXPO_PUBLIC_AUTH0_CLIENT_ID": "13AcdsTmghcCiqn9ex4ChDHOJabK1zVq",
+        "EXPO_PUBLIC_AUTH0_CLIENT_ID": "oIO2Q226dOaueczzCSjfSMYkbl3jbF2G",
         "EXPO_PUBLIC_AUTH0_AUDIENCE": "https://hue2-production.up.railway.app/mcp/"
       }
     }

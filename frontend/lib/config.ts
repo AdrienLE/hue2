@@ -94,17 +94,22 @@ export const APP_CONFIG = {
 
 export type AppConfig = typeof APP_CONFIG;
 
-// Always log API configuration for debugging
-console.log('🔧 === APP CONFIGURATION ===');
-console.log(`🌍 Environment: ${APP_CONFIG.environment}`);
-console.log(`🔗 API Base URL: ${APP_CONFIG.api.baseUrl}`);
-console.log(`🐛 Debug Mode: ${APP_CONFIG.debug}`);
-console.log('=============================');
+// Debug logging (enabled in non-production or explicitly via env)
+if (
+  APP_CONFIG.debug ||
+  process.env.EXPO_PUBLIC_DEBUG_CONFIG === '1' ||
+  process.env.EXPO_PUBLIC_DEBUG_CONFIG === 'true'
+) {
+  console.log('=== APP CONFIGURATION ===');
+  console.log(`Environment: ${APP_CONFIG.environment}`);
+  console.log(`API Base URL: ${APP_CONFIG.api.baseUrl}`);
+  console.log(`Debug Mode: ${APP_CONFIG.debug}`);
+  console.log('=========================');
+}
 
-// Additional debug logging (opt-in via env)
 if (
   process.env.EXPO_PUBLIC_DEBUG_CONFIG === '1' ||
   process.env.EXPO_PUBLIC_DEBUG_CONFIG === 'true'
 ) {
-  console.log('📋 Full Configuration:', APP_CONFIG);
+  console.log('Full Configuration:', APP_CONFIG);
 }

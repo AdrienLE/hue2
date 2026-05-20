@@ -20,7 +20,7 @@ export const ENV_CONFIG = {
     enableDevTools: true,
   },
   production: {
-    apiUrl: process.env.EXPO_PUBLIC_API_URL || '',
+    apiUrl: process.env.EXPO_PUBLIC_API_URL_PRODUCTION || process.env.EXPO_PUBLIC_API_URL || '',
     logLevel: 'error' as const,
     enableDevTools: false,
   },

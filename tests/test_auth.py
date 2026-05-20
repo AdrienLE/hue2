@@ -26,7 +26,7 @@ class TestAuth:
 
         result = _get_jwks()
         assert result == {"keys": [{"kid": "test-key"}]}
-        mock_get.assert_called_once()
+        assert mock_get.call_args.kwargs["timeout"] == 5
 
     @patch("backend.auth.requests.get")
     def test_get_jwks_http_error(self, mock_get):
@@ -90,6 +90,48 @@ class TestAuth:
 
         assert exc_info.value.status_code == 401
         assert exc_info.value.detail == "Invalid authorization header"
+
+    @patch("backend.auth._get_jwks")
+    @patch("backend.auth.jwt.get_unverified_header")
+    def test_get_rsa_key_refreshes_jwks_on_kid_miss(self, mock_get_header, mock_get_jwks):
+        """Refresh JWKS cache once when Auth0 rotates signing keys"""
+        mock_get_header.return_value = {"kid": "new-key-id"}
+        mock_get_jwks.side_effect = [
+            {
+                "keys": [
+                    {
+                        "kid": "old-key-id",
+                        "kty": "RSA",
+                        "use": "sig",
+                        "n": "old-n",
+                        "e": "old-e",
+                    }
+                ]
+            },
+            {
+                "keys": [
+                    {
+                        "kid": "new-key-id",
+                        "kty": "RSA",
+                        "use": "sig",
+                        "n": "new-n",
+                        "e": "new-e",
+                    }
+                ]
+            },
+        ]
+
+        result = _get_rsa_key("test-token")
+
+        assert result == {
+            "kty": "RSA",
+            "kid": "new-key-id",
+            "use": "sig",
+            "n": "new-n",
+            "e": "new-e",
+        }
+        assert mock_get_jwks.call_count == 2
+        mock_get_jwks.cache_clear.assert_called_once()
 
     @patch("backend.auth._get_rsa_key")
     @patch("backend.auth.jwt.decode")

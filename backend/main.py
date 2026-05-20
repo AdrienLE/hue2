@@ -30,11 +30,13 @@ from .mcp_server import habit_mcp, protected_resource_metadata
 from .storage import ObjectStorage
 
 
-logging.basicConfig(level=logging.DEBUG)
+_log_level_name = os.getenv("LOG_LEVEL", "INFO").upper()
+_log_level = getattr(logging, _log_level_name, logging.INFO)
+logging.basicConfig(level=_log_level)
 logger = logging.getLogger(__name__)
-logging.getLogger("uvicorn").setLevel(logging.DEBUG)
-logging.getLogger("uvicorn.error").setLevel(logging.DEBUG)
-logging.getLogger("uvicorn.access").setLevel(logging.DEBUG)
+logging.getLogger("uvicorn").setLevel(_log_level)
+logging.getLogger("uvicorn.error").setLevel(_log_level)
+logging.getLogger("uvicorn.access").setLevel(_log_level)
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -76,9 +78,11 @@ try:
                     """
                 )
             )
-except Exception as e:
-    logger.error(f"Migration failed: {e}")
-    # Continue anyway - columns might already exist
+except Exception:
+    logger.exception("Startup database migration failed")
+    if os.getenv("ALLOW_STARTUP_MIGRATION_FAILURE", "").lower() not in {"1", "true", "yes"}:
+        raise
+    logger.warning("Continuing after startup migration failure by configuration")
 
 # Initialize optional services with error handling
 try:
@@ -112,7 +116,7 @@ app = FastAPI(lifespan=lifespan)
 
 
 # Configure CORS to support Expo/web dev hosts. Override with CORS_ALLOW_ORIGINS.
-_cors_env = os.getenv("CORS_ALLOW_ORIGINS", "")
+_cors_env = os.getenv("CORS_ALLOW_ORIGINS") or os.getenv("CORS_ORIGINS", "")
 if _cors_env:
     allowed_origins = [origin.strip() for origin in _cors_env.split(",") if origin.strip()]
 else:

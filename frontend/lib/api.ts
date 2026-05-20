@@ -4,6 +4,17 @@
 
 import { APP_CONFIG } from './config';
 
+const shouldLogApiDebug =
+  APP_CONFIG.debug ||
+  process.env.EXPO_PUBLIC_DEBUG_API === '1' ||
+  process.env.EXPO_PUBLIC_DEBUG_API === 'true';
+
+const logApiDebug = (...args: unknown[]) => {
+  if (shouldLogApiDebug) {
+    console.log(...args);
+  }
+};
+
 export interface ApiResponse<T = any> {
   data?: T;
   error?: string;
@@ -30,9 +41,7 @@ class BaseApiClient implements ApiClient {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
     const url = `${this.baseUrl}${endpoint}`;
 
-    // Log the API call for debugging
-    console.log(`🌐 API ${options.method || 'GET'}: ${url}`);
-    console.log(`📋 Headers:`, options.headers);
+    logApiDebug(`API ${options.method || 'GET'}: ${url}`);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
@@ -45,15 +54,18 @@ class BaseApiClient implements ApiClient {
 
       clearTimeout(timeoutId);
 
-      // Log response status
-      console.log(`📡 Response ${response.status}: ${options.method || 'GET'} ${url}`);
+      logApiDebug(`Response ${response.status}: ${options.method || 'GET'} ${url}`);
 
       if (!response.ok) {
         // Handle 401 Unauthorized specially
         if (response.status === 401) {
-          console.log('🔐 401 Unauthorized - Token may be expired');
+          logApiDebug('401 Unauthorized - token may be expired');
           // Emit a custom event that AuthContext can listen to
-          if (typeof window !== 'undefined') {
+          if (
+            typeof window !== 'undefined' &&
+            typeof window.dispatchEvent === 'function' &&
+            typeof CustomEvent !== 'undefined'
+          ) {
             window.dispatchEvent(new CustomEvent('auth-expired'));
           }
         }
@@ -69,11 +81,8 @@ class BaseApiClient implements ApiClient {
     } catch (error: any) {
       clearTimeout(timeoutId);
 
-      // Log error
-      console.log(
-        `❌ Error: ${options.method || 'GET'} ${url} - ${error.message || 'Network error'}`
-      );
-      console.log(`❌ Full error:`, error);
+      logApiDebug(`Error: ${options.method || 'GET'} ${url} - ${error.message || 'Network error'}`);
+      logApiDebug('Full API error:', error);
 
       return {
         status: 0,

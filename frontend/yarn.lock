@@ -3994,6 +3994,11 @@ expo-router@~5.1.6:
     server-only "^0.0.1"
     shallowequal "^1.1.0"
 
+expo-secure-store@~14.2.4:
+  version "14.2.4"
+  resolved "https://registry.yarnpkg.com/expo-secure-store/-/expo-secure-store-14.2.4.tgz#673743567a6459fb4b5f9406d57d9a3b16bca69f"
+  integrity sha512-ePaz4fnTitJJZjAiybaVYGfLWWyaEtepZC+vs9ZBMhQMfG5HUotIcVsDaSo3FnwpHmgwsLVPY2qFeryI6AtULw==
+
 expo-splash-screen@~0.30.10:
   version "0.30.10"
   resolved "https://registry.npmjs.org/expo-splash-screen/-/expo-splash-screen-0.30.10.tgz"

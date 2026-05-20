@@ -1,12 +1,20 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri, useAuthRequest, ResponseType } from 'expo-auth-session';
+import {
+  exchangeCodeAsync,
+  makeRedirectUri,
+  refreshAsync,
+  ResponseType,
+  revokeAsync,
+  TokenTypeHint,
+  useAuthRequest,
+} from 'expo-auth-session';
 import { useRouter } from 'expo-router';
 import jwtDecode from 'jwt-decode';
 
-// Close the Auth0 popup on web if a redirect back to the app occurred
+// Close the Auth0 popup on web if a redirect back to the app occurred.
 WebBrowser.maybeCompleteAuthSession();
 
 interface AuthContextValue {
@@ -25,27 +33,110 @@ const AuthContext = createContext<AuthContextValue>({
   validateToken: async () => false,
 });
 
+const AUTH0_DOMAIN = process.env.EXPO_PUBLIC_AUTH0_DOMAIN ?? '';
+const AUTH0_CLIENT_ID = process.env.EXPO_PUBLIC_AUTH0_CLIENT_ID ?? '';
+const AUTH0_AUDIENCE = process.env.EXPO_PUBLIC_AUTH0_AUDIENCE ?? '';
+const AUTH_SCOPES = ['openid', 'profile', 'email', 'offline_access'];
+
 const discovery = {
-  authorizationEndpoint: `https://${process.env.EXPO_PUBLIC_AUTH0_DOMAIN}/authorize`,
-  tokenEndpoint: `https://${process.env.EXPO_PUBLIC_AUTH0_DOMAIN}/oauth/token`,
-  revocationEndpoint: `https://${process.env.EXPO_PUBLIC_AUTH0_DOMAIN}/oauth/revoke`,
+  authorizationEndpoint: `https://${AUTH0_DOMAIN}/authorize`,
+  tokenEndpoint: `https://${AUTH0_DOMAIN}/oauth/token`,
+  revocationEndpoint: `https://${AUTH0_DOMAIN}/oauth/revoke`,
 };
 
-const TOKEN_KEY = 'auth_token';
-const SILENT_AUTH_ATTEMPT_KEY = 'auth_silent_attempted';
+const ACCESS_TOKEN_KEY = 'auth_access_token';
+const REFRESH_TOKEN_KEY = 'auth_refresh_token';
+const EXPIRES_AT_KEY = 'auth_expires_at';
+const LEGACY_TOKEN_KEY = 'auth_token';
+const REFRESH_MARGIN_MS = 60 * 1000;
+
 // Must match expo.scheme in app.config.ts and Auth0 native callback/logout URLs.
 const URL_SCHEME = process.env.EXPO_PUBLIC_URL_SCHEME || 'hue2';
+
 type RedirectUriOptionsWithProxy = NonNullable<Parameters<typeof makeRedirectUri>[0]> & {
   useProxy?: boolean;
 };
+
+type StoredAuth = {
+  accessToken: string | null;
+  refreshToken: string | null;
+  expiresAt: number | null;
+};
+
 const makeRedirectUriWithProxy = (options: RedirectUriOptionsWithProxy) =>
   makeRedirectUri(options as unknown as Parameters<typeof makeRedirectUri>[0]);
+
+const hasWindowStorage = () => Platform.OS === 'web' && typeof window !== 'undefined';
+
+const authStorage = {
+  async getItem(key: string): Promise<string | null> {
+    if (hasWindowStorage()) {
+      return window.sessionStorage.getItem(key);
+    }
+    return SecureStore.getItemAsync(key);
+  },
+  async setItem(key: string, value: string): Promise<void> {
+    if (hasWindowStorage()) {
+      window.sessionStorage.setItem(key, value);
+      return;
+    }
+    await SecureStore.setItemAsync(key, value);
+  },
+  async removeItem(key: string): Promise<void> {
+    if (hasWindowStorage()) {
+      window.sessionStorage.removeItem(key);
+      return;
+    }
+    await SecureStore.deleteItemAsync(key);
+  },
+};
+
+const readStoredAuth = async (): Promise<StoredAuth> => {
+  const [accessToken, refreshToken, expiresAtRaw] = await Promise.all([
+    authStorage.getItem(ACCESS_TOKEN_KEY),
+    authStorage.getItem(REFRESH_TOKEN_KEY),
+    authStorage.getItem(EXPIRES_AT_KEY),
+  ]);
+  const expiresAt = expiresAtRaw ? Number(expiresAtRaw) : null;
+
+  return {
+    accessToken,
+    refreshToken,
+    expiresAt: Number.isFinite(expiresAt) ? expiresAt : null,
+  };
+};
+
+const removeStoredAuth = async () => {
+  await Promise.all([
+    authStorage.removeItem(ACCESS_TOKEN_KEY),
+    authStorage.removeItem(REFRESH_TOKEN_KEY),
+    authStorage.removeItem(EXPIRES_AT_KEY),
+    authStorage.removeItem(LEGACY_TOKEN_KEY),
+  ]);
+};
+
+const isAccessTokenFresh = (accessToken: string, expiresAt?: number | null): boolean => {
+  if (expiresAt) {
+    return expiresAt - REFRESH_MARGIN_MS > Date.now();
+  }
+
+  try {
+    const payload: { exp?: number } = jwtDecode(accessToken);
+    return payload.exp ? payload.exp * 1000 - REFRESH_MARGIN_MS > Date.now() : true;
+  } catch {
+    return false;
+  }
+};
+
+const authExtraParams = AUTH0_AUDIENCE ? { audience: AUTH0_AUDIENCE } : undefined;
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setTokenState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  // Allow override via env; default to native (no Expo proxy) on iOS/Android
+  const refreshPromiseRef = useRef<Promise<string | null> | null>(null);
+
+  // Allow override via env; default to native deep links on iOS/Android.
   const authUseProxyEnv = process.env.EXPO_PUBLIC_AUTH_USE_PROXY;
   const forcedUseProxy =
     authUseProxyEnv === 'true' ? true : authUseProxyEnv === 'false' ? false : undefined;
@@ -61,342 +152,251 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useProxy: false,
     path: 'redirect',
   });
-  const redirectUri = Platform.select({
-    web: redirectUriWeb,
-    default: useProxy ? redirectUriProxy : redirectUriNative,
-  });
+  const redirectUri =
+    Platform.select({
+      web: redirectUriWeb,
+      default: useProxy ? redirectUriProxy : redirectUriNative,
+    }) ?? redirectUriNative;
 
-  useEffect(() => {
-    console.log(`Auth env EXPO_PUBLIC_AUTH_USE_PROXY: ${authUseProxyEnv ?? '(unset)'}`);
-    console.log(`Auth redirect URI (computed): ${redirectUri}`);
-    console.log(`Auth redirect URI (native): ${redirectUriNative}`);
-    console.log(`Auth redirect URI (proxy): ${redirectUriProxy}`);
-    console.log(`Auth useProxy: ${useProxy}`);
-  }, [redirectUri, useProxy]);
+  const persistTokens = async (
+    accessToken: string,
+    refreshToken?: string | null,
+    expiresAt?: number | null
+  ) => {
+    await authStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+    if (refreshToken) {
+      await authStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    }
+    if (expiresAt) {
+      await authStorage.setItem(EXPIRES_AT_KEY, String(expiresAt));
+    } else {
+      await authStorage.removeItem(EXPIRES_AT_KEY);
+    }
+    await authStorage.removeItem(LEGACY_TOKEN_KEY);
+  };
 
-  // Load any stored token on start and handle Auth0 redirect
+  const refreshAccessToken = async (): Promise<string | null> => {
+    if (refreshPromiseRef.current) {
+      return refreshPromiseRef.current;
+    }
+
+    refreshPromiseRef.current = (async () => {
+      const stored = await readStoredAuth();
+      if (!stored.refreshToken) {
+        await removeStoredAuth();
+        setTokenState(null);
+        return null;
+      }
+
+      try {
+        const tokenResponse = await refreshAsync(
+          {
+            clientId: AUTH0_CLIENT_ID,
+            refreshToken: stored.refreshToken,
+          },
+          discovery
+        );
+        const refreshedAccessToken = tokenResponse.accessToken;
+        const refreshedRefreshToken = tokenResponse.refreshToken ?? stored.refreshToken;
+        const expiresAt = tokenResponse.expiresIn
+          ? (tokenResponse.issuedAt + tokenResponse.expiresIn) * 1000
+          : null;
+
+        await persistTokens(refreshedAccessToken, refreshedRefreshToken, expiresAt);
+        setTokenState(refreshedAccessToken);
+        return refreshedAccessToken;
+      } catch (error) {
+        console.warn('Failed to refresh Auth0 token', error);
+        await removeStoredAuth();
+        setTokenState(null);
+        return null;
+      } finally {
+        refreshPromiseRef.current = null;
+      }
+    })();
+
+    return refreshPromiseRef.current;
+  };
+
   useEffect(() => {
     const loadToken = async () => {
       try {
-        // On web, check for Auth0 redirect token in URL hash
-        if (Platform.OS === 'web' && window.location.hash.includes('access_token=')) {
-          const params = new URLSearchParams(window.location.hash.substring(1));
-          const accessToken = params.get('access_token');
+        const stored = await readStoredAuth();
 
-          if (accessToken) {
-            console.log('Found access token in URL hash');
-            setTokenState(accessToken);
-            await AsyncStorage.setItem(TOKEN_KEY, accessToken);
-
-            // Clear silent auth attempt flag after a successful token reception
-            try {
-              sessionStorage.removeItem(SILENT_AUTH_ATTEMPT_KEY);
-            } catch {}
-
-            // Clean up the URL hash
-            window.history.replaceState({}, document.title, window.location.pathname);
-            setLoading(false);
-            return;
-          }
+        if (stored.accessToken && isAccessTokenFresh(stored.accessToken, stored.expiresAt)) {
+          setTokenState(stored.accessToken);
+          return;
         }
 
-        // Otherwise, load from stored token
-        const stored = await AsyncStorage.getItem(TOKEN_KEY);
-        if (stored) {
-          try {
-            const payload: { exp?: number } = jwtDecode(stored);
-            if (!payload.exp || payload.exp * 1000 > Date.now()) {
-              setTokenState(stored);
-            } else {
-              // Token is expired - clear it completely
-              console.log('Token expired, clearing authentication');
-              await AsyncStorage.removeItem(TOKEN_KEY);
-              setTokenState(null); // Clear the state too!
-
-              // Attempt silent re-auth on web if the user still has an Auth0 session
-              if (Platform.OS === 'web') {
-                try {
-                  const attempted = sessionStorage.getItem(SILENT_AUTH_ATTEMPT_KEY);
-                  if (!attempted) {
-                    sessionStorage.setItem(SILENT_AUTH_ATTEMPT_KEY, '1');
-                    const auth0Domain = process.env.EXPO_PUBLIC_AUTH0_DOMAIN;
-                    const clientId = process.env.EXPO_PUBLIC_AUTH0_CLIENT_ID;
-                    const audience = process.env.EXPO_PUBLIC_AUTH0_AUDIENCE;
-                    const silentUrl =
-                      `https://${auth0Domain}/authorize?` +
-                      new URLSearchParams({
-                        response_type: 'token',
-                        client_id: clientId ?? '',
-                        redirect_uri: redirectUri,
-                        scope: 'openid profile email',
-                        audience: audience ?? '',
-                        prompt: 'none',
-                      }).toString();
-                    console.log('Attempting silent auth via redirect');
-                    // Use replace() to avoid polluting history
-                    window.location.replace(silentUrl);
-                    return; // Stop further processing; navigation will occur
-                  }
-                } catch (e) {
-                  console.log('Silent auth attempt skipped due to sessionStorage error:', e);
-                }
-              } else {
-                // On native, try a best-effort silent login using system browser cookies
-                try {
-                  await tryNativeSilentLogin();
-                  // If successful, tryNativeSilentLogin will set token
-                } catch (e) {
-                  console.log('Native silent login failed or not available:', e);
-                }
-              }
-            }
-          } catch {
-            // Invalid token - clear it completely
-            console.log('Invalid token, clearing authentication');
-            await AsyncStorage.removeItem(TOKEN_KEY);
-            setTokenState(null); // Clear the state too!
-
-            // Attempt silent re-auth on web once
-            if (Platform.OS === 'web') {
-              try {
-                const attempted = sessionStorage.getItem(SILENT_AUTH_ATTEMPT_KEY);
-                if (!attempted) {
-                  sessionStorage.setItem(SILENT_AUTH_ATTEMPT_KEY, '1');
-                  const auth0Domain = process.env.EXPO_PUBLIC_AUTH0_DOMAIN;
-                  const clientId = process.env.EXPO_PUBLIC_AUTH0_CLIENT_ID;
-                  const audience = process.env.EXPO_PUBLIC_AUTH0_AUDIENCE;
-                  const silentUrl =
-                    `https://${auth0Domain}/authorize?` +
-                    new URLSearchParams({
-                      response_type: 'token',
-                      client_id: clientId ?? '',
-                      redirect_uri: redirectUri,
-                      scope: 'openid profile email',
-                      audience: audience ?? '',
-                      prompt: 'none',
-                    }).toString();
-                  console.log('Attempting silent auth via redirect');
-                  window.location.replace(silentUrl);
-                  return;
-                }
-              } catch (e) {
-                console.log('Silent auth attempt skipped due to sessionStorage error:', e);
-              }
-            } else {
-              try {
-                await tryNativeSilentLogin();
-              } catch (e) {
-                console.log('Native silent login failed or not available:', e);
-              }
-            }
-          }
+        if (stored.refreshToken) {
+          await refreshAccessToken();
+          return;
         }
-      } catch (e) {
-        console.warn('Failed to load token', e);
+
+        await removeStoredAuth();
+        setTokenState(null);
+      } catch (error) {
+        console.warn('Failed to load Auth0 tokens', error);
+        await removeStoredAuth();
+        setTokenState(null);
       } finally {
         setLoading(false);
       }
     };
+
     loadToken();
   }, []);
 
-  // Create a separate silent auth request (prompt=none) for native silent refresh
-  const [silentRequest, silentResponse, promptSilentAsync] = useAuthRequest(
-    {
-      clientId: process.env.EXPO_PUBLIC_AUTH0_CLIENT_ID ?? '',
-      scopes: ['openid', 'profile', 'email'],
-      responseType: ResponseType.Token,
-      redirectUri: redirectUriNative,
-      extraParams: {
-        audience: process.env.EXPO_PUBLIC_AUTH0_AUDIENCE ?? '',
-        prompt: 'none',
-      },
-    },
-    discovery
-  );
-
-  // When silent auth succeeds, persist the new token
+  // Listen for auth expired events from API calls and refresh once before logging out locally.
   useEffect(() => {
-    if (silentResponse?.type === 'success') {
-      const newToken = silentResponse.params.access_token;
-      if (newToken) {
-        setTokenState(newToken);
-        AsyncStorage.setItem(TOKEN_KEY, newToken).catch(() => {});
-      }
-    }
-  }, [silentResponse]);
+    if (Platform.OS !== 'web') return undefined;
 
-  // Best-effort silent login for native platforms using existing browser session
-  const nativeSilentAttemptedRef = useRef(false);
-  const tryNativeSilentLogin = async () => {
-    if (Platform.OS === 'web') return; // Only relevant for native
-    if (nativeSilentAttemptedRef.current) return;
-    nativeSilentAttemptedRef.current = true;
-    try {
-      // Use system browser (no proxy) so existing Auth0 cookies can be used for SSO
-      await promptSilentAsync({
-        useProxy: false,
-        preferEphemeralSession: false,
-      } as unknown as Parameters<typeof promptSilentAsync>[0]);
-    } catch (e) {
-      // Ignore errors; user may need to login interactively
-      throw e;
-    }
-  };
+    const handleAuthExpired = () => {
+      refreshAccessToken().catch(() => {});
+    };
 
-  // Listen for auth expired events from API calls
-  useEffect(() => {
-    if (Platform.OS === 'web') {
-      const handleAuthExpired = () => {
-        console.log('Auth expired event received - clearing authentication');
-        setTokenState(null);
-        AsyncStorage.removeItem(TOKEN_KEY).catch(() => {});
-
-        // Attempt silent re-auth once to refresh the session seamlessly on web
-        try {
-          const attempted = sessionStorage.getItem(SILENT_AUTH_ATTEMPT_KEY);
-          if (!attempted) {
-            sessionStorage.setItem(SILENT_AUTH_ATTEMPT_KEY, '1');
-            const auth0Domain = process.env.EXPO_PUBLIC_AUTH0_DOMAIN;
-            const clientId = process.env.EXPO_PUBLIC_AUTH0_CLIENT_ID;
-            const audience = process.env.EXPO_PUBLIC_AUTH0_AUDIENCE;
-            const silentUrl =
-              `https://${auth0Domain}/authorize?` +
-              new URLSearchParams({
-                response_type: 'token',
-                client_id: clientId ?? '',
-                redirect_uri: redirectUri,
-                scope: 'openid profile email',
-                audience: audience ?? '',
-                prompt: 'none',
-              }).toString();
-            console.log('Attempting silent auth due to 401 via redirect');
-            window.location.replace(silentUrl);
-          }
-        } catch (e) {
-          console.log('Silent auth attempt on 401 skipped due to sessionStorage error:', e);
-        }
-      };
-
-      window.addEventListener('auth-expired', handleAuthExpired);
-      return () => {
-        window.removeEventListener('auth-expired', handleAuthExpired);
-      };
-    }
+    window.addEventListener('auth-expired', handleAuthExpired);
+    return () => {
+      window.removeEventListener('auth-expired', handleAuthExpired);
+    };
   }, []);
 
   const [request, response, promptAsync] = useAuthRequest(
     {
-      clientId: process.env.EXPO_PUBLIC_AUTH0_CLIENT_ID ?? '',
-      scopes: ['openid', 'profile', 'email'],
-      responseType: ResponseType.Token,
+      clientId: AUTH0_CLIENT_ID,
+      scopes: AUTH_SCOPES,
+      responseType: ResponseType.Code,
       redirectUri,
-      extraParams: {
-        audience: process.env.EXPO_PUBLIC_AUTH0_AUDIENCE ?? '',
-      },
+      usePKCE: true,
+      extraParams: authExtraParams,
     },
     discovery
   );
 
   useEffect(() => {
-    if (response?.type === 'success') {
-      const newToken = response.params.access_token;
-      setTokenState(newToken);
-      AsyncStorage.setItem(TOKEN_KEY, newToken).catch(() => {});
-      // Clear any previous silent attempt flags
+    let cancelled = false;
+
+    const exchangeCode = async () => {
+      if (response?.type !== 'success') return;
+
+      const code = response.params.code;
+      const codeVerifier = request?.codeVerifier;
+      if (!code || !codeVerifier) {
+        console.warn('Auth0 code response did not include a usable PKCE verifier');
+        return;
+      }
+
       try {
-        if (Platform.OS === 'web') {
-          sessionStorage.removeItem(SILENT_AUTH_ATTEMPT_KEY);
+        const tokenResponse = await exchangeCodeAsync(
+          {
+            clientId: AUTH0_CLIENT_ID,
+            code,
+            redirectUri,
+            extraParams: {
+              code_verifier: codeVerifier,
+            },
+          },
+          discovery
+        );
+        const accessToken = tokenResponse.accessToken;
+        const expiresAt = tokenResponse.expiresIn
+          ? (tokenResponse.issuedAt + tokenResponse.expiresIn) * 1000
+          : null;
+
+        await persistTokens(accessToken, tokenResponse.refreshToken, expiresAt);
+
+        if (!cancelled) {
+          setTokenState(accessToken);
         }
-      } catch {}
-    }
-  }, [response]);
+      } catch (error) {
+        console.warn('Failed to exchange Auth0 authorization code', error);
+        await removeStoredAuth();
+        if (!cancelled) {
+          setTokenState(null);
+        }
+      }
+    };
+
+    exchangeCode();
+    return () => {
+      cancelled = true;
+    };
+  }, [response, request, redirectUri]);
 
   const login = () => {
-    console.log(`Starting login with redirectUri=${redirectUri}, useProxy=${useProxy}`);
-
-    // On web, redirect directly to Auth0 (no popup)
-    if (Platform.OS === 'web') {
-      const auth0Domain = process.env.EXPO_PUBLIC_AUTH0_DOMAIN;
-      const clientId = process.env.EXPO_PUBLIC_AUTH0_CLIENT_ID;
-      const audience = process.env.EXPO_PUBLIC_AUTH0_AUDIENCE;
-
-      const loginUrl =
-        `https://${auth0Domain}/authorize?` +
-        new URLSearchParams({
-          response_type: 'token',
-          client_id: clientId ?? '',
-          redirect_uri: redirectUri,
-          scope: 'openid profile email',
-          audience: audience ?? '',
-        }).toString();
-
-      window.location.href = loginUrl;
-      return;
-    }
-
-    // On mobile, use the existing popup approach
-    promptAsync({ useProxy } as unknown as Parameters<typeof promptAsync>[0]);
+    promptAsync({
+      useProxy,
+      preferEphemeralSession: false,
+    } as unknown as Parameters<typeof promptAsync>[0]).catch(error => {
+      console.warn('Auth0 login failed', error);
+    });
   };
 
-  // Simple token validation - just checks if expired
   const validateToken = async (): Promise<boolean> => {
-    if (!token) return false;
-
-    try {
-      const payload: { exp?: number } = jwtDecode(token);
-      const now = Date.now() / 1000;
-      return payload.exp ? payload.exp > now : true;
-    } catch {
-      return false;
+    if (token && isAccessTokenFresh(token)) {
+      return true;
     }
+
+    const refreshedToken = await refreshAccessToken();
+    return Boolean(refreshedToken);
   };
 
   const logout = async () => {
-    // Clear local token first
+    const storedRefreshToken = await authStorage.getItem(REFRESH_TOKEN_KEY);
+
     setTokenState(null);
-    AsyncStorage.removeItem(TOKEN_KEY).catch(() => {});
-    try {
-      if (Platform.OS === 'web') {
-        sessionStorage.removeItem(SILENT_AUTH_ATTEMPT_KEY);
+    await removeStoredAuth();
+
+    if (storedRefreshToken) {
+      try {
+        await revokeAsync(
+          {
+            clientId: AUTH0_CLIENT_ID,
+            token: storedRefreshToken,
+            tokenTypeHint: TokenTypeHint.RefreshToken,
+          },
+          discovery
+        );
+      } catch (error) {
+        console.warn('Refresh token revoke failed; continuing logout', error);
       }
-    } catch {}
+    }
 
-    // Construct Auth0 logout URL to clear Auth0 session
-    const auth0Domain = process.env.EXPO_PUBLIC_AUTH0_DOMAIN;
-    // Redirect to home page after logout
-    const returnTo = Platform.select({
-      web: encodeURIComponent(`${window.location.origin}/`),
-      default: encodeURIComponent(redirectUriNative),
-    });
-    const logoutUrl = `https://${auth0Domain}/v2/logout?client_id=${process.env.EXPO_PUBLIC_AUTH0_CLIENT_ID}&returnTo=${returnTo}`;
+    const returnTo =
+      Platform.OS === 'web' && typeof window !== 'undefined'
+        ? `${window.location.origin}/`
+        : redirectUriNative;
+    const logoutUrl =
+      `https://${AUTH0_DOMAIN}/v2/logout?` +
+      new URLSearchParams({
+        client_id: AUTH0_CLIENT_ID,
+        returnTo,
+      }).toString();
 
-    // On web, redirect directly to Auth0 logout (no popup)
     if (Platform.OS === 'web') {
       window.location.href = logoutUrl;
       return;
     }
 
-    // On mobile, use WebBrowser for logout
     try {
       await WebBrowser.openAuthSessionAsync(logoutUrl, redirectUriNative);
     } catch (error) {
-      console.warn('Logout session failed, but local token cleared:', error);
+      console.warn('Logout session failed, but local tokens were cleared:', error);
     }
 
-    // Navigate to home page (mobile only, web will redirect via Auth0)
     router.replace('/');
   };
 
-  // On native, when app becomes active and we're logged out, try a single silent login
   useEffect(() => {
-    if (Platform.OS === 'web') return;
-    const sub = AppState.addEventListener('change', state => {
+    if (Platform.OS === 'web') return undefined;
+
+    const subscription = AppState.addEventListener('change', state => {
       if (state === 'active' && !token) {
-        tryNativeSilentLogin().catch(() => {});
+        refreshAccessToken().catch(() => {});
       }
     });
-    return () => sub.remove();
+
+    return () => subscription.remove();
   }, [token]);
 
   return (

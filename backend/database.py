@@ -3,6 +3,8 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 import os
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./app.db")
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 enable_sqlite_check_same_thread = DATABASE_URL.startswith("sqlite")
 

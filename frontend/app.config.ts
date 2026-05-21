@@ -6,6 +6,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const projectDir = __dirname;
   const iosDir = path.join(projectDir, 'ios');
   const includeNative = process.env.INCLUDE_NATIVE_CONFIG === '1' || !fs.existsSync(iosDir);
+  const iosBundleIdentifier = 'com.adrienle.hue2';
+  const widgetBundleIdentifier = 'com.adrienle.hue2.Hue2Widget';
+  const appGroupIdentifier = 'group.com.adrienle.hue2';
+  const appGroupEntitlement = {
+    'com.apple.security.application-groups': [appGroupIdentifier],
+  };
 
   const base: ExpoConfig = {
     name: 'Hue 2',
@@ -13,6 +19,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     version: '1.0.0',
     newArchEnabled: true,
     scheme: 'hue2',
+    ios: {
+      bundleIdentifier: iosBundleIdentifier,
+      entitlements: appGroupEntitlement,
+    },
     web: {
       bundler: 'metro',
       output: 'static',
@@ -43,6 +53,19 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       router: {},
       eas: {
         projectId: '8e503456-098f-4adf-8f8b-ef34d40c2240',
+        build: {
+          experimental: {
+            ios: {
+              appExtensions: [
+                {
+                  targetName: 'Hue2WidgetExtension',
+                  bundleIdentifier: widgetBundleIdentifier,
+                  entitlements: appGroupEntitlement,
+                },
+              ],
+            },
+          },
+        },
       },
     },
   };
@@ -54,8 +77,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       icon: './assets/images/icon.png',
       userInterfaceStyle: 'automatic',
       ios: {
+        entitlements: appGroupEntitlement,
         supportsTablet: true,
-        bundleIdentifier: 'com.adrienle.hue2',
+        bundleIdentifier: iosBundleIdentifier,
         associatedDomains: ['applinks:hue2-production.up.railway.app'],
         infoPlist: {
           ITSAppUsesNonExemptEncryption: false,

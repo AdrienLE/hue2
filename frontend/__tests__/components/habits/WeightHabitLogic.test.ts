@@ -1,5 +1,12 @@
 // Test for the weight habit logic functions that would be in HabitCard
 // Since these are component functions, we'll test the logic separately
+import {
+  formatWeightValue,
+  getNextWeight,
+  isPartialWeightInput,
+  parseWeightInput,
+  roundWeight,
+} from '@/lib/habits/weightControls';
 
 describe('Weight Habit Logic', () => {
   describe('getInferredGoalType', () => {
@@ -74,8 +81,6 @@ describe('Weight Habit Logic', () => {
   });
 
   describe('weight rounding', () => {
-    const roundWeight = (weight: number) => Math.round(weight * 10) / 10;
-
     it('should fix floating point precision issues', () => {
       expect(roundWeight(176.00000000000006)).toBe(176);
       expect(roundWeight(175.99999999999997)).toBe(176);
@@ -94,6 +99,35 @@ describe('Weight Habit Logic', () => {
 
       expect(currentWeight).toBe(176.0);
       expect(currentWeight.toString()).not.toContain('0000000');
+    });
+  });
+
+  describe('inline weight editing helpers', () => {
+    it('should allow partial decimal input while editing', () => {
+      expect(isPartialWeightInput('')).toBe(true);
+      expect(isPartialWeightInput('175')).toBe(true);
+      expect(isPartialWeightInput('175.')).toBe(true);
+      expect(isPartialWeightInput('175.2')).toBe(true);
+      expect(isPartialWeightInput('175..2')).toBe(false);
+      expect(isPartialWeightInput('abc')).toBe(false);
+    });
+
+    it('should parse and format edited weights', () => {
+      expect(parseWeightInput('175.14')).toBe(175.1);
+      expect(parseWeightInput('175.15')).toBe(175.2);
+      expect(parseWeightInput('')).toBeNull();
+      expect(parseWeightInput('.')).toBeNull();
+      expect(parseWeightInput('0')).toBeNull();
+      expect(formatWeightValue(null)).toBe('');
+      expect(formatWeightValue(175.99999999999997)).toBe('176');
+    });
+
+    it('should calculate stepped weights for taps and long presses', () => {
+      expect(getNextWeight(175, 'increase')).toBe(175.1);
+      expect(getNextWeight(175, 'decrease')).toBe(174.9);
+      expect(getNextWeight(175, 'increase', 1)).toBe(176);
+      expect(getNextWeight(0.1, 'decrease')).toBe(0.1);
+      expect(getNextWeight(null, 'decrease')).toBe(0);
     });
   });
 });

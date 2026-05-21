@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, Pressable, Modal, TextInput } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { getCurrentDate } from '@/contexts/DevDateContext';
@@ -23,6 +23,13 @@ import { useThemeColor } from '@/hooks/useThemeColor';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { getHabitColorByIndex } from '@/constants/Colors';
 import type { Habit, Count, WeightUpdate, SubHabit, SubHabitCreate } from '@/lib/types/habits';
+import {
+  formatWeightValue,
+  getNextWeight,
+  isPartialWeightInput,
+  parseWeightInput,
+  roundWeight,
+} from '@/lib/habits/weightControls';
 
 interface HabitCardProps {
   habit: Habit;
@@ -95,6 +102,15 @@ export function HabitCard({
   const [currentWeight, setCurrentWeight] = useState<number | null>(null);
   const [showWeightInput, setShowWeightInput] = useState(false);
   const [newWeight, setNewWeight] = useState('');
+  const [isEditingInlineWeight, setIsEditingInlineWeight] = useState(false);
+  const [inlineWeightValue, setInlineWeightValue] = useState('');
+  const weightHoldTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const weightHoldIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const weightHoldResetPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const weightHoldActiveRef = useRef(false);
+  const weightHoldStartValueRef = useRef<number | null>(null);
+  const weightHoldDraftValueRef = useRef<number | null>(null);
+  const suppressNextWeightPressRef = useRef(false);
 
   // Sub-habit state (for normal habits only)
   const [subHabits, setSubHabits] = useState<SubHabit[]>([]);
@@ -165,6 +181,32 @@ export function HabitCard({
   );
 
   // Display settings (hue editing removed; colors are auto-assigned by position)
+
+  const clearWeightHoldTimers = () => {
+    if (weightHoldTimeoutRef.current) {
+      clearTimeout(weightHoldTimeoutRef.current);
+      weightHoldTimeoutRef.current = null;
+    }
+    if (weightHoldIntervalRef.current) {
+      clearInterval(weightHoldIntervalRef.current);
+      weightHoldIntervalRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      clearWeightHoldTimers();
+      if (weightHoldResetPressRef.current) {
+        clearTimeout(weightHoldResetPressRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isEditingInlineWeight) {
+      setInlineWeightValue(formatWeightValue(currentWeight));
+    }
+  }, [currentWeight, isEditingInlineWeight]);
 
   // Effect to apply defaults when switching habit types
   useEffect(() => {
@@ -642,10 +684,13 @@ export function HabitCard({
   };
 
   // Handle weight updates
-  const handleWeightUpdate = async (newWeightValue?: number) => {
+  const handleWeightUpdate = async (
+    newWeightValue?: number,
+    previousWeightOverride?: number | null
+  ) => {
     if (!token) return;
 
-    const weight = newWeightValue || parseFloat(newWeight);
+    const weight = newWeightValue ?? parseFloat(newWeight);
     if (isNaN(weight) || weight <= 0) {
       console.log('Error: Please enter a valid weight');
       return;
@@ -653,7 +698,7 @@ export function HabitCard({
 
     setUpdating(true);
     try {
-      const oldWeight = currentWeight || 0;
+      const oldWeight = previousWeightOverride ?? currentWeight ?? 0;
 
       // Optimistic UI update
       setCurrentWeight(weight);
@@ -704,14 +749,85 @@ export function HabitCard({
     }
   };
 
-  const updateWeight = async (increment: boolean) => {
+  const commitInlineWeight = async () => {
+    const weight = parseWeightInput(inlineWeightValue);
+    setIsEditingInlineWeight(false);
+
+    if (weight === null) {
+      setInlineWeightValue(formatWeightValue(currentWeight));
+      return;
+    }
+
+    if (currentWeight !== null && weight === roundWeight(currentWeight)) {
+      setInlineWeightValue(formatWeightValue(currentWeight));
+      return;
+    }
+
+    await handleWeightUpdate(weight);
+  };
+
+  const updateWeight = async (increment: boolean, previousWeightOverride?: number | null) => {
     if (!token || updating) return;
 
-    const baseWeight = currentWeight || 0;
-    const change = increment ? 0.1 : -0.1;
-    const newWeight = Math.max(0, Math.round((baseWeight + change) * 10) / 10);
+    const newWeight = getNextWeight(currentWeight, increment ? 'increase' : 'decrease');
 
-    await handleWeightUpdate(newWeight);
+    await handleWeightUpdate(newWeight, previousWeightOverride);
+  };
+
+  const startWeightHold = (increment: boolean) => {
+    if (!token || updating) return;
+
+    clearWeightHoldTimers();
+    const startingWeight = currentWeight ?? 0;
+    weightHoldActiveRef.current = false;
+    weightHoldStartValueRef.current = startingWeight;
+    weightHoldDraftValueRef.current = startingWeight;
+
+    weightHoldTimeoutRef.current = setTimeout(() => {
+      weightHoldActiveRef.current = true;
+
+      const advanceWeight = () => {
+        const nextWeight = getNextWeight(
+          weightHoldDraftValueRef.current,
+          increment ? 'increase' : 'decrease'
+        );
+
+        weightHoldDraftValueRef.current = nextWeight;
+        setCurrentWeight(nextWeight > 0 ? nextWeight : null);
+      };
+
+      advanceWeight();
+      weightHoldIntervalRef.current = setInterval(advanceWeight, 90);
+    }, 300);
+  };
+
+  const endWeightHold = async () => {
+    const wasHolding = weightHoldActiveRef.current;
+    const startingWeight = weightHoldStartValueRef.current;
+    const draftWeight = weightHoldDraftValueRef.current;
+
+    clearWeightHoldTimers();
+    weightHoldActiveRef.current = false;
+    weightHoldStartValueRef.current = null;
+    weightHoldDraftValueRef.current = null;
+
+    if (!wasHolding) return;
+
+    suppressNextWeightPressRef.current = true;
+    if (weightHoldResetPressRef.current) {
+      clearTimeout(weightHoldResetPressRef.current);
+    }
+    weightHoldResetPressRef.current = setTimeout(() => {
+      suppressNextWeightPressRef.current = false;
+      weightHoldResetPressRef.current = null;
+    }, 100);
+
+    if (draftWeight === null || draftWeight <= 0 || draftWeight === startingWeight) {
+      setCurrentWeight(startingWeight && startingWeight > 0 ? startingWeight : null);
+      return;
+    }
+
+    await handleWeightUpdate(draftWeight, startingWeight);
   };
 
   // Handle save/cancel
@@ -1647,13 +1763,43 @@ export function HabitCard({
             {habit.is_weight && (
               <>
                 <View style={styles.weightDisplay}>
-                  <ThemedText style={styles.currentWeight}>
-                    {loading
-                      ? '...'
-                      : currentWeight
-                        ? `${Math.round(currentWeight * 10) / 10}`
-                        : 'No data'}
-                  </ThemedText>
+                  <TextInput
+                    style={[
+                      styles.inlineWeightInput,
+                      {
+                        color: textColor,
+                        borderColor: isEditingInlineWeight ? borderColor : 'transparent',
+                      },
+                    ]}
+                    value={
+                      loading
+                        ? ''
+                        : isEditingInlineWeight
+                          ? inlineWeightValue
+                          : formatWeightValue(currentWeight)
+                    }
+                    onFocus={() => {
+                      setIsEditingInlineWeight(true);
+                      setInlineWeightValue(formatWeightValue(currentWeight));
+                    }}
+                    onChangeText={value => {
+                      if (isPartialWeightInput(value)) {
+                        setInlineWeightValue(value);
+                      }
+                    }}
+                    onBlur={() => {
+                      void commitInlineWeight();
+                    }}
+                    onSubmitEditing={() => {
+                      void commitInlineWeight();
+                    }}
+                    placeholder={loading ? '...' : 'No data'}
+                    placeholderTextColor={textColor + '60'}
+                    keyboardType="decimal-pad"
+                    returnKeyType="done"
+                    selectTextOnFocus
+                    editable={!loading && !updating}
+                  />
                   <ThemedText style={styles.unit}>{unit}</ThemedText>
                 </View>
 
@@ -1666,8 +1812,18 @@ export function HabitCard({
                         borderColor: getWeightButtonColors().decreaseColor,
                       },
                     ]}
-                    onPress={() => updateWeight(false)}
-                    disabled={updating}
+                    onPress={() => {
+                      if (suppressNextWeightPressRef.current) {
+                        suppressNextWeightPressRef.current = false;
+                        return;
+                      }
+                      void updateWeight(false);
+                    }}
+                    onPressIn={() => startWeightHold(false)}
+                    onPressOut={() => {
+                      void endWeightHold();
+                    }}
+                    disabled={updating || !currentWeight || currentWeight <= 0}
                   >
                     <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>
                       -
@@ -1682,7 +1838,17 @@ export function HabitCard({
                         borderColor: getWeightButtonColors().increaseColor,
                       },
                     ]}
-                    onPress={() => updateWeight(true)}
+                    onPress={() => {
+                      if (suppressNextWeightPressRef.current) {
+                        suppressNextWeightPressRef.current = false;
+                        return;
+                      }
+                      void updateWeight(true);
+                    }}
+                    onPressIn={() => startWeightHold(true)}
+                    onPressOut={() => {
+                      void endWeightHold();
+                    }}
                     disabled={updating}
                   >
                     <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>
@@ -1922,6 +2088,16 @@ const styles = StyleSheet.create({
   currentWeight: {
     fontSize: 20,
     fontWeight: 'bold',
+  },
+  inlineWeightInput: {
+    minWidth: 58,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderWidth: 1,
+    borderRadius: 4,
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   currentWeightInput: {
     fontSize: 20,

@@ -145,6 +145,24 @@ class TestAuth:
         result = verify_jwt(credentials)
         assert result == {"sub": "test-user", "iss": "test-issuer"}
 
+    def test_verify_jwt_dev_token(self, monkeypatch):
+        """Test opt-in developer token verification"""
+        monkeypatch.setenv("DEV_AUTH_TOKEN", "local-token")
+        monkeypatch.setenv("DEV_AUTH_USER_ID", "dev-widget-user")
+        monkeypatch.setenv("DEV_AUTH_EMAIL", "widget.qa@example.com")
+        monkeypatch.setenv("DEV_AUTH_NAME", "Widget QA")
+
+        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="local-token")
+
+        result = verify_jwt(credentials)
+        assert result == {
+            "sub": "dev-widget-user",
+            "email": "widget.qa@example.com",
+            "name": "Widget QA",
+            "nickname": "Widget QA",
+            "picture": None,
+        }
+
     @patch("backend.auth._get_rsa_key")
     @patch("backend.auth.jwt.decode")
     def test_verify_jwt_invalid_token(self, mock_jwt_decode, mock_get_rsa_key):

@@ -22,6 +22,22 @@ http_bearer = HTTPBearer()
 LOG_JWT_PAYLOADS = os.getenv("LOG_JWT_PAYLOADS", "").lower() in {"1", "true", "yes"}
 
 
+def _dev_auth_payload(token: str) -> dict | None:
+    expected_token = os.getenv("DEV_AUTH_TOKEN")
+    if not expected_token or token != expected_token:
+        return None
+
+    user_id = os.getenv("DEV_AUTH_USER_ID", "dev-user")
+    name = os.getenv("DEV_AUTH_NAME", "Hue Dev User")
+    return {
+        "sub": user_id,
+        "email": os.getenv("DEV_AUTH_EMAIL", f"{user_id}@example.dev"),
+        "name": name,
+        "nickname": os.getenv("DEV_AUTH_NICKNAME", name),
+        "picture": os.getenv("DEV_AUTH_PICTURE"),
+    }
+
+
 @lru_cache()
 def _get_jwks():
     jwks_url = f"https://{AUTH0_DOMAIN}/.well-known/jwks.json"
@@ -68,6 +84,10 @@ def _get_rsa_key(token: str):
 
 
 def verify_jwt_token(token: str) -> dict:
+    dev_payload = _dev_auth_payload(token)
+    if dev_payload:
+        return dev_payload
+
     try:
         rsa_key = _get_rsa_key(token)
         payload = jwt.decode(

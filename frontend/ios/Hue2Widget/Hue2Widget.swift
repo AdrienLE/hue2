@@ -75,6 +75,8 @@ struct WidgetHabit: Identifiable, Hashable {
   let name: String
   let kind: HabitKind
   let colorIndex: Int
+  let colorBrightness: Double?
+  let colorSaturation: Double?
   let subHabits: [WidgetSubHabit]
   let countTotal: Double
   let countTarget: Double?
@@ -92,6 +94,8 @@ struct WidgetHabit: Identifiable, Hashable {
       name: "Morning routine",
       kind: .normal,
       colorIndex: 0,
+      colorBrightness: nil,
+      colorSaturation: nil,
       subHabits: [
         WidgetSubHabit(id: 11, name: "Stretch", checked: false),
         WidgetSubHabit(id: 12, name: "Water", checked: true),
@@ -112,6 +116,8 @@ struct WidgetHabit: Identifiable, Hashable {
       name: "Pushups",
       kind: .count,
       colorIndex: 1,
+      colorBrightness: nil,
+      colorSaturation: nil,
       subHabits: [],
       countTotal: 12,
       countTarget: 20,
@@ -162,7 +168,7 @@ struct Hue2WidgetEntryView: View {
   }
 
   private var readyContent: some View {
-    VStack(alignment: .leading, spacing: family == .systemSmall ? 5 : 7) {
+    VStack(alignment: .leading, spacing: family == .systemSmall ? 4 : 5) {
       header
 
       if entry.habits.isEmpty {
@@ -177,10 +183,6 @@ struct Hue2WidgetEntryView: View {
         ForEach(entry.habits) { habit in
           WidgetHabitRow(habit: habit, family: family)
         }
-      }
-
-      if entry.totalPages > 1 {
-        WidgetPageControls(page: entry.page, totalPages: entry.totalPages)
       }
     }
     .padding(widgetPadding)
@@ -203,18 +205,22 @@ struct Hue2WidgetEntryView: View {
       Text("\(entry.totalVisibleHabits)")
         .font(.caption2.weight(.semibold))
         .foregroundStyle(.secondary)
-        .padding(.horizontal, 6)
-        .padding(.vertical, 3)
+        .padding(.horizontal, 5)
+        .padding(.vertical, 2)
         .background(Capsule().fill(Color.primary.opacity(0.07)))
+
+      if entry.totalPages > 1 {
+        WidgetCompactPageControls(page: entry.page, totalPages: entry.totalPages)
+      }
     }
   }
 
   private var widgetPadding: EdgeInsets {
     switch family {
     case .systemSmall:
-      EdgeInsets(top: 10, leading: 10, bottom: 10, trailing: 10)
+      EdgeInsets(top: 9, leading: 9, bottom: 9, trailing: 9)
     default:
-      EdgeInsets(top: 12, leading: 12, bottom: 10, trailing: 12)
+      EdgeInsets(top: 9, leading: 9, bottom: 8, trailing: 9)
     }
   }
 
@@ -232,10 +238,10 @@ private struct WidgetHabitRow: View {
   @Environment(\.colorScheme) private var colorScheme
 
   var body: some View {
-    HStack(alignment: .top, spacing: family == .systemSmall ? 6 : 8) {
+    HStack(alignment: .top, spacing: family == .systemSmall ? 5 : 6) {
       Button(intent: CheckHabitIntent(habitId: habit.id)) {
         Image(systemName: "checkmark")
-          .font(.system(size: family == .systemSmall ? 15 : 18, weight: .bold))
+          .font(.system(size: family == .systemSmall ? 13 : 15, weight: .bold))
           .foregroundStyle(accentColor)
           .frame(width: checkSize, height: checkSize)
           .background(
@@ -249,7 +255,7 @@ private struct WidgetHabitRow: View {
       }
       .buttonStyle(.plain)
 
-      VStack(alignment: .leading, spacing: 4) {
+      VStack(alignment: .leading, spacing: 3) {
         HStack(alignment: .firstTextBaseline, spacing: 5) {
           Text(habit.name)
             .font(family == .systemSmall ? .caption2.weight(.semibold) : .caption.weight(.semibold))
@@ -285,22 +291,16 @@ private struct WidgetHabitRow: View {
         WidgetWeightControls(habit: habit, controlSize: controlSize)
       }
     }
-    .padding(.vertical, family == .systemSmall ? 7 : 8)
-    .padding(.leading, family == .systemSmall ? 8 : 9)
-    .padding(.trailing, family == .systemSmall ? 8 : 9)
+    .padding(.vertical, family == .systemSmall ? 6 : 5)
+    .padding(.leading, family == .systemSmall ? 7 : 8)
+    .padding(.trailing, family == .systemSmall ? 7 : 8)
     .background(
-      RoundedRectangle(cornerRadius: 12, style: .continuous)
+      RoundedRectangle(cornerRadius: 10, style: .continuous)
         .fill(cardColor)
     )
     .overlay {
-      RoundedRectangle(cornerRadius: 12, style: .continuous)
-        .stroke(accentColor, lineWidth: 1.3)
-    }
-    .overlay(alignment: .leading) {
-      RoundedRectangle(cornerRadius: 2, style: .continuous)
-        .fill(accentColor)
-        .frame(width: 4)
-        .padding(.vertical, 8)
+      RoundedRectangle(cornerRadius: 10, style: .continuous)
+        .stroke(accentColor, lineWidth: 1.2)
     }
   }
 
@@ -345,19 +345,24 @@ private struct WidgetHabitRow: View {
   }
 
   private var controlSize: CGFloat {
-    family == .systemSmall ? 22 : 24
+    family == .systemSmall ? 20 : 22
   }
 
   private var checkSize: CGFloat {
-    family == .systemSmall ? 28 : 32
+    family == .systemSmall ? 24 : 28
   }
 
   private var checkCornerRadius: CGFloat {
-    family == .systemSmall ? 8 : 10
+    family == .systemSmall ? 7 : 8
   }
 
   private var accentColor: Color {
-    Color.hue2Habit(index: habit.colorIndex, darkMode: colorScheme == .dark)
+    Color.hue2Habit(
+      index: habit.colorIndex,
+      darkMode: colorScheme == .dark,
+      globalLightness: habit.colorBrightness,
+      globalChroma: habit.colorSaturation
+    )
   }
 
   private var cardColor: Color {
@@ -384,7 +389,7 @@ private struct WidgetSubHabitGrid: View {
 
   var body: some View {
     if !habit.subHabits.isEmpty {
-      VStack(alignment: .leading, spacing: 3) {
+      HStack(alignment: .center, spacing: 4) {
         LazyVGrid(columns: columns, alignment: .leading, spacing: 3) {
           ForEach(visibleSubHabits) { subHabit in
             Button(
@@ -409,7 +414,7 @@ private struct WidgetSubHabitGrid: View {
                       .foregroundStyle(accentColor)
                   }
                 }
-                .frame(width: 13, height: 13)
+                .frame(width: subHabitCheckSize, height: subHabitCheckSize)
 
                 Text(subHabit.name)
                   .strikethrough(subHabit.checked, color: .secondary)
@@ -418,19 +423,21 @@ private struct WidgetSubHabitGrid: View {
               }
               .font(.caption2)
               .foregroundStyle(subHabit.checked ? .secondary : .primary)
-              .padding(.vertical, 2)
+              .padding(.vertical, 1)
               .frame(maxWidth: .infinity, alignment: .leading)
             }
             .buttonStyle(.plain)
           }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
 
         if totalPages > 1 {
-          HStack(spacing: 6) {
+          HStack(spacing: 3) {
             Button(
               intent: PageSubHabitsIntent(habitId: habit.id, direction: -1, totalPages: totalPages)
             ) {
               Image(systemName: "chevron.left")
+                .frame(width: 12, height: 14)
             }
             .buttonStyle(.plain)
             .disabled(page <= 0)
@@ -443,6 +450,7 @@ private struct WidgetSubHabitGrid: View {
               intent: PageSubHabitsIntent(habitId: habit.id, direction: 1, totalPages: totalPages)
             ) {
               Image(systemName: "chevron.right")
+                .frame(width: 12, height: 14)
             }
             .buttonStyle(.plain)
             .disabled(page >= totalPages - 1)
@@ -455,15 +463,24 @@ private struct WidgetSubHabitGrid: View {
   }
 
   private var columns: [GridItem] {
-    [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)]
+    [GridItem(.flexible(), spacing: 4), GridItem(.flexible(), spacing: 4)]
+  }
+
+  private var subHabitCheckSize: CGFloat {
+    family == .systemMedium ? 11 : 12
   }
 
   private var accentColor: Color {
-    Color.hue2Habit(index: habit.colorIndex, darkMode: colorScheme == .dark)
+    Color.hue2Habit(
+      index: habit.colorIndex,
+      darkMode: colorScheme == .dark,
+      globalLightness: habit.colorBrightness,
+      globalChroma: habit.colorSaturation
+    )
   }
 
   private var capacity: Int {
-    family == .systemMedium ? 4 : 6
+    family == .systemMedium ? 2 : 6
   }
 
   private var totalPages: Int {
@@ -628,36 +645,33 @@ private struct WidgetProgressBar: View {
   }
 }
 
-private struct WidgetPageControls: View {
+private struct WidgetCompactPageControls: View {
   let page: Int
   let totalPages: Int
 
   var body: some View {
-    HStack(spacing: 8) {
+    HStack(spacing: 4) {
       Button(intent: PageHabitsIntent(direction: -1, totalPages: totalPages)) {
         Image(systemName: "chevron.left")
-          .frame(width: 22, height: 20)
+          .frame(width: 14, height: 14)
       }
       .buttonStyle(.plain)
       .disabled(page <= 0)
 
-      Spacer(minLength: 0)
-
       Text("\(page + 1)/\(totalPages)")
         .font(.caption2.monospacedDigit().weight(.semibold))
-        .foregroundStyle(.secondary)
-
-      Spacer(minLength: 0)
 
       Button(intent: PageHabitsIntent(direction: 1, totalPages: totalPages)) {
         Image(systemName: "chevron.right")
-          .frame(width: 22, height: 20)
+          .frame(width: 14, height: 14)
       }
       .buttonStyle(.plain)
       .disabled(page >= totalPages - 1)
     }
     .foregroundStyle(.secondary)
-    .padding(.top, 1)
+    .padding(.horizontal, 4)
+    .padding(.vertical, 2)
+    .background(Capsule().fill(Color.primary.opacity(0.07)))
   }
 }
 
@@ -792,6 +806,8 @@ private enum Hue2WidgetLoader {
           name: habit.name,
           kind: habit.kind,
           colorIndex: colorIndexByHabitId[habit.id] ?? 0,
+          colorBrightness: user.settings?.colorBrightness,
+          colorSaturation: user.settings?.colorSaturation,
           subHabits: subHabits,
           countTotal: countTotal,
           countTarget: habit.countSettings?.target,
@@ -857,7 +873,7 @@ private enum Hue2WidgetLoader {
     case .systemSmall:
       return 2
     case .systemMedium:
-      return 2
+      return 4
     case .systemLarge:
       return 6
     default:
@@ -1320,9 +1336,13 @@ private struct APIUser: Decodable {
 
 private struct APIUserSettings: Decodable {
   let dayRolloverHour: Int?
+  let colorBrightness: Double?
+  let colorSaturation: Double?
 
   enum CodingKeys: String, CodingKey {
     case dayRolloverHour = "day_rollover_hour"
+    case colorBrightness = "color_brightness"
+    case colorSaturation = "color_saturation"
   }
 }
 
@@ -1508,12 +1528,59 @@ private func formatNumber(_ value: Double) -> String {
 }
 
 private extension Color {
-  static func hue2Habit(index: Int, darkMode: Bool) -> Color {
+  static func hue2Habit(
+    index: Int,
+    darkMode: Bool,
+    globalLightness: Double?,
+    globalChroma: Double?
+  ) -> Color {
     let goldenAngle = 137.508
-    let hue = ((200 + Double(index) * goldenAngle).truncatingRemainder(dividingBy: 360)) / 360
-    let saturation = darkMode ? 0.42 : 0.48
-    let brightness = darkMode ? 0.82 : 0.72
-    return Color(hue: hue, saturation: saturation, brightness: brightness)
+    let hue = (200 + Double(index) * goldenAngle).truncatingRemainder(dividingBy: 360)
+    let baseLightness = globalLightness ?? (darkMode ? 75 : 65)
+    let effectiveLightness = globalLightness != nil && darkMode ? 100 - baseLightness : baseLightness
+    let lightnessOffset = (index.isMultiple(of: 2) ? 1.0 : -1.0) * 8
+    let finalLightness = min(max(effectiveLightness + lightnessOffset, 10), 90) / 100
+
+    let baseChroma = globalChroma ?? 15
+    let chromaWobble = sin((Double(index) * Double.pi) / 3) * 2
+    let finalChroma = min(max(baseChroma + chromaWobble, 6), 30) / 100
+
+    return oklch(lightness: finalLightness, chroma: finalChroma, hue: hue)
+  }
+
+  private static func oklch(lightness: Double, chroma: Double, hue: Double) -> Color {
+    let radians = (hue * Double.pi) / 180
+    let a = chroma * cos(radians)
+    let b = chroma * sin(radians)
+
+    let lValue = lightness + 0.3963377774 * a + 0.2158037573 * b
+    let mValue = lightness - 0.1055613458 * a - 0.0638541728 * b
+    let sValue = lightness - 0.0894841775 * a - 1.291485548 * b
+
+    let l3 = lValue * lValue * lValue
+    let m3 = mValue * mValue * mValue
+    let s3 = sValue * sValue * sValue
+
+    let redLinear = 4.0767416621 * l3 - 3.3077115913 * m3 + 0.2309699292 * s3
+    let greenLinear = -1.2684380046 * l3 + 2.6097574011 * m3 - 0.3413193965 * s3
+    let blueLinear = -0.0041960863 * l3 - 0.7034186147 * m3 + 1.707614701 * s3
+
+    return Color(
+      red: clamp(linearToSRGB(redLinear)),
+      green: clamp(linearToSRGB(greenLinear)),
+      blue: clamp(linearToSRGB(blueLinear))
+    )
+  }
+
+  private static func linearToSRGB(_ value: Double) -> Double {
+    if value >= 0.0031308 {
+      return 1.055 * pow(abs(value), 1 / 2.4) - 0.055
+    }
+    return 12.92 * value
+  }
+
+  private static func clamp(_ value: Double) -> Double {
+    min(max(value, 0), 1)
   }
 
   static var hue2Success: Color {

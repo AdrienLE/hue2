@@ -1,5 +1,7 @@
 # Hue2Widget
 
-This folder contains a stub WidgetKit extension. After running `expo prebuild -p ios`, open the Xcode workspace and add a new Widget Extension target named "Hue2Widget" pointing to this folder. Ensure it's embedded in the app and included in the build phases.
+Interactive WidgetKit extension for Hue 2 habits.
 
-Later we can automate PBX target wiring.
+The widget reads the current app access token from the shared app group
+`group.com.adrienle.hue2`, fetches the existing REST API, and uses AppIntents
+for habit checks, sub-habit toggles, counts, weights, and page controls.

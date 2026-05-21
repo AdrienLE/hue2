@@ -13,6 +13,8 @@ import {
 } from 'expo-auth-session';
 import { useRouter } from 'expo-router';
 import jwtDecode from 'jwt-decode';
+import { APP_CONFIG } from '@/lib/config';
+import { clearWidgetAuthContext, syncWidgetAuthContext } from '@/lib/widgetBridge';
 
 // Close the Auth0 popup on web if a redirect back to the app occurred.
 WebBrowser.maybeCompleteAuthSession();
@@ -112,6 +114,7 @@ const removeStoredAuth = async () => {
     authStorage.removeItem(REFRESH_TOKEN_KEY),
     authStorage.removeItem(EXPIRES_AT_KEY),
     authStorage.removeItem(LEGACY_TOKEN_KEY),
+    clearWidgetAuthContext(),
   ]);
 };
 
@@ -173,6 +176,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await authStorage.removeItem(EXPIRES_AT_KEY);
     }
     await authStorage.removeItem(LEGACY_TOKEN_KEY);
+    await syncWidgetAuthContext(accessToken, APP_CONFIG.api.baseUrl);
   };
 
   const refreshAccessToken = async (): Promise<string | null> => {
@@ -224,6 +228,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const stored = await readStoredAuth();
 
         if (stored.accessToken && isAccessTokenFresh(stored.accessToken, stored.expiresAt)) {
+          await syncWidgetAuthContext(stored.accessToken, APP_CONFIG.api.baseUrl);
           setTokenState(stored.accessToken);
           return;
         }

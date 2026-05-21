@@ -71,10 +71,3 @@ extension Hue2WidgetAttributes.ContentState {
          Hue2WidgetAttributes.ContentState(emoji: "🤩")
      }
 }
-
-#Preview("Notification", as: .content, using: Hue2WidgetAttributes.preview) {
-   Hue2WidgetLiveActivity()
-} contentStates: {
-    Hue2WidgetAttributes.ContentState.smiley
-    Hue2WidgetAttributes.ContentState.starEyes
-}

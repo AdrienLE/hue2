@@ -12,7 +12,5 @@ import SwiftUI
 struct Hue2WidgetBundle: WidgetBundle {
     var body: some Widget {
         Hue2Widget()
-        Hue2WidgetControl()
-        Hue2WidgetLiveActivity()
     }
 }

@@ -51,6 +51,7 @@ const REFRESH_TOKEN_KEY = 'auth_refresh_token';
 const EXPIRES_AT_KEY = 'auth_expires_at';
 const LEGACY_TOKEN_KEY = 'auth_token';
 const REFRESH_MARGIN_MS = 60 * 1000;
+const AUTH_OVERRIDE_TOKEN = __DEV__ ? process.env.EXPO_PUBLIC_AUTH_OVERRIDE_TOKEN : undefined;
 
 // Must match expo.scheme in app.config.ts and Auth0 native callback/logout URLs.
 const URL_SCHEME = process.env.EXPO_PUBLIC_URL_SCHEME || 'hue2';
@@ -225,6 +226,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const loadToken = async () => {
       try {
+        if (AUTH_OVERRIDE_TOKEN) {
+          await syncWidgetAuthContext(AUTH_OVERRIDE_TOKEN, APP_CONFIG.api.baseUrl);
+          setTokenState(AUTH_OVERRIDE_TOKEN);
+          return;
+        }
+
         const stored = await readStoredAuth();
 
         if (stored.accessToken && isAccessTokenFresh(stored.accessToken, stored.expiresAt)) {
@@ -338,6 +345,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const validateToken = async (): Promise<boolean> => {
+    if (AUTH_OVERRIDE_TOKEN && token === AUTH_OVERRIDE_TOKEN) {
+      return true;
+    }
+
     if (token && isAccessTokenFresh(token)) {
       return true;
     }

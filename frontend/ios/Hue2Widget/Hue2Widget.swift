@@ -80,6 +80,7 @@ struct WidgetHabit: Identifiable, Hashable {
   let countTarget: Double?
   let countUnit: String?
   let countStep: Double
+  let countIsGood: Bool
   let weightCurrent: Double?
   let weightTarget: Double?
   let weightUnit: String?
@@ -100,6 +101,7 @@ struct WidgetHabit: Identifiable, Hashable {
       countTarget: nil,
       countUnit: nil,
       countStep: 1,
+      countIsGood: true,
       weightCurrent: nil,
       weightTarget: nil,
       weightUnit: nil,
@@ -115,6 +117,7 @@ struct WidgetHabit: Identifiable, Hashable {
       countTarget: 20,
       countUnit: "reps",
       countStep: 1,
+      countIsGood: true,
       weightCurrent: nil,
       weightTarget: nil,
       weightUnit: nil,
@@ -216,13 +219,9 @@ struct Hue2WidgetEntryView: View {
   }
 
   private var widgetBackground: some View {
-    LinearGradient(
-      colors: colorScheme == .dark
-        ? [Color(red: 0.08, green: 0.09, blue: 0.10), Color(red: 0.11, green: 0.12, blue: 0.13)]
-        : [Color(red: 0.97, green: 0.98, blue: 0.98), Color(red: 0.93, green: 0.96, blue: 0.97)],
-      startPoint: .topLeading,
-      endPoint: .bottomTrailing
-    )
+    colorScheme == .dark
+      ? Color(red: 0.08, green: 0.09, blue: 0.09)
+      : Color.white
   }
 }
 
@@ -233,13 +232,20 @@ private struct WidgetHabitRow: View {
   @Environment(\.colorScheme) private var colorScheme
 
   var body: some View {
-    HStack(alignment: .top, spacing: 7) {
+    HStack(alignment: .top, spacing: family == .systemSmall ? 6 : 8) {
       Button(intent: CheckHabitIntent(habitId: habit.id)) {
         Image(systemName: "checkmark")
-          .font(.system(size: family == .systemSmall ? 10 : 11, weight: .bold))
-          .foregroundStyle(.white)
-          .frame(width: controlSize, height: controlSize)
-          .background(Circle().fill(accentColor))
+          .font(.system(size: family == .systemSmall ? 15 : 18, weight: .bold))
+          .foregroundStyle(accentColor)
+          .frame(width: checkSize, height: checkSize)
+          .background(
+            RoundedRectangle(cornerRadius: checkCornerRadius, style: .continuous)
+              .fill(cardColor)
+          )
+          .overlay {
+            RoundedRectangle(cornerRadius: checkCornerRadius, style: .continuous)
+              .stroke(accentColor, lineWidth: 2)
+          }
       }
       .buttonStyle(.plain)
 
@@ -279,18 +285,22 @@ private struct WidgetHabitRow: View {
         WidgetWeightControls(habit: habit, controlSize: controlSize)
       }
     }
-    .padding(.vertical, family == .systemSmall ? 6 : 7)
-    .padding(.leading, 7)
-    .padding(.trailing, 7)
+    .padding(.vertical, family == .systemSmall ? 7 : 8)
+    .padding(.leading, family == .systemSmall ? 8 : 9)
+    .padding(.trailing, family == .systemSmall ? 8 : 9)
     .background(
-      RoundedRectangle(cornerRadius: 8, style: .continuous)
+      RoundedRectangle(cornerRadius: 12, style: .continuous)
         .fill(cardColor)
     )
+    .overlay {
+      RoundedRectangle(cornerRadius: 12, style: .continuous)
+        .stroke(accentColor, lineWidth: 1.3)
+    }
     .overlay(alignment: .leading) {
-      RoundedRectangle(cornerRadius: 3, style: .continuous)
+      RoundedRectangle(cornerRadius: 2, style: .continuous)
         .fill(accentColor)
-        .frame(width: 3)
-        .padding(.vertical, 7)
+        .frame(width: 4)
+        .padding(.vertical, 8)
     }
   }
 
@@ -338,14 +348,22 @@ private struct WidgetHabitRow: View {
     family == .systemSmall ? 22 : 24
   }
 
+  private var checkSize: CGFloat {
+    family == .systemSmall ? 28 : 32
+  }
+
+  private var checkCornerRadius: CGFloat {
+    family == .systemSmall ? 8 : 10
+  }
+
   private var accentColor: Color {
     Color.hue2Habit(index: habit.colorIndex, darkMode: colorScheme == .dark)
   }
 
   private var cardColor: Color {
     colorScheme == .dark
-      ? Color(red: 0.14, green: 0.15, blue: 0.16).opacity(0.96)
-      : Color.white.opacity(0.92)
+      ? Color(red: 0.08, green: 0.09, blue: 0.09)
+      : Color.white
   }
 
   private func weightDeltaText(current: Double, target: Double) -> String {
@@ -362,6 +380,8 @@ private struct WidgetSubHabitGrid: View {
   let habit: WidgetHabit
   let family: WidgetFamily
 
+  @Environment(\.colorScheme) private var colorScheme
+
   var body: some View {
     if !habit.subHabits.isEmpty {
       VStack(alignment: .leading, spacing: 3) {
@@ -374,9 +394,23 @@ private struct WidgetSubHabitGrid: View {
                 currentlyChecked: subHabit.checked
               )
             ) {
-              HStack(spacing: 3) {
-                Image(systemName: subHabit.checked ? "checkmark.circle.fill" : "circle")
-                  .font(.system(size: 9, weight: .semibold))
+              HStack(spacing: 5) {
+                ZStack {
+                  RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .fill(Color.clear)
+                    .overlay {
+                      RoundedRectangle(cornerRadius: 3, style: .continuous)
+                        .stroke(accentColor, lineWidth: 1.5)
+                    }
+
+                  if subHabit.checked {
+                    Image(systemName: "checkmark")
+                      .font(.system(size: 8, weight: .bold))
+                      .foregroundStyle(accentColor)
+                  }
+                }
+                .frame(width: 13, height: 13)
+
                 Text(subHabit.name)
                   .strikethrough(subHabit.checked, color: .secondary)
                   .lineLimit(1)
@@ -384,10 +418,8 @@ private struct WidgetSubHabitGrid: View {
               }
               .font(.caption2)
               .foregroundStyle(subHabit.checked ? .secondary : .primary)
-              .padding(.horizontal, 5)
-              .padding(.vertical, 3)
+              .padding(.vertical, 2)
               .frame(maxWidth: .infinity, alignment: .leading)
-              .background(Capsule().fill(Color.primary.opacity(subHabit.checked ? 0.05 : 0.08)))
             }
             .buttonStyle(.plain)
           }
@@ -423,7 +455,11 @@ private struct WidgetSubHabitGrid: View {
   }
 
   private var columns: [GridItem] {
-    [GridItem(.flexible(), spacing: 3), GridItem(.flexible(), spacing: 3)]
+    [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)]
+  }
+
+  private var accentColor: Color {
+    Color.hue2Habit(index: habit.colorIndex, darkMode: colorScheme == .dark)
   }
 
   private var capacity: Int {
@@ -450,19 +486,7 @@ private struct WidgetCountControls: View {
   let controlSize: CGFloat
 
   var body: some View {
-    VStack(spacing: 4) {
-      Button(
-        intent: AdjustCountIntent(
-          habitId: habit.id,
-          delta: habit.countStep,
-          currentTotal: habit.countTotal
-        )
-      ) {
-        Image(systemName: "plus")
-          .frame(width: controlSize, height: controlSize)
-      }
-      .buttonStyle(.plain)
-
+    HStack(spacing: 5) {
       Button(
         intent: AdjustCountIntent(
           habitId: habit.id,
@@ -472,11 +496,44 @@ private struct WidgetCountControls: View {
       ) {
         Image(systemName: "minus")
           .frame(width: controlSize, height: controlSize)
+          .background(controlBackground(decrementColor.opacity(canDecrement ? 1 : 0.35)))
       }
       .buttonStyle(.plain)
+      .foregroundStyle(.white)
+      .disabled(!canDecrement)
+
+      Button(
+        intent: AdjustCountIntent(
+          habitId: habit.id,
+          delta: habit.countStep,
+          currentTotal: habit.countTotal
+        )
+      ) {
+        Image(systemName: "plus")
+          .frame(width: controlSize, height: controlSize)
+          .background(controlBackground(incrementColor))
+      }
+      .buttonStyle(.plain)
+      .foregroundStyle(.white)
     }
     .font(.caption.weight(.bold))
-    .foregroundStyle(.secondary)
+  }
+
+  private var canDecrement: Bool {
+    habit.countTotal > 0
+  }
+
+  private var incrementColor: Color {
+    habit.countIsGood ? .hue2Success : .hue2Danger
+  }
+
+  private var decrementColor: Color {
+    habit.countIsGood ? .hue2Danger : .hue2Success
+  }
+
+  private func controlBackground(_ color: Color) -> some View {
+    RoundedRectangle(cornerRadius: 6, style: .continuous)
+      .fill(color)
   }
 }
 
@@ -485,20 +542,7 @@ private struct WidgetWeightControls: View {
   let controlSize: CGFloat
 
   var body: some View {
-    VStack(spacing: 4) {
-      Button(
-        intent: AdjustWeightIntent(
-          habitId: habit.id,
-          direction: 1,
-          currentWeight: habit.weightCurrent ?? 0,
-          step: habit.weightStep
-        )
-      ) {
-        Image(systemName: "plus")
-          .frame(width: controlSize, height: controlSize)
-      }
-      .buttonStyle(.plain)
-
+    HStack(spacing: 5) {
       Button(
         intent: AdjustWeightIntent(
           habitId: habit.id,
@@ -509,11 +553,59 @@ private struct WidgetWeightControls: View {
       ) {
         Image(systemName: "minus")
           .frame(width: controlSize, height: controlSize)
+          .background(controlBackground(decreaseColor.opacity(canDecrement ? 1 : 0.35)))
       }
       .buttonStyle(.plain)
+      .foregroundStyle(.white)
+      .disabled(!canDecrement)
+
+      Button(
+        intent: AdjustWeightIntent(
+          habitId: habit.id,
+          direction: 1,
+          currentWeight: habit.weightCurrent ?? 0,
+          step: habit.weightStep
+        )
+      ) {
+        Image(systemName: "plus")
+          .frame(width: controlSize, height: controlSize)
+          .background(controlBackground(increaseColor))
+      }
+      .buttonStyle(.plain)
+      .foregroundStyle(.white)
     }
     .font(.caption.weight(.bold))
-    .foregroundStyle(.secondary)
+  }
+
+  private var canDecrement: Bool {
+    guard let current = habit.weightCurrent else {
+      return false
+    }
+    return current > 0
+  }
+
+  private var goalDirection: Int {
+    guard let current = habit.weightCurrent, let target = habit.weightTarget else {
+      return 0
+    }
+    let delta = current - target
+    if abs(delta) <= 0.5 {
+      return 0
+    }
+    return delta > 0 ? -1 : 1
+  }
+
+  private var decreaseColor: Color {
+    goalDirection < 0 ? .hue2Success : .hue2Danger
+  }
+
+  private var increaseColor: Color {
+    goalDirection > 0 ? .hue2Success : .hue2Danger
+  }
+
+  private func controlBackground(_ color: Color) -> some View {
+    RoundedRectangle(cornerRadius: 6, style: .continuous)
+      .fill(color)
   }
 }
 
@@ -662,17 +754,15 @@ private enum Hue2WidgetLoader {
         return weekdays.contains(window.dayOfWeek) && !checkedHabitIds.contains(habit.id)
       }
 
-      let capacity = habitCapacity(for: family)
-      let totalPages = max(1, Int(ceil(Double(visibleHabits.count) / Double(capacity))))
+      let pages = habitPages(for: visibleHabits, family: family)
+      let totalPages = max(1, pages.count)
       let requestedPage = UserDefaults.standard.integer(forKey: Hue2WidgetConstants.habitPageKey)
       let page = min(max(requestedPage, 0), totalPages - 1)
       if page != requestedPage {
         UserDefaults.standard.set(page, forKey: Hue2WidgetConstants.habitPageKey)
       }
 
-      let start = min(page * capacity, visibleHabits.count)
-      let end = min(start + capacity, visibleHabits.count)
-      let pageHabits = Array(visibleHabits[start..<end])
+      let pageHabits = pages.indices.contains(page) ? pages[page] : []
       let subHabitsByParent = await fetchSubHabits(for: pageHabits, client: client)
       let checkedSubHabitIds = Set(
         checks.compactMap { check in
@@ -707,6 +797,7 @@ private enum Hue2WidgetLoader {
           countTarget: habit.countSettings?.target,
           countUnit: habit.countSettings?.unit,
           countStep: max(habit.countSettings?.stepSize ?? 1, 0.1),
+          countIsGood: habit.countSettings?.countIsGood ?? true,
           weightCurrent: latestWeight,
           weightTarget: habit.weightSettings?.targetWeight,
           weightUnit: habit.weightSettings?.unit,
@@ -736,17 +827,49 @@ private enum Hue2WidgetLoader {
     }
   }
 
-  private static func habitCapacity(for family: WidgetFamily) -> Int {
+  private static func habitPages(for habits: [APIHabit], family: WidgetFamily) -> [[APIHabit]] {
+    let budget = layoutBudget(for: family)
+    var pages: [[APIHabit]] = []
+    var currentPage: [APIHabit] = []
+    var currentCost = 0
+
+    for habit in habits {
+      let cost = layoutCost(for: habit, family: family)
+      if !currentPage.isEmpty && currentCost + cost > budget {
+        pages.append(currentPage)
+        currentPage = []
+        currentCost = 0
+      }
+
+      currentPage.append(habit)
+      currentCost += cost
+    }
+
+    if !currentPage.isEmpty {
+      pages.append(currentPage)
+    }
+
+    return pages.isEmpty ? [[]] : pages
+  }
+
+  private static func layoutBudget(for family: WidgetFamily) -> Int {
     switch family {
     case .systemSmall:
       return 2
     case .systemMedium:
-      return 3
+      return 2
     case .systemLarge:
-      return 4
+      return 6
     default:
       return 3
     }
+  }
+
+  private static func layoutCost(for habit: APIHabit, family: WidgetFamily) -> Int {
+    if family == .systemSmall {
+      return 1
+    }
+    return habit.kind == .normal ? 2 : 1
   }
 
   private static func sortHabits(_ lhs: APIHabit, _ rhs: APIHabit) -> Bool {
@@ -1243,11 +1366,13 @@ private struct APICountSettings: Decodable {
   let target: Double?
   let unit: String?
   let stepSize: Double?
+  let countIsGood: Bool?
 
   enum CodingKeys: String, CodingKey {
     case target
     case unit
     case stepSize = "step_size"
+    case countIsGood = "count_is_good"
   }
 }
 
@@ -1389,5 +1514,13 @@ private extension Color {
     let saturation = darkMode ? 0.42 : 0.48
     let brightness = darkMode ? 0.82 : 0.72
     return Color(hue: hue, saturation: saturation, brightness: brightness)
+  }
+
+  static var hue2Success: Color {
+    Color(red: 0.30, green: 0.69, blue: 0.31)
+  }
+
+  static var hue2Danger: Color {
+    Color(red: 1.00, green: 0.27, blue: 0.27)
   }
 }

@@ -78,6 +78,8 @@ struct WidgetHabit: Identifiable, Hashable {
   let colorBrightness: Double?
   let colorSaturation: Double?
   let subHabits: [WidgetSubHabit]
+  let checkedSubHabitCount: Int
+  let totalSubHabitCount: Int
   let countTotal: Double
   let countTarget: Double?
   let countUnit: String?
@@ -98,9 +100,10 @@ struct WidgetHabit: Identifiable, Hashable {
       colorSaturation: nil,
       subHabits: [
         WidgetSubHabit(id: 11, name: "Stretch", checked: false),
-        WidgetSubHabit(id: 12, name: "Water", checked: true),
         WidgetSubHabit(id: 13, name: "Plan", checked: false),
       ],
+      checkedSubHabitCount: 1,
+      totalSubHabitCount: 3,
       countTotal: 0,
       countTarget: nil,
       countUnit: nil,
@@ -119,6 +122,8 @@ struct WidgetHabit: Identifiable, Hashable {
       colorBrightness: nil,
       colorSaturation: nil,
       subHabits: [],
+      checkedSubHabitCount: 0,
+      totalSubHabitCount: 0,
       countTotal: 12,
       countTarget: 20,
       countUnit: "reps",
@@ -168,7 +173,7 @@ struct Hue2WidgetEntryView: View {
   }
 
   private var readyContent: some View {
-    VStack(alignment: .leading, spacing: family == .systemSmall ? 4 : 5) {
+    VStack(alignment: .leading, spacing: rowSpacing) {
       header
 
       if entry.habits.isEmpty {
@@ -182,15 +187,17 @@ struct Hue2WidgetEntryView: View {
       } else {
         ForEach(entry.habits) { habit in
           WidgetHabitRow(habit: habit, family: family)
+            .frame(height: rowHeight, alignment: .top)
         }
       }
     }
     .padding(widgetPadding)
+    .frame(maxHeight: .infinity, alignment: .top)
   }
 
   private var header: some View {
     HStack(spacing: 6) {
-      Text("Hue 2")
+      Text(family == .systemSmall ? "H2" : "Hue 2")
         .font(family == .systemSmall ? .caption.weight(.bold) : .headline.weight(.bold))
         .foregroundStyle(.primary)
 
@@ -202,12 +209,14 @@ struct Hue2WidgetEntryView: View {
 
       Spacer(minLength: 4)
 
-      Text("\(entry.totalVisibleHabits)")
-        .font(.caption2.weight(.semibold))
-        .foregroundStyle(.secondary)
-        .padding(.horizontal, 5)
-        .padding(.vertical, 2)
-        .background(Capsule().fill(Color.primary.opacity(0.07)))
+      if family != .systemSmall {
+        Text("\(entry.totalVisibleHabits)")
+          .font(.caption2.weight(.semibold))
+          .foregroundStyle(.secondary)
+          .padding(.horizontal, 5)
+          .padding(.vertical, 2)
+          .background(Capsule().fill(Color.primary.opacity(0.07)))
+      }
 
       if entry.totalPages > 1 {
         WidgetCompactPageControls(page: entry.page, totalPages: entry.totalPages)
@@ -219,8 +228,30 @@ struct Hue2WidgetEntryView: View {
     switch family {
     case .systemSmall:
       EdgeInsets(top: 9, leading: 9, bottom: 9, trailing: 9)
+    case .systemMedium:
+      EdgeInsets(top: 8, leading: 8, bottom: 7, trailing: 8)
     default:
       EdgeInsets(top: 9, leading: 9, bottom: 8, trailing: 9)
+    }
+  }
+
+  private var rowSpacing: CGFloat {
+    switch family {
+    case .systemSmall, .systemMedium:
+      4
+    default:
+      5
+    }
+  }
+
+  private var rowHeight: CGFloat {
+    switch family {
+    case .systemSmall:
+      49
+    case .systemMedium:
+      38
+    default:
+      46
     }
   }
 
@@ -238,10 +269,10 @@ private struct WidgetHabitRow: View {
   @Environment(\.colorScheme) private var colorScheme
 
   var body: some View {
-    HStack(alignment: .top, spacing: family == .systemSmall ? 5 : 6) {
+    HStack(alignment: .top, spacing: rowGap) {
       Button(intent: CheckHabitIntent(habitId: habit.id)) {
         Image(systemName: "checkmark")
-          .font(.system(size: family == .systemSmall ? 13 : 15, weight: .bold))
+          .font(.system(size: checkmarkSize, weight: .bold))
           .foregroundStyle(accentColor)
           .frame(width: checkSize, height: checkSize)
           .background(
@@ -255,13 +286,13 @@ private struct WidgetHabitRow: View {
       }
       .buttonStyle(.plain)
 
-      VStack(alignment: .leading, spacing: 3) {
+      VStack(alignment: .leading, spacing: contentSpacing) {
         HStack(alignment: .firstTextBaseline, spacing: 5) {
           Text(habit.name)
-            .font(family == .systemSmall ? .caption2.weight(.semibold) : .caption.weight(.semibold))
+            .font(titleFont)
             .foregroundStyle(.primary)
             .lineLimit(1)
-            .minimumScaleFactor(0.72)
+            .minimumScaleFactor(family == .systemSmall ? 0.55 : 0.72)
 
           Spacer(minLength: 4)
 
@@ -291,9 +322,10 @@ private struct WidgetHabitRow: View {
         WidgetWeightControls(habit: habit, controlSize: controlSize)
       }
     }
-    .padding(.vertical, family == .systemSmall ? 6 : 5)
-    .padding(.leading, family == .systemSmall ? 7 : 8)
-    .padding(.trailing, family == .systemSmall ? 7 : 8)
+    .padding(.vertical, verticalPadding)
+    .padding(.leading, horizontalPadding)
+    .padding(.trailing, horizontalPadding)
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     .background(
       RoundedRectangle(cornerRadius: 10, style: .continuous)
         .fill(cardColor)
@@ -308,9 +340,8 @@ private struct WidgetHabitRow: View {
   private var metric: some View {
     switch habit.kind {
     case .normal:
-      if !habit.subHabits.isEmpty {
-        let checked = habit.subHabits.filter(\.checked).count
-        Text("\(checked)/\(habit.subHabits.count)")
+      if habit.totalSubHabitCount > 0 {
+        Text("\(habit.checkedSubHabitCount)/\(habit.totalSubHabitCount)")
           .font(.caption2.weight(.semibold))
           .foregroundStyle(.secondary)
       }
@@ -345,15 +376,67 @@ private struct WidgetHabitRow: View {
   }
 
   private var controlSize: CGFloat {
-    family == .systemSmall ? 20 : 22
+    switch family {
+    case .systemSmall:
+      20
+    case .systemMedium:
+      19
+    default:
+      22
+    }
   }
 
   private var checkSize: CGFloat {
-    family == .systemSmall ? 24 : 28
+    switch family {
+    case .systemSmall:
+      24
+    case .systemMedium:
+      21
+    default:
+      28
+    }
   }
 
   private var checkCornerRadius: CGFloat {
-    family == .systemSmall ? 7 : 8
+    family == .systemMedium ? 6 : 7
+  }
+
+  private var checkmarkSize: CGFloat {
+    switch family {
+    case .systemSmall:
+      13
+    case .systemMedium:
+      12
+    default:
+      15
+    }
+  }
+
+  private var contentSpacing: CGFloat {
+    family == .systemMedium ? 1 : 3
+  }
+
+  private var horizontalPadding: CGFloat {
+    family == .systemMedium ? 6 : 7
+  }
+
+  private var rowGap: CGFloat {
+    family == .systemMedium ? 5 : 6
+  }
+
+  private var titleFont: Font {
+    family == .systemLarge ? .caption.weight(.semibold) : .caption2.weight(.semibold)
+  }
+
+  private var verticalPadding: CGFloat {
+    switch family {
+    case .systemSmall:
+      6
+    case .systemMedium:
+      4
+    default:
+      5
+    }
   }
 
   private var accentColor: Color {
@@ -389,8 +472,12 @@ private struct WidgetSubHabitGrid: View {
 
   var body: some View {
     if !habit.subHabits.isEmpty {
-      HStack(alignment: .center, spacing: 4) {
-        LazyVGrid(columns: columns, alignment: .leading, spacing: 3) {
+      HStack(alignment: .top, spacing: family == .systemMedium ? 3 : 4) {
+        LazyVGrid(
+          columns: columns,
+          alignment: .leading,
+          spacing: family == .systemMedium ? 0 : 3
+        ) {
           ForEach(visibleSubHabits) { subHabit in
             Button(
               intent: ToggleSubHabitIntent(
@@ -399,7 +486,7 @@ private struct WidgetSubHabitGrid: View {
                 currentlyChecked: subHabit.checked
               )
             ) {
-              HStack(spacing: 5) {
+              HStack(spacing: family == .systemMedium ? 3 : 5) {
                 ZStack {
                   RoundedRectangle(cornerRadius: 3, style: .continuous)
                     .fill(Color.clear)
@@ -417,13 +504,12 @@ private struct WidgetSubHabitGrid: View {
                 .frame(width: subHabitCheckSize, height: subHabitCheckSize)
 
                 Text(subHabit.name)
-                  .strikethrough(subHabit.checked, color: .secondary)
                   .lineLimit(1)
                   .minimumScaleFactor(0.7)
               }
               .font(.caption2)
               .foregroundStyle(subHabit.checked ? .secondary : .primary)
-              .padding(.vertical, 1)
+              .padding(.vertical, 0)
               .frame(maxWidth: .infinity, alignment: .leading)
             }
             .buttonStyle(.plain)
@@ -437,7 +523,7 @@ private struct WidgetSubHabitGrid: View {
               intent: PageSubHabitsIntent(habitId: habit.id, direction: -1, totalPages: totalPages)
             ) {
               Image(systemName: "chevron.left")
-                .frame(width: 12, height: 14)
+                .frame(width: family == .systemMedium ? 10 : 12, height: 12)
             }
             .buttonStyle(.plain)
             .disabled(page <= 0)
@@ -450,7 +536,7 @@ private struct WidgetSubHabitGrid: View {
               intent: PageSubHabitsIntent(habitId: habit.id, direction: 1, totalPages: totalPages)
             ) {
               Image(systemName: "chevron.right")
-                .frame(width: 12, height: 14)
+                .frame(width: family == .systemMedium ? 10 : 12, height: 12)
             }
             .buttonStyle(.plain)
             .disabled(page >= totalPages - 1)
@@ -463,11 +549,14 @@ private struct WidgetSubHabitGrid: View {
   }
 
   private var columns: [GridItem] {
-    [GridItem(.flexible(), spacing: 4), GridItem(.flexible(), spacing: 4)]
+    [
+      GridItem(.flexible(), spacing: family == .systemMedium ? 3 : 4),
+      GridItem(.flexible(), spacing: family == .systemMedium ? 3 : 4),
+    ]
   }
 
   private var subHabitCheckSize: CGFloat {
-    family == .systemMedium ? 11 : 12
+    family == .systemMedium ? 9 : 12
   }
 
   private var accentColor: Color {
@@ -480,7 +569,12 @@ private struct WidgetSubHabitGrid: View {
   }
 
   private var capacity: Int {
-    family == .systemMedium ? 2 : 6
+    switch family {
+    case .systemMedium, .systemLarge:
+      2
+    default:
+      2
+    }
   }
 
   private var totalPages: Int {
@@ -672,6 +766,7 @@ private struct WidgetCompactPageControls: View {
     .padding(.horizontal, 4)
     .padding(.vertical, 2)
     .background(Capsule().fill(Color.primary.opacity(0.07)))
+    .fixedSize(horizontal: true, vertical: false)
   }
 }
 
@@ -787,15 +882,18 @@ private enum Hue2WidgetLoader {
       let latestWeightByHabit = latestWeightsByHabit(weights)
 
       let widgetHabits = pageHabits.map { habit in
-        let subHabits = (subHabitsByParent[habit.id] ?? [])
+        let allSubHabits = (subHabitsByParent[habit.id] ?? [])
           .sorted { $0.orderIndex < $1.orderIndex }
+        let visibleSubHabits = allSubHabits
+          .filter { !checkedSubHabitIds.contains($0.id) }
           .map {
             WidgetSubHabit(
               id: $0.id,
               name: $0.name,
-              checked: checkedSubHabitIds.contains($0.id)
+              checked: false
             )
           }
+        let checkedSubHabitCount = allSubHabits.filter { checkedSubHabitIds.contains($0.id) }.count
 
         let countTotal = countsByHabit[habit.id]?.reduce(0) { $0 + $1.value } ?? 0
         let latestWeight = latestWeightByHabit[habit.id]?.weight
@@ -808,7 +906,9 @@ private enum Hue2WidgetLoader {
           colorIndex: colorIndexByHabitId[habit.id] ?? 0,
           colorBrightness: user.settings?.colorBrightness,
           colorSaturation: user.settings?.colorSaturation,
-          subHabits: subHabits,
+          subHabits: visibleSubHabits,
+          checkedSubHabitCount: checkedSubHabitCount,
+          totalSubHabitCount: allSubHabits.count,
           countTotal: countTotal,
           countTarget: habit.countSettings?.target,
           countUnit: habit.countSettings?.unit,
@@ -844,48 +944,28 @@ private enum Hue2WidgetLoader {
   }
 
   private static func habitPages(for habits: [APIHabit], family: WidgetFamily) -> [[APIHabit]] {
-    let budget = layoutBudget(for: family)
+    let capacity = pageCapacity(for: family)
     var pages: [[APIHabit]] = []
-    var currentPage: [APIHabit] = []
-    var currentCost = 0
 
-    for habit in habits {
-      let cost = layoutCost(for: habit, family: family)
-      if !currentPage.isEmpty && currentCost + cost > budget {
-        pages.append(currentPage)
-        currentPage = []
-        currentCost = 0
-      }
-
-      currentPage.append(habit)
-      currentCost += cost
-    }
-
-    if !currentPage.isEmpty {
-      pages.append(currentPage)
+    for start in stride(from: 0, to: habits.count, by: capacity) {
+      let end = min(start + capacity, habits.count)
+      pages.append(Array(habits[start..<end]))
     }
 
     return pages.isEmpty ? [[]] : pages
   }
 
-  private static func layoutBudget(for family: WidgetFamily) -> Int {
+  private static func pageCapacity(for family: WidgetFamily) -> Int {
     switch family {
     case .systemSmall:
       return 2
     case .systemMedium:
-      return 4
+      return 3
     case .systemLarge:
       return 6
     default:
       return 3
     }
-  }
-
-  private static func layoutCost(for habit: APIHabit, family: WidgetFamily) -> Int {
-    if family == .systemSmall {
-      return 1
-    }
-    return habit.kind == .normal ? 2 : 1
   }
 
   private static func sortHabits(_ lhs: APIHabit, _ rhs: APIHabit) -> Bool {

@@ -114,24 +114,25 @@ def seed(db, *, user_id: str, email: str, name: str) -> None:
 
     morning = habit(user_id=user_id, name="Morning routine", order=0)
     evening = habit(user_id=user_id, name="Evening reset", order=1)
+    inbox = habit(user_id=user_id, name="Inbox sweep", order=2)
     pushups = habit(
         user_id=user_id,
         name="Pushups",
-        order=2,
+        order=3,
         has_counts=True,
         count_settings={"target": 40, "unit": "reps", "step_size": 5, "count_is_good": True},
     )
     caffeine = habit(
         user_id=user_id,
         name="Caffeine",
-        order=3,
+        order=4,
         has_counts=True,
         count_settings={"target": 2, "unit": "cups", "step_size": 1, "count_is_good": False},
     )
     weight = habit(
         user_id=user_id,
         name="Weight trend",
-        order=4,
+        order=5,
         is_weight=True,
         weight_settings={
             "target_weight": 180,
@@ -140,7 +141,7 @@ def seed(db, *, user_id: str, email: str, name: str) -> None:
             "step_size": 0.5,
         },
     )
-    db.add_all([morning, evening, pushups, caffeine, weight])
+    db.add_all([morning, evening, inbox, pushups, caffeine, weight])
     db.flush()
 
     morning_subs = add_sub_habits(
@@ -154,6 +155,12 @@ def seed(db, *, user_id: str, email: str, name: str) -> None:
         user_id=user_id,
         parent_id=evening.id,
         names=["Kitchen", "Laundry", "Desk", "Journal", "Stretch", "Meds", "Pack", "Lights"],
+    )
+    inbox_subs = add_sub_habits(
+        db,
+        user_id=user_id,
+        parent_id=inbox.id,
+        names=["Email", "Mail", "Calendar", "Desk"],
     )
 
     db.add_all(
@@ -169,6 +176,13 @@ def seed(db, *, user_id: str, email: str, name: str) -> None:
                 user_id=user_id,
                 habit_id=evening.id,
                 sub_habit_id=evening_subs[0].id,
+                checked=True,
+                check_date=now,
+            ),
+            models.Check(
+                user_id=user_id,
+                habit_id=inbox.id,
+                sub_habit_id=inbox_subs[0].id,
                 checked=True,
                 check_date=now,
             ),

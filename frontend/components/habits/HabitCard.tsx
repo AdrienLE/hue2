@@ -1000,6 +1000,15 @@ export function HabitCard({
     }
   };
 
+  const inlineWeightInputValue = loading
+    ? ''
+    : isEditingInlineWeight
+      ? inlineWeightValue
+      : formatWeightValue(currentWeight);
+  const inlineWeightInputWidth = inlineWeightInputValue
+    ? Math.min(62, Math.max(30, inlineWeightInputValue.length * 10 + 6))
+    : 52;
+
   if (isEditing) {
     return (
       <>
@@ -1768,16 +1777,11 @@ export function HabitCard({
                       styles.inlineWeightInput,
                       {
                         color: textColor,
+                        width: inlineWeightInputWidth,
                         borderColor: isEditingInlineWeight ? borderColor : 'transparent',
                       },
                     ]}
-                    value={
-                      loading
-                        ? ''
-                        : isEditingInlineWeight
-                          ? inlineWeightValue
-                          : formatWeightValue(currentWeight)
-                    }
+                    value={inlineWeightInputValue}
                     onFocus={() => {
                       setIsEditingInlineWeight(true);
                       setInlineWeightValue(formatWeightValue(currentWeight));
@@ -2082,7 +2086,8 @@ const styles = StyleSheet.create({
   weightDisplay: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
+    alignSelf: 'stretch',
     marginBottom: 6,
   },
   currentWeight: {
@@ -2090,14 +2095,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   inlineWeightInput: {
-    minWidth: 58,
-    paddingHorizontal: 4,
+    minWidth: 30,
+    paddingHorizontal: 2,
     paddingVertical: 1,
     borderWidth: 1,
     borderRadius: 4,
     fontSize: 20,
     fontWeight: 'bold',
-    textAlign: 'center',
+    textAlign: 'right',
   },
   currentWeightInput: {
     fontSize: 20,

@@ -173,86 +173,214 @@ struct Hue2WidgetEntryView: View {
   }
 
   private var readyContent: some View {
-    VStack(alignment: .leading, spacing: rowSpacing) {
-      header
+    GeometryReader { geometry in
+      let resolvedRowHeight = rowHeight(
+        totalHeight: geometry.size.height,
+        visibleHabitCount: entry.habits.count
+      )
 
-      if entry.habits.isEmpty {
-        Spacer(minLength: 0)
-        WidgetMessageView(
-          title: "All clear",
-          detail: "No unchecked habits are scheduled for this page.",
-          systemImage: "checkmark.circle"
-        )
-        Spacer(minLength: 0)
-      } else {
-        ForEach(entry.habits) { habit in
-          WidgetHabitRow(habit: habit, family: family)
-            .frame(height: rowHeight, alignment: .top)
+      VStack(alignment: .leading, spacing: chromeSpacing) {
+        header
+          .frame(height: headerHeight)
+          .padding(.horizontal, chromeHorizontalPadding)
+          .frame(maxWidth: .infinity)
+
+        if entry.habits.isEmpty {
+          Spacer(minLength: 0)
+          WidgetMessageView(
+            title: "All clear",
+            detail: "No unchecked habits are scheduled for this page.",
+            systemImage: "checkmark.circle"
+          )
+          .padding(.horizontal, chromeHorizontalPadding)
+          Spacer(minLength: 0)
+        } else {
+          VStack(alignment: .leading, spacing: rowSpacing) {
+            ForEach(entry.habits) { habit in
+              WidgetHabitRow(habit: habit, family: family)
+                .frame(height: resolvedRowHeight, alignment: .top)
+            }
+          }
+          .padding(.horizontal, rowHorizontalPadding)
+          .frame(maxWidth: .infinity)
+        }
+
+        if showsFooter {
+          footer
+            .frame(height: footerHeight)
+            .padding(.horizontal, chromeHorizontalPadding)
+            .frame(maxWidth: .infinity)
         }
       }
+      .padding(.top, verticalPadding.top)
+      .padding(.bottom, verticalPadding.bottom)
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
-    .padding(widgetPadding)
-    .frame(maxHeight: .infinity, alignment: .top)
   }
 
   private var header: some View {
-    HStack(spacing: 6) {
+    HStack(spacing: 5) {
       Text(family == .systemSmall ? "H2" : "Hue 2")
-        .font(family == .systemSmall ? .caption.weight(.bold) : .headline.weight(.bold))
+        .font(headerTitleFont)
         .foregroundStyle(.primary)
 
       if family != .systemSmall {
         Text(entry.logicalDate)
-          .font(.caption2.weight(.medium))
+          .font(.caption2)
           .foregroundStyle(.secondary)
       }
-
-      Spacer(minLength: 4)
 
       if family != .systemSmall {
         Text("\(entry.totalVisibleHabits)")
-          .font(.caption2.weight(.semibold))
+          .font(.caption2.monospacedDigit().weight(.semibold))
           .foregroundStyle(.secondary)
-          .padding(.horizontal, 5)
-          .padding(.vertical, 2)
+          .padding(.horizontal, 4)
+          .padding(.vertical, 1)
           .background(Capsule().fill(Color.primary.opacity(0.07)))
       }
+    }
+    .lineLimit(1)
+    .minimumScaleFactor(0.8)
+    .frame(maxWidth: .infinity, alignment: .center)
+  }
 
+  @ViewBuilder
+  private var footer: some View {
+    HStack {
       if entry.totalPages > 1 {
         WidgetCompactPageControls(page: entry.page, totalPages: entry.totalPages)
       }
     }
+    .frame(maxWidth: .infinity, alignment: .center)
   }
 
-  private var widgetPadding: EdgeInsets {
+  private var showsFooter: Bool {
+    entry.totalPages > 1
+  }
+
+  private var verticalPadding: (top: CGFloat, bottom: CGFloat) {
     switch family {
     case .systemSmall:
-      EdgeInsets(top: 9, leading: 9, bottom: 9, trailing: 9)
+      (top: 7, bottom: 5)
     case .systemMedium:
-      EdgeInsets(top: 8, leading: 8, bottom: 7, trailing: 8)
+      (top: 5, bottom: 4)
     default:
-      EdgeInsets(top: 9, leading: 9, bottom: 8, trailing: 9)
+      (top: 6, bottom: 5)
+    }
+  }
+
+  private var headerHeight: CGFloat {
+    switch family {
+    case .systemSmall:
+      13
+    case .systemMedium:
+      12
+    default:
+      14
+    }
+  }
+
+  private var footerHeight: CGFloat {
+    switch family {
+    case .systemSmall:
+      14
+    case .systemMedium:
+      14
+    default:
+      16
+    }
+  }
+
+  private var chromeSpacing: CGFloat {
+    switch family {
+    case .systemSmall:
+      3
+    case .systemMedium:
+      2
+    default:
+      3
+    }
+  }
+
+  private var chromeHorizontalPadding: CGFloat {
+    switch family {
+    case .systemSmall:
+      10
+    case .systemMedium:
+      9
+    default:
+      10
+    }
+  }
+
+  private var rowHorizontalPadding: CGFloat {
+    switch family {
+    case .systemSmall:
+      4
+    case .systemMedium:
+      3
+    default:
+      4
     }
   }
 
   private var rowSpacing: CGFloat {
     switch family {
-    case .systemSmall, .systemMedium:
+    case .systemSmall:
       4
+    case .systemMedium:
+      3
     default:
       5
     }
   }
 
-  private var rowHeight: CGFloat {
+  private var preferredRowHeight: CGFloat {
     switch family {
     case .systemSmall:
       49
     case .systemMedium:
-      38
+      36
     default:
-      46
+      44
     }
+  }
+
+  private var minimumRowHeight: CGFloat {
+    switch family {
+    case .systemSmall:
+      43
+    case .systemMedium:
+      32
+    default:
+      38
+    }
+  }
+
+  private var headerTitleFont: Font {
+    switch family {
+    case .systemSmall:
+      .caption2.weight(.bold)
+    case .systemMedium:
+      .caption2.weight(.bold)
+    default:
+      .caption.weight(.bold)
+    }
+  }
+
+  private func rowHeight(totalHeight: CGFloat, visibleHabitCount: Int) -> CGFloat {
+    let rowCount = max(visibleHabitCount, 1)
+    let rowGaps = CGFloat(max(rowCount - 1, 0)) * rowSpacing
+    let footerChromeHeight = showsFooter ? footerHeight + chromeSpacing : 0
+    let availableHeight = totalHeight
+      - verticalPadding.top
+      - verticalPadding.bottom
+      - headerHeight
+      - chromeSpacing
+      - footerChromeHeight
+      - rowGaps
+    let fittedHeight = floor(availableHeight / CGFloat(rowCount))
+    return max(minimumRowHeight, min(preferredRowHeight, fittedHeight))
   }
 
   private var widgetBackground: some View {
@@ -363,7 +491,13 @@ private struct WidgetHabitRow: View {
   private var countText: String {
     let total = formatNumber(habit.countTotal)
     if let target = habit.countTarget, target > 0 {
+      if family == .systemSmall {
+        return "\(total)/\(formatNumber(target))"
+      }
       return "\(total)/\(formatNumber(target)) \(habit.countUnit ?? "")"
+    }
+    if family == .systemSmall {
+      return total
     }
     return "\(total) \(habit.countUnit ?? "")"
   }
@@ -372,13 +506,16 @@ private struct WidgetHabitRow: View {
     guard let current = habit.weightCurrent else {
       return "-- \(habit.weightUnit ?? "")"
     }
+    if family == .systemSmall {
+      return formatNumber(current)
+    }
     return "\(formatNumber(current)) \(habit.weightUnit ?? "")"
   }
 
   private var controlSize: CGFloat {
     switch family {
     case .systemSmall:
-      20
+      18
     case .systemMedium:
       19
     default:
@@ -389,7 +526,7 @@ private struct WidgetHabitRow: View {
   private var checkSize: CGFloat {
     switch family {
     case .systemSmall:
-      24
+      22
     case .systemMedium:
       21
     default:
@@ -404,7 +541,7 @@ private struct WidgetHabitRow: View {
   private var checkmarkSize: CGFloat {
     switch family {
     case .systemSmall:
-      13
+      12
     case .systemMedium:
       12
     default:
@@ -413,15 +550,36 @@ private struct WidgetHabitRow: View {
   }
 
   private var contentSpacing: CGFloat {
-    family == .systemMedium ? 1 : 3
+    switch family {
+    case .systemSmall:
+      2
+    case .systemMedium:
+      1
+    default:
+      3
+    }
   }
 
   private var horizontalPadding: CGFloat {
-    family == .systemMedium ? 6 : 7
+    switch family {
+    case .systemSmall:
+      5
+    case .systemMedium:
+      6
+    default:
+      7
+    }
   }
 
   private var rowGap: CGFloat {
-    family == .systemMedium ? 5 : 6
+    switch family {
+    case .systemSmall:
+      4
+    case .systemMedium:
+      5
+    default:
+      6
+    }
   }
 
   private var titleFont: Font {
@@ -431,7 +589,7 @@ private struct WidgetHabitRow: View {
   private var verticalPadding: CGFloat {
     switch family {
     case .systemSmall:
-      6
+      5
     case .systemMedium:
       4
     default:
@@ -597,7 +755,7 @@ private struct WidgetCountControls: View {
   let controlSize: CGFloat
 
   var body: some View {
-    HStack(spacing: 5) {
+    HStack(spacing: controlSpacing) {
       Button(
         intent: AdjustCountIntent(
           habitId: habit.id,
@@ -630,6 +788,10 @@ private struct WidgetCountControls: View {
     .font(.caption.weight(.bold))
   }
 
+  private var controlSpacing: CGFloat {
+    controlSize <= 18 ? 4 : 5
+  }
+
   private var canDecrement: Bool {
     habit.countTotal > 0
   }
@@ -653,7 +815,7 @@ private struct WidgetWeightControls: View {
   let controlSize: CGFloat
 
   var body: some View {
-    HStack(spacing: 5) {
+    HStack(spacing: controlSpacing) {
       Button(
         intent: AdjustWeightIntent(
           habitId: habit.id,
@@ -686,6 +848,10 @@ private struct WidgetWeightControls: View {
       .foregroundStyle(.white)
     }
     .font(.caption.weight(.bold))
+  }
+
+  private var controlSpacing: CGFloat {
+    controlSize <= 18 ? 4 : 5
   }
 
   private var canDecrement: Bool {
@@ -744,10 +910,10 @@ private struct WidgetCompactPageControls: View {
   let totalPages: Int
 
   var body: some View {
-    HStack(spacing: 4) {
+    HStack(spacing: 3) {
       Button(intent: PageHabitsIntent(direction: -1, totalPages: totalPages)) {
         Image(systemName: "chevron.left")
-          .frame(width: 14, height: 14)
+          .frame(width: 12, height: 12)
       }
       .buttonStyle(.plain)
       .disabled(page <= 0)
@@ -757,14 +923,14 @@ private struct WidgetCompactPageControls: View {
 
       Button(intent: PageHabitsIntent(direction: 1, totalPages: totalPages)) {
         Image(systemName: "chevron.right")
-          .frame(width: 14, height: 14)
+          .frame(width: 12, height: 12)
       }
       .buttonStyle(.plain)
       .disabled(page >= totalPages - 1)
     }
     .foregroundStyle(.secondary)
-    .padding(.horizontal, 4)
-    .padding(.vertical, 2)
+    .padding(.horizontal, 5)
+    .padding(.vertical, 1)
     .background(Capsule().fill(Color.primary.opacity(0.07)))
     .fixedSize(horizontal: true, vertical: false)
   }
@@ -810,6 +976,7 @@ struct Hue2Widget: Widget {
     .configurationDisplayName("Hue 2 Habits")
     .description("Check off habits, subhabits, counts, and weights from your home screen.")
     .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+    .contentMarginsDisabled()
   }
 }
 

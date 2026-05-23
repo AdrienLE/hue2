@@ -316,11 +316,11 @@ struct Hue2WidgetEntryView: View {
   private var rowHorizontalPadding: CGFloat {
     switch family {
     case .systemSmall:
-      4
+      7
     case .systemMedium:
-      3
+      8
     default:
-      4
+      9
     }
   }
 

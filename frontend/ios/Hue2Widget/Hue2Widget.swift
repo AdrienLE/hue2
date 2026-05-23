@@ -179,21 +179,20 @@ struct Hue2WidgetEntryView: View {
         visibleHabitCount: entry.habits.count
       )
 
-      VStack(alignment: .leading, spacing: chromeSpacing) {
+      VStack(alignment: .leading, spacing: 0) {
         header
           .frame(height: headerHeight)
           .padding(.horizontal, chromeHorizontalPadding)
           .frame(maxWidth: .infinity)
 
         if entry.habits.isEmpty {
-          Spacer(minLength: 0)
           WidgetMessageView(
             title: "All clear",
             detail: "No unchecked habits are scheduled for this page.",
             systemImage: "checkmark.circle"
           )
           .padding(.horizontal, chromeHorizontalPadding)
-          Spacer(minLength: 0)
+          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         } else {
           VStack(alignment: .leading, spacing: rowSpacing) {
             ForEach(entry.habits) { habit in
@@ -202,7 +201,9 @@ struct Hue2WidgetEntryView: View {
             }
           }
           .padding(.horizontal, rowHorizontalPadding)
-          .frame(maxWidth: .infinity)
+          .padding(.top, habitAreaPadding.top)
+          .padding(.bottom, habitAreaPadding.bottom)
+          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
 
         if showsFooter {
@@ -291,14 +292,14 @@ struct Hue2WidgetEntryView: View {
     }
   }
 
-  private var chromeSpacing: CGFloat {
+  private var habitAreaPadding: (top: CGFloat, bottom: CGFloat) {
     switch family {
     case .systemSmall:
-      3
+      (top: 3, bottom: 3)
     case .systemMedium:
-      2
+      (top: 3, bottom: 3)
     default:
-      3
+      (top: 4, bottom: 4)
     }
   }
 
@@ -340,7 +341,7 @@ struct Hue2WidgetEntryView: View {
     case .systemSmall:
       49
     case .systemMedium:
-      36
+      40
     default:
       44
     }
@@ -371,13 +372,14 @@ struct Hue2WidgetEntryView: View {
   private func rowHeight(totalHeight: CGFloat, visibleHabitCount: Int) -> CGFloat {
     let rowCount = max(visibleHabitCount, 1)
     let rowGaps = CGFloat(max(rowCount - 1, 0)) * rowSpacing
-    let footerChromeHeight = showsFooter ? footerHeight + chromeSpacing : 0
+    let footerChromeHeight = showsFooter ? footerHeight : 0
+    let habitPadding = habitAreaPadding.top + habitAreaPadding.bottom
     let availableHeight = totalHeight
       - verticalPadding.top
       - verticalPadding.bottom
       - headerHeight
-      - chromeSpacing
       - footerChromeHeight
+      - habitPadding
       - rowGaps
     let fittedHeight = floor(availableHeight / CGFloat(rowCount))
     return max(minimumRowHeight, min(preferredRowHeight, fittedHeight))

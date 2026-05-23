@@ -5,6 +5,7 @@ import WidgetKit
 @objc(Hue2WidgetBridge)
 final class Hue2WidgetBridge: NSObject {
   private static let appGroup = "group.com.adrienle.hue2"
+  private static let widgetKind = "Hue2Widget"
   private static let accessTokenKey = "auth_access_token"
   private static let apiBaseURLKey = "api_base_url"
   private static let lastSyncKey = "last_sync_at"
@@ -30,7 +31,7 @@ final class Hue2WidgetBridge: NSObject {
     defaults.set(apiBaseUrl, forKey: Self.apiBaseURLKey)
     defaults.set(Date().timeIntervalSince1970, forKey: Self.lastSyncKey)
     defaults.synchronize()
-    WidgetCenter.shared.reloadTimelines(ofKind: "Hue2Widget")
+    Self.reloadWidgetTimelines()
     resolve(nil)
   }
 
@@ -48,7 +49,20 @@ final class Hue2WidgetBridge: NSObject {
     defaults.removeObject(forKey: Self.apiBaseURLKey)
     defaults.removeObject(forKey: Self.lastSyncKey)
     defaults.synchronize()
-    WidgetCenter.shared.reloadTimelines(ofKind: "Hue2Widget")
+    Self.reloadWidgetTimelines()
     resolve(nil)
+  }
+
+  @objc(reloadTimelines:rejecter:)
+  func reloadTimelines(
+    _ resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    Self.reloadWidgetTimelines()
+    resolve(nil)
+  }
+
+  private static func reloadWidgetTimelines() {
+    WidgetCenter.shared.reloadTimelines(ofKind: Self.widgetKind)
   }
 }

@@ -3,6 +3,7 @@ import { NativeModules, Platform } from 'react-native';
 type Hue2WidgetBridgeModule = {
   syncAuthContext: (token: string, apiBaseUrl: string) => Promise<void>;
   clearAuthContext: () => Promise<void>;
+  reloadTimelines: () => Promise<void>;
 };
 
 const widgetBridge =
@@ -27,5 +28,15 @@ export async function clearWidgetAuthContext() {
     await widgetBridge.clearAuthContext();
   } catch (error) {
     console.warn('Failed to clear auth context for Hue 2 widget', error);
+  }
+}
+
+export async function requestWidgetRefresh() {
+  if (!widgetBridge) return;
+
+  try {
+    await widgetBridge.reloadTimelines();
+  } catch (error) {
+    console.warn('Failed to request Hue 2 widget refresh', error);
   }
 }

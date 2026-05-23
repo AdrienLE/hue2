@@ -1,6 +1,7 @@
 import { HabitService } from '@/lib/services/habitService';
 import { getLogicalDateRange } from '@/lib/logicalTime';
 import { api } from '@/lib/api';
+import { requestWidgetRefresh } from '@/lib/widgetBridge';
 import type { HabitCreate, CountCreate, WeightUpdateCreate } from '@/lib/types/habits';
 
 // Mock the API module
@@ -12,7 +13,15 @@ jest.mock('@/lib/api', () => ({
     delete: jest.fn(),
   },
 }));
+
+jest.mock('@/lib/widgetBridge', () => ({
+  requestWidgetRefresh: jest.fn(),
+}));
+
 const mockApi = api as any;
+const mockRequestWidgetRefresh = requestWidgetRefresh as jest.MockedFunction<
+  typeof requestWidgetRefresh
+>;
 
 describe('HabitService', () => {
   const mockToken = 'test-token';
@@ -267,6 +276,40 @@ describe('HabitService', () => {
 
       expect(mockApi.post).toHaveBeenCalledWith('/api/checks', checkData, mockToken);
       expect(result.data).toEqual(mockCreatedCheck);
+    });
+
+    it('should request a widget refresh after successful mutations', async () => {
+      const checkData = {
+        habit_id: 1,
+        checked: true,
+        check_date: '2024-01-01T00:00:00Z',
+      };
+
+      mockApi.post.mockResolvedValue({
+        data: { id: 1, ...checkData },
+        status: 200,
+      });
+
+      await HabitService.createCheck(checkData, mockToken);
+
+      expect(mockRequestWidgetRefresh).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not request a widget refresh when a mutation fails', async () => {
+      const checkData = {
+        habit_id: 1,
+        checked: true,
+        check_date: '2024-01-01T00:00:00Z',
+      };
+
+      mockApi.post.mockResolvedValue({
+        error: 'HTTP 500: Server Error',
+        status: 500,
+      });
+
+      await HabitService.createCheck(checkData, mockToken);
+
+      expect(mockRequestWidgetRefresh).not.toHaveBeenCalled();
     });
   });
 

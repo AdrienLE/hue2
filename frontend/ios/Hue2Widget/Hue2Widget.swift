@@ -10,6 +10,7 @@ private enum Hue2WidgetConstants {
   static let apiBaseURLKey = "api_base_url"
   static let fallbackAPIBaseURL = "https://hue2-production.up.railway.app"
   static let habitPageKey = "habitPage"
+  static let refreshIntervalMinutes = 5
 
   static func subHabitPageKey(_ habitId: Int) -> String {
     "subHabitPage.\(habitId)"
@@ -30,7 +31,12 @@ struct Hue2WidgetProvider: TimelineProvider {
   func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> Void) {
     Task {
       let entry = await Hue2WidgetLoader.load(family: context.family)
-      let nextRefresh = Calendar.current.date(byAdding: .minute, value: 5, to: Date()) ?? Date()
+      let nextRefresh =
+        Calendar.current.date(
+          byAdding: .minute,
+          value: Hue2WidgetConstants.refreshIntervalMinutes,
+          to: Date()
+        ) ?? Date()
       completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
     }
   }
@@ -221,24 +227,16 @@ struct Hue2WidgetEntryView: View {
 
   private var header: some View {
     HStack(spacing: 5) {
-      Text(family == .systemSmall ? "H2" : "Hue 2")
+      Text("Hue 2")
         .font(headerTitleFont)
         .foregroundStyle(.primary)
 
-      if family != .systemSmall {
-        Text(entry.logicalDate)
-          .font(.caption2)
-          .foregroundStyle(.secondary)
-      }
-
-      if family != .systemSmall {
-        Text("\(entry.totalVisibleHabits)")
-          .font(.caption2.monospacedDigit().weight(.semibold))
-          .foregroundStyle(.secondary)
-          .padding(.horizontal, 4)
-          .padding(.vertical, 1)
-          .background(Capsule().fill(Color.primary.opacity(0.07)))
-      }
+      Text(habitsLeftText)
+        .font(.caption2.monospacedDigit().weight(.semibold))
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 4)
+        .padding(.vertical, 1)
+        .background(Capsule().fill(Color.primary.opacity(0.07)))
     }
     .lineLimit(1)
     .minimumScaleFactor(0.8)
@@ -247,16 +245,31 @@ struct Hue2WidgetEntryView: View {
 
   @ViewBuilder
   private var footer: some View {
-    HStack {
+    HStack(spacing: 8) {
+      Text(entry.logicalDate)
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+        .minimumScaleFactor(0.75)
+
+      Spacer(minLength: 4)
+
       if entry.totalPages > 1 {
         WidgetCompactPageControls(page: entry.page, totalPages: entry.totalPages)
       }
     }
-    .frame(maxWidth: .infinity, alignment: .center)
+    .frame(maxWidth: .infinity, alignment: .leading)
   }
 
   private var showsFooter: Bool {
-    entry.totalPages > 1
+    true
+  }
+
+  private var habitsLeftText: String {
+    if family == .systemSmall {
+      return "\(entry.totalVisibleHabits)"
+    }
+    return "\(entry.totalVisibleHabits) left"
   }
 
   private var verticalPadding: (top: CGFloat, bottom: CGFloat) {

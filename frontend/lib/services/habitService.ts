@@ -1,5 +1,7 @@
 import { api } from '../api';
 import { getLogicalDateRange } from '@/lib/logicalTime';
+import { requestWidgetRefresh } from '@/lib/widgetBridge';
+import type { ApiResponse } from '../api';
 import type {
   Habit,
   HabitCreate,
@@ -38,6 +40,16 @@ const buildQueryString = (filters: Record<string, FilterValue | undefined> = {})
   return query ? `?${query}` : '';
 };
 
+const notifyWidgetAfterSuccess = async <T>(
+  responsePromise: Promise<ApiResponse<T>>
+): Promise<ApiResponse<T>> => {
+  const response = await responsePromise;
+  if (!response.error && response.status >= 200 && response.status < 300) {
+    void requestWidgetRefresh();
+  }
+  return response;
+};
+
 export class HabitService {
   // User management
   static async getCurrentUser(token: string) {
@@ -45,7 +57,7 @@ export class HabitService {
   }
 
   static async updateCurrentUser(userData: Partial<User>, token: string) {
-    return api.put<User>('/api/users/me', userData, token);
+    return notifyWidgetAfterSuccess(api.put<User>('/api/users/me', userData, token));
   }
 
   // Habit management
@@ -59,16 +71,16 @@ export class HabitService {
   }
 
   static async createHabit(habitData: HabitCreate, token: string) {
-    return api.post<Habit>('/api/habits', habitData, token);
+    return notifyWidgetAfterSuccess(api.post<Habit>('/api/habits', habitData, token));
   }
 
   static async updateHabit(habitId: number, habitData: HabitUpdate, token: string) {
-    return api.put<Habit>(`/api/habits/${habitId}`, habitData, token);
+    return notifyWidgetAfterSuccess(api.put<Habit>(`/api/habits/${habitId}`, habitData, token));
   }
 
   static async deleteHabit(habitId: number, token: string, hardDelete = false) {
     const endpoint = `/api/habits/${habitId}?hard_delete=${hardDelete}`;
-    return api.delete(endpoint, token);
+    return notifyWidgetAfterSuccess(api.delete(endpoint, token));
   }
 
   // Sub-habit management
@@ -77,7 +89,7 @@ export class HabitService {
   }
 
   static async createSubHabit(subHabitData: SubHabitCreate, token: string) {
-    return api.post<SubHabit>('/api/sub-habits', subHabitData, token);
+    return notifyWidgetAfterSuccess(api.post<SubHabit>('/api/sub-habits', subHabitData, token));
   }
 
   static async updateSubHabit(
@@ -85,11 +97,13 @@ export class HabitService {
     subHabitData: Partial<SubHabitCreate>,
     token: string
   ) {
-    return api.put<SubHabit>(`/api/sub-habits/${subHabitId}`, subHabitData, token);
+    return notifyWidgetAfterSuccess(
+      api.put<SubHabit>(`/api/sub-habits/${subHabitId}`, subHabitData, token)
+    );
   }
 
   static async deleteSubHabit(subHabitId: number, token: string) {
-    return api.delete(`/api/sub-habits/${subHabitId}`, token);
+    return notifyWidgetAfterSuccess(api.delete(`/api/sub-habits/${subHabitId}`, token));
   }
 
   // Check/uncheck habits
@@ -109,11 +123,11 @@ export class HabitService {
   }
 
   static async createCheck(checkData: CheckCreate, token: string) {
-    return api.post<Check>('/api/checks', checkData, token);
+    return notifyWidgetAfterSuccess(api.post<Check>('/api/checks', checkData, token));
   }
 
   static async deleteCheck(checkId: number, token: string) {
-    return api.delete(`/api/checks/${checkId}`, token);
+    return notifyWidgetAfterSuccess(api.delete(`/api/checks/${checkId}`, token));
   }
 
   static async uncheckHabitToday(
@@ -158,7 +172,7 @@ export class HabitService {
   }
 
   static async createCount(countData: CountCreate, token: string) {
-    return api.post<Count>('/api/counts', countData, token);
+    return notifyWidgetAfterSuccess(api.post<Count>('/api/counts', countData, token));
   }
 
   // Weight tracking
@@ -177,7 +191,9 @@ export class HabitService {
   }
 
   static async createWeightUpdate(weightData: WeightUpdateCreate, token: string) {
-    return api.post<WeightUpdate>('/api/weight-updates', weightData, token);
+    return notifyWidgetAfterSuccess(
+      api.post<WeightUpdate>('/api/weight-updates', weightData, token)
+    );
   }
 
   // Active day tracking

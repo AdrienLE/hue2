@@ -1,6 +1,7 @@
 export const WEIGHT_STEP = 0.1;
 
 export type WeightDirection = 'increase' | 'decrease';
+export type WeightInputPlatform = 'android' | 'ios' | 'web' | 'macos' | 'windows';
 
 export function roundWeight(weight: number): number {
   return Math.round(weight * 10) / 10;
@@ -34,4 +35,24 @@ export function getNextWeight(
   const nextWeight = roundWeight(baseWeight + change);
 
   return direction === 'decrease' ? Math.max(0.1, nextWeight) : Math.max(0, nextWeight);
+}
+
+export function getInlineWeightInputWidth(
+  value: string,
+  platform: WeightInputPlatform = 'web'
+): number {
+  if (!value) {
+    return platform === 'ios' ? 72 : 52;
+  }
+
+  if (platform !== 'ios') {
+    return Math.min(62, Math.max(30, value.length * 10 + 6));
+  }
+
+  const digitCount = (value.match(/\d/g) ?? []).length;
+  const decimalCount = (value.match(/[.,]/g) ?? []).length;
+  const otherCount = Math.max(0, value.length - digitCount - decimalCount);
+  const contentWidth = digitCount * 12 + decimalCount * 6 + otherCount * 10;
+
+  return Math.min(92, Math.max(48, contentWidth + 18));
 }

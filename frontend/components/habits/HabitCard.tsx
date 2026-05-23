@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, Pressable, Modal, TextInput } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Pressable,
+  Modal,
+  TextInput,
+  Platform,
+} from 'react-native';
 import Slider from '@react-native-community/slider';
 import { getCurrentDate } from '@/contexts/DevDateContext';
 import {
@@ -25,6 +33,7 @@ import { getHabitColorByIndex } from '@/constants/Colors';
 import type { Habit, Count, WeightUpdate, SubHabit, SubHabitCreate } from '@/lib/types/habits';
 import {
   formatWeightValue,
+  getInlineWeightInputWidth,
   getNextWeight,
   isPartialWeightInput,
   parseWeightInput,
@@ -1005,9 +1014,7 @@ export function HabitCard({
     : isEditingInlineWeight
       ? inlineWeightValue
       : formatWeightValue(currentWeight);
-  const inlineWeightInputWidth = inlineWeightInputValue
-    ? Math.min(62, Math.max(30, inlineWeightInputValue.length * 10 + 6))
-    : 52;
+  const inlineWeightInputWidth = getInlineWeightInputWidth(inlineWeightInputValue, Platform.OS);
 
   if (isEditing) {
     return (
@@ -2102,6 +2109,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     fontSize: 20,
     fontWeight: 'bold',
+    fontVariant: ['tabular-nums'],
     textAlign: 'right',
   },
   currentWeightInput: {

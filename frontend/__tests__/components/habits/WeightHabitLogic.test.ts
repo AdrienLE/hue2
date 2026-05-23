@@ -2,6 +2,7 @@
 // Since these are component functions, we'll test the logic separately
 import {
   formatWeightValue,
+  getInlineWeightInputWidth,
   getNextWeight,
   isPartialWeightInput,
   parseWeightInput,
@@ -128,6 +129,14 @@ describe('Weight Habit Logic', () => {
       expect(getNextWeight(175, 'increase', 1)).toBe(176);
       expect(getNextWeight(0.1, 'decrease')).toBe(0.1);
       expect(getNextWeight(null, 'decrease')).toBe(0);
+    });
+
+    it('should leave extra native iOS width for decimal weight values', () => {
+      expect(getInlineWeightInputWidth('184.4', 'ios') > 62).toBe(true);
+      expect(getInlineWeightInputWidth('184.4', 'web')).toBe(56);
+      expect(getInlineWeightInputWidth('', 'ios') > getInlineWeightInputWidth('', 'web')).toBe(
+        true
+      );
     });
   });
 });

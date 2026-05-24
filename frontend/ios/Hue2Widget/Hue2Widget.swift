@@ -45,6 +45,7 @@ struct Hue2WidgetProvider: TimelineProvider {
 struct Hue2WidgetEntry: TimelineEntry {
   enum Status {
     case ready
+    case pendingDailyReview(String)
     case signedOut
     case failed(String)
   }
@@ -162,6 +163,8 @@ struct Hue2WidgetEntryView: View {
       switch entry.status {
       case .ready:
         readyContent
+      case let .pendingDailyReview(reviewDate):
+        WidgetPenaltyModeView(reviewDate: reviewDate)
       case .signedOut:
         WidgetMessageView(
           title: "Sign in to Hue 2",
@@ -993,6 +996,87 @@ private struct WidgetMessageView: View {
   }
 }
 
+private struct WidgetPenaltyModeView: View {
+  let reviewDate: String
+
+  @Environment(\.widgetFamily) private var family
+  @Environment(\.colorScheme) private var colorScheme
+
+  var body: some View {
+    VStack(spacing: spacing) {
+      VStack(spacing: family == .systemSmall ? 2 : 4) {
+        Image(systemName: "exclamationmark.triangle.fill")
+          .font(iconFont)
+          .foregroundStyle(accentColor)
+
+        Text("Apply Penalties")
+          .font(titleFont)
+          .fontWeight(.bold)
+          .foregroundStyle(titleColor)
+          .lineLimit(1)
+          .minimumScaleFactor(0.7)
+
+        Text(reviewDate)
+          .font(.caption2.monospacedDigit().weight(.semibold))
+          .foregroundStyle(accentColor)
+          .lineLimit(1)
+          .minimumScaleFactor(0.8)
+      }
+
+      Text(detailText)
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .multilineTextAlignment(.center)
+        .lineLimit(family == .systemSmall ? 2 : 3)
+        .minimumScaleFactor(0.78)
+
+      Text("Open Hue 2")
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(buttonTextColor)
+        .padding(.horizontal, family == .systemSmall ? 9 : 11)
+        .padding(.vertical, family == .systemSmall ? 4 : 5)
+        .background(Capsule().fill(accentColor))
+    }
+    .padding(family == .systemSmall ? 10 : 14)
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+    .widgetURL(URL(string: "hue2://"))
+  }
+
+  private var spacing: CGFloat {
+    family == .systemSmall ? 7 : 9
+  }
+
+  private var iconFont: Font {
+    family == .systemSmall ? .title3.weight(.semibold) : .title2.weight(.semibold)
+  }
+
+  private var titleFont: Font {
+    family == .systemLarge ? .title3 : .headline
+  }
+
+  private var detailText: String {
+    family == .systemSmall
+      ? "Finish daily review first."
+      : "Finish the daily review before checking today's habits."
+  }
+
+  private var accentColor: Color {
+    colorScheme == .dark
+      ? Color(red: 1.0, green: 0.48, blue: 0.32)
+      : Color(red: 0.82, green: 0.2, blue: 0.12)
+  }
+
+  private var titleColor: Color {
+    colorScheme == .dark
+      ? Color(red: 0.9, green: 0.9, blue: 0.9)
+      : Color(red: 0.16, green: 0.16, blue: 0.16)
+  }
+
+  private var buttonTextColor: Color {
+    colorScheme == .dark ? Color.black : Color.white
+  }
+}
+
 struct Hue2Widget: Widget {
   var body: some WidgetConfiguration {
     StaticConfiguration(kind: Hue2WidgetConstants.kind, provider: Hue2WidgetProvider()) { entry in
@@ -1025,11 +1109,21 @@ private enum Hue2WidgetLoader {
 
     do {
       let client = try Hue2APIClient(baseURLString: apiBaseURL, token: token)
-      async let userRequest = client.fetchUser()
-      async let habitsRequest = client.fetchHabits()
+      let user = try await client.fetchUser()
+      if let pendingReview = user.settings?.pendingDailyReview {
+        let reviewDate = displayReviewDate(pendingReview.reviewDate)
+        return Hue2WidgetEntry(
+          date: Date(),
+          status: .pendingDailyReview(reviewDate),
+          logicalDate: reviewDate,
+          habits: [],
+          page: 0,
+          totalPages: 1,
+          totalVisibleHabits: 0
+        )
+      }
 
-      let user = try await userRequest
-      let habits = try await habitsRequest
+      let habits = try await client.fetchHabits()
       let rolloverHour = user.settings?.dayRolloverHour ?? 3
       let window = LogicalDayWindow.current(rolloverHour: rolloverHour)
 
@@ -1201,6 +1295,30 @@ private enum Hue2WidgetLoader {
     }
     return latest
   }
+
+  private static func displayReviewDate(_ value: String) -> String {
+    let isoWithFractionalSeconds = ISO8601DateFormatter()
+    isoWithFractionalSeconds.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+    let isoWithoutFractionalSeconds = ISO8601DateFormatter()
+    isoWithoutFractionalSeconds.formatOptions = [.withInternetDateTime]
+
+    let dateOnlyFormatter = DateFormatter()
+    dateOnlyFormatter.dateFormat = "yyyy-MM-dd"
+    dateOnlyFormatter.locale = Locale(identifier: "en_US_POSIX")
+
+    let parsedDate = isoWithFractionalSeconds.date(from: value)
+      ?? isoWithoutFractionalSeconds.date(from: value)
+      ?? dateOnlyFormatter.date(from: value)
+
+    guard let parsedDate else {
+      return value
+    }
+
+    let displayFormatter = DateFormatter()
+    displayFormatter.dateFormat = "EEE, MMM d"
+    return displayFormatter.string(from: parsedDate)
+  }
 }
 
 private enum Hue2WidgetStore {
@@ -1367,25 +1485,34 @@ private enum Hue2WidgetActions {
     return try Hue2APIClient(baseURLString: baseURL, token: token)
   }
 
-  static func logicalWindow(client: Hue2APIClient) async -> LogicalDayWindow {
-    do {
-      let user = try await client.fetchUser()
-      return LogicalDayWindow.current(rolloverHour: user.settings?.dayRolloverHour ?? 3)
-    } catch {
-      return LogicalDayWindow.current(rolloverHour: 3)
+  static func mutationWindow(client: Hue2APIClient) async throws -> LogicalDayWindow? {
+    let user = try await client.fetchUser()
+    if user.settings?.pendingDailyReview != nil {
+      WidgetCenter.shared.reloadTimelines(ofKind: Hue2WidgetConstants.kind)
+      return nil
     }
+
+    return LogicalDayWindow.current(rolloverHour: user.settings?.dayRolloverHour ?? 3)
   }
 
   static func checkHabit(habitId: Int) async throws {
     let client = try client()
-    let window = await logicalWindow(client: client)
+    guard let window = try await mutationWindow(client: client) else {
+      return
+    }
     try await client.createCheck(habitId: habitId, date: window.reference)
     WidgetCenter.shared.reloadTimelines(ofKind: Hue2WidgetConstants.kind)
   }
 
-  static func toggleSubHabit(parentHabitId: Int, subHabitId: Int, currentlyChecked: Bool) async throws {
+  static func toggleSubHabit(
+    parentHabitId: Int,
+    subHabitId: Int,
+    currentlyChecked: Bool
+  ) async throws {
     let client = try client()
-    let window = await logicalWindow(client: client)
+    guard let window = try await mutationWindow(client: client) else {
+      return
+    }
 
     if currentlyChecked {
       let checks = try await client.fetchChecks(
@@ -1398,7 +1525,11 @@ private enum Hue2WidgetActions {
         try await client.deleteCheck(checkId: check.id)
       }
     } else {
-      try await client.createCheck(habitId: parentHabitId, subHabitId: subHabitId, date: window.reference)
+      try await client.createCheck(
+        habitId: parentHabitId,
+        subHabitId: subHabitId,
+        date: window.reference
+      )
     }
 
     WidgetCenter.shared.reloadTimelines(ofKind: Hue2WidgetConstants.kind)
@@ -1410,12 +1541,19 @@ private enum Hue2WidgetActions {
     }
 
     let client = try client()
-    let window = await logicalWindow(client: client)
+    guard let window = try await mutationWindow(client: client) else {
+      return
+    }
     try await client.createCount(habitId: habitId, value: delta, date: window.reference)
     WidgetCenter.shared.reloadTimelines(ofKind: Hue2WidgetConstants.kind)
   }
 
-  static func adjustWeight(habitId: Int, direction: Int, currentWeight: Double, step: Double) async throws {
+  static func adjustWeight(
+    habitId: Int,
+    direction: Int,
+    currentWeight: Double,
+    step: Double
+  ) async throws {
     if direction < 0 && currentWeight <= 0 {
       return
     }
@@ -1423,7 +1561,9 @@ private enum Hue2WidgetActions {
     let signedStep = direction >= 0 ? step : -step
     let next = max(0.1, roundToTenths(currentWeight + signedStep))
     let client = try client()
-    let window = await logicalWindow(client: client)
+    guard let window = try await mutationWindow(client: client) else {
+      return
+    }
     try await client.createWeight(habitId: habitId, weight: next, date: window.reference)
     WidgetCenter.shared.reloadTimelines(ofKind: Hue2WidgetConstants.kind)
   }
@@ -1611,11 +1751,23 @@ private struct APIUserSettings: Decodable {
   let dayRolloverHour: Int?
   let colorBrightness: Double?
   let colorSaturation: Double?
+  let pendingDailyReview: APIPendingDailyReview?
 
   enum CodingKeys: String, CodingKey {
     case dayRolloverHour = "day_rollover_hour"
     case colorBrightness = "color_brightness"
     case colorSaturation = "color_saturation"
+    case pendingDailyReview = "pending_daily_review"
+  }
+}
+
+private struct APIPendingDailyReview: Decodable {
+  let reviewDate: String
+  let createdAt: String?
+
+  enum CodingKeys: String, CodingKey {
+    case reviewDate = "review_date"
+    case createdAt = "created_at"
   }
 }
 

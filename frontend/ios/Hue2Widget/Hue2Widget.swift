@@ -215,7 +215,7 @@ struct Hue2WidgetEntryView: View {
         if showsFooter {
           footer
             .frame(height: footerHeight)
-            .padding(.horizontal, chromeHorizontalPadding)
+            .padding(.horizontal, footerHorizontalPadding)
             .frame(maxWidth: .infinity)
         }
       }
@@ -297,22 +297,22 @@ struct Hue2WidgetEntryView: View {
   private var footerHeight: CGFloat {
     switch family {
     case .systemSmall:
-      14
+      15
     case .systemMedium:
-      14
-    default:
       16
+    default:
+      17
     }
   }
 
   private var habitAreaPadding: (top: CGFloat, bottom: CGFloat) {
     switch family {
     case .systemSmall:
-      (top: 3, bottom: 3)
+      (top: 3, bottom: 6)
     case .systemMedium:
-      (top: 3, bottom: 3)
+      (top: 3, bottom: 7)
     default:
-      (top: 4, bottom: 4)
+      (top: 4, bottom: 8)
     }
   }
 
@@ -324,6 +324,17 @@ struct Hue2WidgetEntryView: View {
       9
     default:
       10
+    }
+  }
+
+  private var footerHorizontalPadding: CGFloat {
+    switch family {
+    case .systemSmall:
+      13
+    case .systemMedium:
+      13
+    default:
+      15
     }
   }
 

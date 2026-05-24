@@ -45,7 +45,7 @@ struct Hue2WidgetProvider: TimelineProvider {
 struct Hue2WidgetEntry: TimelineEntry {
   enum Status {
     case ready
-    case pendingDailyReview(String)
+    case pendingDailyReview(WidgetDailyReview)
     case signedOut
     case failed(String)
   }
@@ -68,6 +68,15 @@ struct Hue2WidgetEntry: TimelineEntry {
       totalPages: 2,
       totalVisibleHabits: 5
     )
+  }
+}
+
+struct WidgetDailyReview: Hashable {
+  let reviewDate: String
+  let penaltyTotal: Double
+
+  var actionTitle: String {
+    penaltyTotal > 0 ? "Apply \(formatNumber(penaltyTotal))" : "Done"
   }
 }
 
@@ -161,10 +170,8 @@ struct Hue2WidgetEntryView: View {
       widgetBackground
 
       switch entry.status {
-      case .ready:
+      case .ready, .pendingDailyReview:
         readyContent
-      case let .pendingDailyReview(reviewDate):
-        WidgetPenaltyModeView(reviewDate: reviewDate)
       case .signedOut:
         WidgetMessageView(
           title: "Sign in to Hue 2",
@@ -183,22 +190,23 @@ struct Hue2WidgetEntryView: View {
 
   private var readyContent: some View {
     GeometryReader { geometry in
+      let isCompactWidget = geometry.size.width < 220
       let resolvedRowHeight = rowHeight(
         totalHeight: geometry.size.height,
         visibleHabitCount: entry.habits.count
       )
 
       VStack(alignment: .leading, spacing: 0) {
-        header
+        header(compact: isCompactWidget)
           .frame(height: headerHeight)
           .padding(.horizontal, chromeHorizontalPadding)
           .frame(maxWidth: .infinity)
 
         if entry.habits.isEmpty {
           WidgetMessageView(
-            title: "All clear",
-            detail: "No unchecked habits are scheduled for this page.",
-            systemImage: "checkmark.circle"
+            title: emptyTitle,
+            detail: emptyDetail,
+            systemImage: emptySystemImage
           )
           .padding(.horizontal, chromeHorizontalPadding)
           .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
@@ -216,7 +224,7 @@ struct Hue2WidgetEntryView: View {
         }
 
         if showsFooter {
-          footer
+          footer(compact: isCompactWidget)
             .frame(height: footerHeight)
             .padding(.horizontal, footerHorizontalPadding)
             .frame(maxWidth: .infinity)
@@ -228,18 +236,18 @@ struct Hue2WidgetEntryView: View {
     }
   }
 
-  private var header: some View {
+  private func header(compact: Bool) -> some View {
     HStack(spacing: 5) {
-      Text("Hue 2")
+      Text(headerTitle(compact: compact))
         .font(headerTitleFont)
-        .foregroundStyle(.primary)
+        .foregroundStyle(isReviewMode ? reviewAccentColor : .primary)
 
-      Text(habitsLeftText)
+      Text(habitsLeftText(compact: compact))
         .font(.caption2.monospacedDigit().weight(.semibold))
-        .foregroundStyle(.secondary)
+        .foregroundStyle(isReviewMode ? reviewAccentColor : .secondary)
         .padding(.horizontal, 4)
         .padding(.vertical, 1)
-        .background(Capsule().fill(Color.primary.opacity(0.07)))
+        .background(Capsule().fill(headerBadgeColor))
     }
     .lineLimit(1)
     .minimumScaleFactor(0.8)
@@ -247,9 +255,9 @@ struct Hue2WidgetEntryView: View {
   }
 
   @ViewBuilder
-  private var footer: some View {
-    HStack(spacing: 8) {
-      Text(entry.logicalDate)
+  private func footer(compact: Bool) -> some View {
+    HStack(spacing: compact ? 4 : 8) {
+      Text(footerDateText(compact: compact))
         .font(.caption2)
         .foregroundStyle(.secondary)
         .lineLimit(1)
@@ -258,7 +266,25 @@ struct Hue2WidgetEntryView: View {
       Spacer(minLength: 4)
 
       if entry.totalPages > 1 {
-        WidgetCompactPageControls(page: entry.page, totalPages: entry.totalPages)
+        WidgetCompactPageControls(
+          page: entry.page,
+          totalPages: entry.totalPages,
+          compact: compact
+        )
+      }
+
+      if let review = dailyReview {
+        Button(intent: ApplyDailyReviewPenaltiesIntent()) {
+          Text(reviewActionTitle(review, compact: compact))
+            .font(.caption2.monospacedDigit().weight(.bold))
+            .foregroundStyle(reviewButtonTextColor)
+            .lineLimit(1)
+            .minimumScaleFactor(0.72)
+            .padding(.horizontal, compact ? 4 : 7)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(reviewAccentColor))
+        }
+        .buttonStyle(.plain)
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
@@ -268,11 +294,38 @@ struct Hue2WidgetEntryView: View {
     true
   }
 
-  private var habitsLeftText: String {
-    if family == .systemSmall {
+  private func habitsLeftText(compact: Bool) -> String {
+    if isReviewMode {
+      if compact || family == .systemSmall {
+        return "\(entry.totalVisibleHabits)"
+      }
+      return "\(entry.totalVisibleHabits) missed"
+    }
+    if compact || family == .systemSmall {
       return "\(entry.totalVisibleHabits)"
     }
     return "\(entry.totalVisibleHabits) left"
+  }
+
+  private func headerTitle(compact: Bool) -> String {
+    if isReviewMode {
+      return compact || family == .systemSmall ? "Penalty" : "Apply Penalties"
+    }
+    return "Hue 2"
+  }
+
+  private var emptyTitle: String {
+    isReviewMode ? "Review clear" : "All clear"
+  }
+
+  private var emptyDetail: String {
+    isReviewMode
+      ? "All missed habits are now tracked. Tap Done to finish."
+      : "No unchecked habits are scheduled for this page."
+  }
+
+  private var emptySystemImage: String {
+    isReviewMode ? "checkmark.seal" : "checkmark.circle"
   }
 
   private var verticalPadding: (top: CGFloat, bottom: CGFloat) {
@@ -413,9 +466,61 @@ struct Hue2WidgetEntryView: View {
   }
 
   private var widgetBackground: some View {
-    colorScheme == .dark
+    if isReviewMode {
+      return colorScheme == .dark
+        ? Color(red: 0.16, green: 0.08, blue: 0.06)
+        : Color(red: 1.0, green: 0.95, blue: 0.92)
+    }
+    return colorScheme == .dark
       ? Color(red: 0.08, green: 0.09, blue: 0.09)
       : Color.white
+  }
+
+  private var dailyReview: WidgetDailyReview? {
+    if case let .pendingDailyReview(review) = entry.status {
+      return review
+    }
+    return nil
+  }
+
+  private var isReviewMode: Bool {
+    dailyReview != nil
+  }
+
+  private var headerBadgeColor: Color {
+    isReviewMode ? reviewAccentColor.opacity(colorScheme == .dark ? 0.22 : 0.14) : Color.primary.opacity(0.07)
+  }
+
+  private var reviewAccentColor: Color {
+    colorScheme == .dark
+      ? Color(red: 1.0, green: 0.48, blue: 0.32)
+      : Color(red: 0.78, green: 0.17, blue: 0.1)
+  }
+
+  private var reviewButtonTextColor: Color {
+    colorScheme == .dark ? Color.black : Color.white
+  }
+
+  private func reviewActionTitle(_ review: WidgetDailyReview, compact: Bool) -> String {
+    if compact || family == .systemSmall {
+      return review.penaltyTotal > 0 ? "Apply" : "Done"
+    }
+    return review.actionTitle
+  }
+
+  private func footerDateText(compact: Bool) -> String {
+    guard compact && isReviewMode else {
+      return entry.logicalDate
+    }
+
+    let parser = DateFormatter()
+    parser.dateFormat = "EEE, MMM d"
+    if let date = parser.date(from: entry.logicalDate) {
+      let formatter = DateFormatter()
+      formatter.dateFormat = "M/d"
+      return formatter.string(from: date)
+    }
+    return entry.logicalDate
   }
 }
 
@@ -937,12 +1042,19 @@ private struct WidgetProgressBar: View {
 private struct WidgetCompactPageControls: View {
   let page: Int
   let totalPages: Int
+  let compact: Bool
+
+  init(page: Int, totalPages: Int, compact: Bool = false) {
+    self.page = page
+    self.totalPages = totalPages
+    self.compact = compact
+  }
 
   var body: some View {
-    HStack(spacing: 3) {
+    HStack(spacing: compact ? 2 : 3) {
       Button(intent: PageHabitsIntent(direction: -1, totalPages: totalPages)) {
         Image(systemName: "chevron.left")
-          .frame(width: 12, height: 12)
+          .frame(width: compact ? 10 : 12, height: 12)
       }
       .buttonStyle(.plain)
       .disabled(page <= 0)
@@ -952,13 +1064,13 @@ private struct WidgetCompactPageControls: View {
 
       Button(intent: PageHabitsIntent(direction: 1, totalPages: totalPages)) {
         Image(systemName: "chevron.right")
-          .frame(width: 12, height: 12)
+          .frame(width: compact ? 10 : 12, height: 12)
       }
       .buttonStyle(.plain)
       .disabled(page >= totalPages - 1)
     }
     .foregroundStyle(.secondary)
-    .padding(.horizontal, 5)
+    .padding(.horizontal, compact ? 3 : 5)
     .padding(.vertical, 1)
     .background(Capsule().fill(Color.primary.opacity(0.07)))
     .fixedSize(horizontal: true, vertical: false)
@@ -996,87 +1108,6 @@ private struct WidgetMessageView: View {
   }
 }
 
-private struct WidgetPenaltyModeView: View {
-  let reviewDate: String
-
-  @Environment(\.widgetFamily) private var family
-  @Environment(\.colorScheme) private var colorScheme
-
-  var body: some View {
-    VStack(spacing: spacing) {
-      VStack(spacing: family == .systemSmall ? 2 : 4) {
-        Image(systemName: "exclamationmark.triangle.fill")
-          .font(iconFont)
-          .foregroundStyle(accentColor)
-
-        Text("Apply Penalties")
-          .font(titleFont)
-          .fontWeight(.bold)
-          .foregroundStyle(titleColor)
-          .lineLimit(1)
-          .minimumScaleFactor(0.7)
-
-        Text(reviewDate)
-          .font(.caption2.monospacedDigit().weight(.semibold))
-          .foregroundStyle(accentColor)
-          .lineLimit(1)
-          .minimumScaleFactor(0.8)
-      }
-
-      Text(detailText)
-        .font(.caption2)
-        .foregroundStyle(.secondary)
-        .multilineTextAlignment(.center)
-        .lineLimit(family == .systemSmall ? 2 : 3)
-        .minimumScaleFactor(0.78)
-
-      Text("Open Hue 2")
-        .font(.caption2.weight(.semibold))
-        .foregroundStyle(buttonTextColor)
-        .padding(.horizontal, family == .systemSmall ? 9 : 11)
-        .padding(.vertical, family == .systemSmall ? 4 : 5)
-        .background(Capsule().fill(accentColor))
-    }
-    .padding(family == .systemSmall ? 10 : 14)
-    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-    .widgetURL(URL(string: "hue2://"))
-  }
-
-  private var spacing: CGFloat {
-    family == .systemSmall ? 7 : 9
-  }
-
-  private var iconFont: Font {
-    family == .systemSmall ? .title3.weight(.semibold) : .title2.weight(.semibold)
-  }
-
-  private var titleFont: Font {
-    family == .systemLarge ? .title3 : .headline
-  }
-
-  private var detailText: String {
-    family == .systemSmall
-      ? "Finish daily review first."
-      : "Finish the daily review before checking today's habits."
-  }
-
-  private var accentColor: Color {
-    colorScheme == .dark
-      ? Color(red: 1.0, green: 0.48, blue: 0.32)
-      : Color(red: 0.82, green: 0.2, blue: 0.12)
-  }
-
-  private var titleColor: Color {
-    colorScheme == .dark
-      ? Color(red: 0.9, green: 0.9, blue: 0.9)
-      : Color(red: 0.16, green: 0.16, blue: 0.16)
-  }
-
-  private var buttonTextColor: Color {
-    colorScheme == .dark ? Color.black : Color.white
-  }
-}
-
 struct Hue2Widget: Widget {
   var body: some WidgetConfiguration {
     StaticConfiguration(kind: Hue2WidgetConstants.kind, provider: Hue2WidgetProvider()) { entry in
@@ -1090,7 +1121,7 @@ struct Hue2Widget: Widget {
   }
 }
 
-private enum Hue2WidgetLoader {
+fileprivate enum Hue2WidgetLoader {
   static func load(family: WidgetFamily) async -> Hue2WidgetEntry {
     guard let token = Hue2WidgetStore.read(Hue2WidgetConstants.accessTokenKey) else {
       return Hue2WidgetEntry(
@@ -1110,21 +1141,23 @@ private enum Hue2WidgetLoader {
     do {
       let client = try Hue2APIClient(baseURLString: apiBaseURL, token: token)
       let user = try await client.fetchUser()
+      let rolloverHour = user.settings?.dayRolloverHour ?? 3
+
       if let pendingReview = user.settings?.pendingDailyReview {
-        let reviewDate = displayReviewDate(pendingReview.reviewDate)
-        return Hue2WidgetEntry(
-          date: Date(),
-          status: .pendingDailyReview(reviewDate),
-          logicalDate: reviewDate,
-          habits: [],
-          page: 0,
-          totalPages: 1,
-          totalVisibleHabits: 0
+        let reviewWindow = LogicalDayWindow.review(
+          reviewDate: pendingReview.reviewDate,
+          rolloverHour: rolloverHour
+        )
+        return try await loadReviewEntry(
+          client: client,
+          user: user,
+          family: family,
+          window: reviewWindow,
+          reviewDate: displayReviewDate(pendingReview.reviewDate)
         )
       }
 
       let habits = try await client.fetchHabits()
-      let rolloverHour = user.settings?.dayRolloverHour ?? 3
       let window = LogicalDayWindow.current(rolloverHour: rolloverHour)
 
       async let checksRequest = client.fetchChecks(start: window.start, end: window.end)
@@ -1230,6 +1263,113 @@ private enum Hue2WidgetLoader {
     }
   }
 
+  private static func loadReviewEntry(
+    client: Hue2APIClient,
+    user: APIUser,
+    family: WidgetFamily,
+    window: LogicalDayWindow,
+    reviewDate: String
+  ) async throws -> Hue2WidgetEntry {
+    async let habitsRequest = client.fetchHabits()
+    async let checksRequest = client.fetchChecks(start: window.start, end: window.end)
+    async let countsRequest = client.fetchCounts(start: window.start, end: window.end)
+    async let weightsRequest = client.fetchWeightUpdates(limit: 500)
+
+    let habits = try await habitsRequest
+    let checks = try await checksRequest
+    let counts = try await countsRequest
+    let weights = try await weightsRequest
+
+    let sortedHabits = habits
+      .filter { $0.deletedAt == nil && ($0.displaySettings?.hidden != true) }
+      .sorted(by: sortHabits)
+    let colorIndexByHabitId = Dictionary(uniqueKeysWithValues: sortedHabits.enumerated().map { ($0.element.id, $0.offset) })
+    let trackedHabitIds = trackedHabitIds(
+      checks: checks,
+      counts: counts,
+      weights: weights,
+      window: window
+    )
+
+    let visibleHabits = sortedHabits.filter { habit in
+      let weekdays = habit.scheduleSettings?.weekdays ?? [0, 1, 2, 3, 4, 5, 6]
+      return weekdays.contains(window.dayOfWeek) && !trackedHabitIds.contains(habit.id)
+    }
+
+    let pages = habitPages(for: visibleHabits, family: family)
+    let totalPages = max(1, pages.count)
+    let requestedPage = UserDefaults.standard.integer(forKey: Hue2WidgetConstants.habitPageKey)
+    let page = min(max(requestedPage, 0), totalPages - 1)
+    if page != requestedPage {
+      UserDefaults.standard.set(page, forKey: Hue2WidgetConstants.habitPageKey)
+    }
+
+    let pageHabits = pages.indices.contains(page) ? pages[page] : []
+    let subHabitsByParent = await fetchSubHabits(for: pageHabits, client: client)
+    let checkedSubHabitIds = Set(
+      checks.compactMap { check in
+        check.checked ? check.subHabitId : nil
+      }
+    )
+    let countsByHabit = Dictionary(grouping: counts, by: \.habitId)
+    let latestWeightByHabit = latestWeightsByHabit(weights)
+
+    let widgetHabits = pageHabits.map { habit in
+      let allSubHabits = (subHabitsByParent[habit.id] ?? [])
+        .sorted { $0.orderIndex < $1.orderIndex }
+      let visibleSubHabits = allSubHabits
+        .filter { !checkedSubHabitIds.contains($0.id) }
+        .map {
+          WidgetSubHabit(
+            id: $0.id,
+            name: $0.name,
+            checked: false
+          )
+        }
+      let checkedSubHabitCount = allSubHabits.filter { checkedSubHabitIds.contains($0.id) }.count
+      let countTotal = countsByHabit[habit.id]?.reduce(0) { $0 + $1.value } ?? 0
+      let latestWeight = latestWeightByHabit[habit.id]?.weight
+        ?? habit.weightSettings?.startingWeight
+
+      return WidgetHabit(
+        id: habit.id,
+        name: habit.name,
+        kind: habit.kind,
+        colorIndex: colorIndexByHabitId[habit.id] ?? 0,
+        colorBrightness: user.settings?.colorBrightness,
+        colorSaturation: user.settings?.colorSaturation,
+        subHabits: visibleSubHabits,
+        checkedSubHabitCount: checkedSubHabitCount,
+        totalSubHabitCount: allSubHabits.count,
+        countTotal: countTotal,
+        countTarget: habit.countSettings?.target,
+        countUnit: habit.countSettings?.unit,
+        countStep: max(habit.countSettings?.stepSize ?? 1, 0.1),
+        countIsGood: habit.countSettings?.countIsGood ?? true,
+        weightCurrent: latestWeight,
+        weightTarget: habit.weightSettings?.targetWeight,
+        weightUnit: habit.weightSettings?.unit,
+        weightStep: max(habit.weightSettings?.stepSize ?? 0.1, 0.1)
+      )
+    }
+
+    let penaltyTotal = visibleHabits.reduce(0) { total, habit in
+      total + max(habit.rewardSettings?.penaltyPoints ?? 0, 0)
+    }
+
+    return Hue2WidgetEntry(
+      date: Date(),
+      status: .pendingDailyReview(
+        WidgetDailyReview(reviewDate: reviewDate, penaltyTotal: penaltyTotal)
+      ),
+      logicalDate: reviewDate,
+      habits: widgetHabits,
+      page: page,
+      totalPages: totalPages,
+      totalVisibleHabits: visibleHabits.count
+    )
+  }
+
   private static func habitPages(for habits: [APIHabit], family: WidgetFamily) -> [[APIHabit]] {
     let capacity = pageCapacity(for: family)
     var pages: [[APIHabit]] = []
@@ -1296,21 +1436,29 @@ private enum Hue2WidgetLoader {
     return latest
   }
 
+  fileprivate static func trackedHabitIds(
+    checks: [APICheck],
+    counts: [APICount],
+    weights: [APIWeightUpdate],
+    window: LogicalDayWindow
+  ) -> Set<Int> {
+    var tracked = Set<Int>()
+    for check in checks where check.checked && check.subHabitId == nil {
+      if let habitId = check.habitId {
+        tracked.insert(habitId)
+      }
+    }
+    for count in counts {
+      tracked.insert(count.habitId)
+    }
+    for weight in weights where window.contains(weight.updateDate) {
+      tracked.insert(weight.habitId)
+    }
+    return tracked
+  }
+
   private static func displayReviewDate(_ value: String) -> String {
-    let isoWithFractionalSeconds = ISO8601DateFormatter()
-    isoWithFractionalSeconds.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-
-    let isoWithoutFractionalSeconds = ISO8601DateFormatter()
-    isoWithoutFractionalSeconds.formatOptions = [.withInternetDateTime]
-
-    let dateOnlyFormatter = DateFormatter()
-    dateOnlyFormatter.dateFormat = "yyyy-MM-dd"
-    dateOnlyFormatter.locale = Locale(identifier: "en_US_POSIX")
-
-    let parsedDate = isoWithFractionalSeconds.date(from: value)
-      ?? isoWithoutFractionalSeconds.date(from: value)
-      ?? dateOnlyFormatter.date(from: value)
-
+    let parsedDate = parseFlexibleDate(value)
     guard let parsedDate else {
       return value
     }
@@ -1342,6 +1490,14 @@ private struct Hue2APIClient {
 
   func fetchUser() async throws -> APIUser {
     try await request("/api/users/me")
+  }
+
+  func updateUserSettings(_ settings: [String: JSONValue]) async throws {
+    try await send(
+      "/api/users/me",
+      method: "PUT",
+      body: ["settings": settings.mapValues { $0.anyValue }]
+    )
   }
 
   func fetchHabits() async throws -> [APIHabit] {
@@ -1485,21 +1641,21 @@ private enum Hue2WidgetActions {
     return try Hue2APIClient(baseURLString: baseURL, token: token)
   }
 
-  static func mutationWindow(client: Hue2APIClient) async throws -> LogicalDayWindow? {
+  static func mutationWindow(client: Hue2APIClient) async throws -> LogicalDayWindow {
     let user = try await client.fetchUser()
-    if user.settings?.pendingDailyReview != nil {
-      WidgetCenter.shared.reloadTimelines(ofKind: Hue2WidgetConstants.kind)
-      return nil
+    let rolloverHour = user.settings?.dayRolloverHour ?? 3
+    if let pendingReview = user.settings?.pendingDailyReview {
+      return LogicalDayWindow.review(
+        reviewDate: pendingReview.reviewDate,
+        rolloverHour: rolloverHour
+      )
     }
-
-    return LogicalDayWindow.current(rolloverHour: user.settings?.dayRolloverHour ?? 3)
+    return LogicalDayWindow.current(rolloverHour: rolloverHour)
   }
 
   static func checkHabit(habitId: Int) async throws {
     let client = try client()
-    guard let window = try await mutationWindow(client: client) else {
-      return
-    }
+    let window = try await mutationWindow(client: client)
     try await client.createCheck(habitId: habitId, date: window.reference)
     WidgetCenter.shared.reloadTimelines(ofKind: Hue2WidgetConstants.kind)
   }
@@ -1510,9 +1666,7 @@ private enum Hue2WidgetActions {
     currentlyChecked: Bool
   ) async throws {
     let client = try client()
-    guard let window = try await mutationWindow(client: client) else {
-      return
-    }
+    let window = try await mutationWindow(client: client)
 
     if currentlyChecked {
       let checks = try await client.fetchChecks(
@@ -1541,9 +1695,7 @@ private enum Hue2WidgetActions {
     }
 
     let client = try client()
-    guard let window = try await mutationWindow(client: client) else {
-      return
-    }
+    let window = try await mutationWindow(client: client)
     try await client.createCount(habitId: habitId, value: delta, date: window.reference)
     WidgetCenter.shared.reloadTimelines(ofKind: Hue2WidgetConstants.kind)
   }
@@ -1561,11 +1713,71 @@ private enum Hue2WidgetActions {
     let signedStep = direction >= 0 ? step : -step
     let next = max(0.1, roundToTenths(currentWeight + signedStep))
     let client = try client()
-    guard let window = try await mutationWindow(client: client) else {
-      return
-    }
+    let window = try await mutationWindow(client: client)
     try await client.createWeight(habitId: habitId, weight: next, date: window.reference)
     WidgetCenter.shared.reloadTimelines(ofKind: Hue2WidgetConstants.kind)
+  }
+
+  static func applyDailyReviewPenalties() async throws {
+    let client = try client()
+    let user = try await client.fetchUser()
+    guard let pendingReview = user.settings?.pendingDailyReview else {
+      WidgetCenter.shared.reloadTimelines(ofKind: Hue2WidgetConstants.kind)
+      return
+    }
+
+    let rolloverHour = user.settings?.dayRolloverHour ?? 3
+    let reviewWindow = LogicalDayWindow.review(
+      reviewDate: pendingReview.reviewDate,
+      rolloverHour: rolloverHour
+    )
+    let remainingHabits = try await remainingReviewHabits(client: client, window: reviewWindow)
+    let penaltyTotal = remainingHabits.reduce(0) { total, habit in
+      total + max(habit.rewardSettings?.penaltyPoints ?? 0, 0)
+    }
+
+    var settings = user.rawSettings
+    let currentRewards = user.settings?.totalRewards
+      ?? settings["total_rewards"]?.doubleValue
+      ?? 0
+    settings["total_rewards"] = .number(currentRewards - penaltyTotal)
+    settings["pending_daily_review"] = .null
+    settings["last_session_date"] = .string(
+      LogicalDayWindow.current(rolloverHour: rolloverHour).dateKey
+    )
+
+    try await client.updateUserSettings(settings)
+    UserDefaults.standard.set(0, forKey: Hue2WidgetConstants.habitPageKey)
+    WidgetCenter.shared.reloadTimelines(ofKind: Hue2WidgetConstants.kind)
+  }
+
+  private static func remainingReviewHabits(
+    client: Hue2APIClient,
+    window: LogicalDayWindow
+  ) async throws -> [APIHabit] {
+    async let habitsRequest = client.fetchHabits()
+    async let checksRequest = client.fetchChecks(start: window.start, end: window.end)
+    async let countsRequest = client.fetchCounts(start: window.start, end: window.end)
+    async let weightsRequest = client.fetchWeightUpdates(limit: 500)
+
+    let habits = try await habitsRequest
+    let checks = try await checksRequest
+    let counts = try await countsRequest
+    let weights = try await weightsRequest
+
+    let trackedHabitIds = Hue2WidgetLoader.trackedHabitIds(
+      checks: checks,
+      counts: counts,
+      weights: weights,
+      window: window
+    )
+
+    return habits
+      .filter { $0.deletedAt == nil && ($0.displaySettings?.hidden != true) }
+      .filter { habit in
+        let weekdays = habit.scheduleSettings?.weekdays ?? [0, 1, 2, 3, 4, 5, 6]
+        return weekdays.contains(window.dayOfWeek) && !trackedHabitIds.contains(habit.id)
+      }
   }
 }
 
@@ -1686,6 +1898,16 @@ struct AdjustWeightIntent: AppIntent {
   }
 }
 
+struct ApplyDailyReviewPenaltiesIntent: AppIntent {
+  static let title: LocalizedStringResource = "Apply Daily Review Penalties"
+  static var openAppWhenRun = false
+
+  func perform() async throws -> some IntentResult {
+    try await Hue2WidgetActions.applyDailyReviewPenalties()
+    return .result()
+  }
+}
+
 struct PageHabitsIntent: AppIntent {
   static let title: LocalizedStringResource = "Page Habits"
   static var openAppWhenRun = false
@@ -1745,18 +1967,33 @@ struct PageSubHabitsIntent: AppIntent {
 
 private struct APIUser: Decodable {
   let settings: APIUserSettings?
+  let rawSettings: [String: JSONValue]
+
+  enum CodingKeys: String, CodingKey {
+    case settings
+  }
+
+  init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    settings = try container.decodeIfPresent(APIUserSettings.self, forKey: .settings)
+    rawSettings = try container.decodeIfPresent([String: JSONValue].self, forKey: .settings) ?? [:]
+  }
 }
 
 private struct APIUserSettings: Decodable {
   let dayRolloverHour: Int?
   let colorBrightness: Double?
   let colorSaturation: Double?
+  let totalRewards: Double?
+  let lastSessionDate: String?
   let pendingDailyReview: APIPendingDailyReview?
 
   enum CodingKeys: String, CodingKey {
     case dayRolloverHour = "day_rollover_hour"
     case colorBrightness = "color_brightness"
     case colorSaturation = "color_saturation"
+    case totalRewards = "total_rewards"
+    case lastSessionDate = "last_session_date"
     case pendingDailyReview = "pending_daily_review"
   }
 }
@@ -1771,6 +2008,79 @@ private struct APIPendingDailyReview: Decodable {
   }
 }
 
+private enum JSONValue: Codable {
+  case string(String)
+  case number(Double)
+  case bool(Bool)
+  case object([String: JSONValue])
+  case array([JSONValue])
+  case null
+
+  init(from decoder: Decoder) throws {
+    let container = try decoder.singleValueContainer()
+    if container.decodeNil() {
+      self = .null
+    } else if let value = try? container.decode(Bool.self) {
+      self = .bool(value)
+    } else if let value = try? container.decode(Double.self) {
+      self = .number(value)
+    } else if let value = try? container.decode(String.self) {
+      self = .string(value)
+    } else if let value = try? container.decode([JSONValue].self) {
+      self = .array(value)
+    } else if let value = try? container.decode([String: JSONValue].self) {
+      self = .object(value)
+    } else {
+      throw DecodingError.dataCorruptedError(
+        in: container,
+        debugDescription: "Unsupported JSON value"
+      )
+    }
+  }
+
+  func encode(to encoder: Encoder) throws {
+    var container = encoder.singleValueContainer()
+    switch self {
+    case let .string(value):
+      try container.encode(value)
+    case let .number(value):
+      try container.encode(value)
+    case let .bool(value):
+      try container.encode(value)
+    case let .object(value):
+      try container.encode(value)
+    case let .array(value):
+      try container.encode(value)
+    case .null:
+      try container.encodeNil()
+    }
+  }
+
+  var doubleValue: Double? {
+    if case let .number(value) = self {
+      return value
+    }
+    return nil
+  }
+
+  var anyValue: Any {
+    switch self {
+    case let .string(value):
+      return value
+    case let .number(value):
+      return value
+    case let .bool(value):
+      return value
+    case let .object(value):
+      return value.mapValues { $0.anyValue }
+    case let .array(value):
+      return value.map { $0.anyValue }
+    case .null:
+      return NSNull()
+    }
+  }
+}
+
 private struct APIHabit: Decodable {
   let id: Int
   let name: String
@@ -1779,6 +2089,7 @@ private struct APIHabit: Decodable {
   let countSettings: APICountSettings?
   let weightSettings: APIWeightSettings?
   let scheduleSettings: APIScheduleSettings?
+  let rewardSettings: APIRewardSettings?
   let displaySettings: APIDisplaySettings?
   let deletedAt: String?
   let createdAt: String
@@ -1801,6 +2112,7 @@ private struct APIHabit: Decodable {
     case countSettings = "count_settings"
     case weightSettings = "weight_settings"
     case scheduleSettings = "schedule_settings"
+    case rewardSettings = "reward_settings"
     case displaySettings = "display_settings"
     case deletedAt = "deleted_at"
     case createdAt = "created_at"
@@ -1837,6 +2149,14 @@ private struct APIWeightSettings: Decodable {
 
 private struct APIScheduleSettings: Decodable {
   let weekdays: [Int]?
+}
+
+private struct APIRewardSettings: Decodable {
+  let penaltyPoints: Double?
+
+  enum CodingKeys: String, CodingKey {
+    case penaltyPoints = "penalty_points"
+  }
 }
 
 private struct APIDisplaySettings: Decodable {
@@ -1898,6 +2218,7 @@ private struct LogicalDayWindow {
   let end: Date
   let dayOfWeek: Int
   let label: String
+  let dateKey: String
 
   static func current(rolloverHour: Int) -> LogicalDayWindow {
     let reference = Date()
@@ -1915,16 +2236,56 @@ private struct LogicalDayWindow {
     let end = calendar.date(byAdding: .day, value: 1, to: start) ?? reference
     let dayOfWeek = calendar.component(.weekday, from: start) - 1
 
-    let formatter = DateFormatter()
-    formatter.dateFormat = "EEE, MMM d"
-
     return LogicalDayWindow(
       reference: reference,
       start: start,
       end: end,
       dayOfWeek: dayOfWeek,
-      label: formatter.string(from: start)
+      label: displayLabel(from: start),
+      dateKey: dateKey(from: start)
     )
+  }
+
+  static func review(reviewDate: String, rolloverHour: Int) -> LogicalDayWindow {
+    let referenceDate = parseFlexibleDate(reviewDate) ?? Date()
+    let calendar = Calendar.current
+    var components = calendar.dateComponents([.year, .month, .day], from: referenceDate)
+    components.hour = rolloverHour
+    components.minute = 0
+    components.second = 0
+
+    let start = calendar.date(from: components) ?? referenceDate
+    let end = calendar.date(byAdding: .day, value: 1, to: start) ?? referenceDate
+    let dayOfWeek = calendar.component(.weekday, from: start) - 1
+
+    return LogicalDayWindow(
+      reference: start,
+      start: start,
+      end: end,
+      dayOfWeek: dayOfWeek,
+      label: displayLabel(from: start),
+      dateKey: dateKey(from: start)
+    )
+  }
+
+  func contains(_ value: String) -> Bool {
+    guard let date = parseFlexibleDate(value) else {
+      return false
+    }
+    return date >= start && date < end
+  }
+
+  private static func displayLabel(from date: Date) -> String {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "EEE, MMM d"
+    return formatter.string(from: date)
+  }
+
+  private static func dateKey(from date: Date) -> String {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyy-MM-dd"
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    return formatter.string(from: date)
   }
 }
 
@@ -1933,6 +2294,22 @@ private enum Hue2APIError: Error {
   case invalidURL
   case missingToken
   case requestFailed
+}
+
+private func parseFlexibleDate(_ value: String) -> Date? {
+  let isoWithFractionalSeconds = ISO8601DateFormatter()
+  isoWithFractionalSeconds.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+  let isoWithoutFractionalSeconds = ISO8601DateFormatter()
+  isoWithoutFractionalSeconds.formatOptions = [.withInternetDateTime]
+
+  let dateOnlyFormatter = DateFormatter()
+  dateOnlyFormatter.dateFormat = "yyyy-MM-dd"
+  dateOnlyFormatter.locale = Locale(identifier: "en_US_POSIX")
+
+  return isoWithFractionalSeconds.date(from: value)
+    ?? isoWithoutFractionalSeconds.date(from: value)
+    ?? dateOnlyFormatter.date(from: value)
 }
 
 private func isoString(_ date: Date) -> String {

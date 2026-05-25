@@ -16,6 +16,7 @@ import { Colors } from '@/constants/Colors';
 import { ThemedHeader } from '@/components/ThemedHeader';
 import { DailyReviewModal } from '@/components/DailyReviewModal';
 import { getLogicalDate, getLogicalDateTimestamp, getCurrentDate } from '@/contexts/DevDateContext';
+import { shouldDismissCompletedDailyReview } from '@/lib/habits/dailyReview';
 
 export default function RootLayout() {
   return (
@@ -209,6 +210,32 @@ function RootLayoutNav() {
     const interval = setInterval(() => checkForDailyReview('interval'), 5000);
     return () => clearInterval(interval);
   }, [token, userSettings, checkForDailyReview]);
+
+  useEffect(() => {
+    if (!settingsLoaded) return;
+
+    const rolloverHour = userSettings?.day_rollover_hour ?? 3;
+    if (
+      shouldDismissCompletedDailyReview({
+        isVisible: showDailyReview,
+        pendingDailyReview: userSettings?.pending_daily_review,
+        lastSessionDate: userSettings?.last_session_date,
+        reviewDate,
+        rolloverHour,
+        currentDate: getCurrentDate(),
+      })
+    ) {
+      console.log('Daily review completed elsewhere - closing stale modal');
+      setShowDailyReview(false);
+    }
+  }, [
+    settingsLoaded,
+    showDailyReview,
+    userSettings?.pending_daily_review,
+    userSettings?.last_session_date,
+    userSettings?.day_rollover_hour,
+    reviewDate,
+  ]);
 
   // Also check when app/page gains focus (RN + web)
   useEffect(() => {

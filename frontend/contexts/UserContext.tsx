@@ -2,21 +2,12 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { HabitService } from '@/lib/services/habitService';
 import { useAuth } from '@/auth/AuthContext';
 import { useRefetchOnFocus } from '@/hooks/useRefetchOnFocus';
-
-interface UserSettings {
-  reward_unit?: string;
-  reward_unit_position?: 'before' | 'after';
-  total_rewards?: number;
-  day_rollover_hour?: number; // Hour of day when habits roll over to next day (0-23, default 3)
-  color_brightness?: number; // 0-100, inverts in dark mode
-  color_saturation?: number; // 0-100, how colorful vs gray
-  color_frequency?: number; // Number of distinct hues before repeating (palette size)
-  last_session_date?: string; // Last date the user was active (YYYY-MM-DD format)
-  pending_daily_review?: {
-    review_date: string;
-    created_at: string;
-  } | null; // Tracks if there's a pending daily review that needs completion
-}
+import {
+  DEFAULT_USER_SETTINGS,
+  UserSettings,
+  mergeUserSettingsUpdate,
+  normalizeUserSettings,
+} from '@/lib/userSettings';
 
 interface RewardAnimation {
   id: string;
@@ -44,19 +35,13 @@ interface UserContextType {
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const [userSettings, setUserSettings] = useState<UserSettings>({
-    reward_unit: '$',
-    reward_unit_position: 'before',
-    total_rewards: 0,
-    day_rollover_hour: 3,
-    color_brightness: 50, // Default 50% brightness
-    color_saturation: 60, // Default 60% saturation for tame colors
-    color_frequency: undefined, // Default: span all habits unless user specifies
-  });
+  const [userSettings, setUserSettings] = useState<UserSettings>(DEFAULT_USER_SETTINGS);
   const [totalRewards, setTotalRewards] = useState(0);
   const [rewardAnimations, setRewardAnimations] = useState<RewardAnimation[]>([]);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const { token } = useAuth();
+  const userSettingsRef = useRef<UserSettings>(DEFAULT_USER_SETTINGS);
+  const totalRewardsRef = useRef(0);
   const settingsLoadedRef = useRef(false);
   const loadUserDataPromiseRef = useRef<Promise<void> | null>(null);
 
@@ -86,17 +71,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             typeof settings.last_session_date
           );
 
-          let userSettings = {
-            reward_unit: settings.reward_unit || '$',
-            reward_unit_position: settings.reward_unit_position || 'before',
-            total_rewards: settings.total_rewards || 0,
-            day_rollover_hour: settings.day_rollover_hour ?? 3,
-            color_brightness: settings.color_brightness ?? 50,
-            color_saturation: settings.color_saturation ?? 60,
-            color_frequency: settings.color_frequency, // optional, undefined means span all habits
-            last_session_date: settings.last_session_date,
-            pending_daily_review: settings.pending_daily_review || null,
-          };
+          let normalizedSettings = normalizeUserSettings(settings);
 
           const shouldInitLastSession = !settings.last_session_date;
           if (shouldInitLastSession) {
@@ -104,17 +79,19 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             const { getLogicalDate } = await import('@/contexts/DevDateContext');
             const rolloverHour = settings.day_rollover_hour ?? 3;
             const todayLogical = getLogicalDate(rolloverHour);
-            userSettings = { ...userSettings, last_session_date: todayLogical };
+            normalizedSettings = { ...normalizedSettings, last_session_date: todayLogical };
             console.log('📅 Initialized last_session_date to:', todayLogical);
           }
 
-          setUserSettings(userSettings);
-          setTotalRewards(settings.total_rewards || 0);
+          userSettingsRef.current = normalizedSettings;
+          totalRewardsRef.current = settings.total_rewards || 0;
+          setUserSettings(normalizedSettings);
+          setTotalRewards(totalRewardsRef.current);
           settingsLoadedRef.current = true;
           setSettingsLoaded(true);
 
           if (shouldInitLastSession) {
-            await HabitService.updateCurrentUser({ settings: userSettings }, token);
+            await HabitService.updateCurrentUser({ settings: normalizedSettings }, token);
           } else {
             console.log('📅 last_session_date already exists:', settings.last_session_date);
           }
@@ -146,24 +123,20 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    let previous: UserSettings | null = null;
-    let updatedSettings: UserSettings | null = null;
-    let previousTotalRewards = userSettings.total_rewards ?? 0;
+    const previous = userSettingsRef.current;
+    const previousTotalRewards = totalRewardsRef.current;
+    const settingsToSave = mergeUserSettingsUpdate(previous, newSettings);
 
-    setUserSettings(prev => {
-      previous = prev;
-      previousTotalRewards = prev.total_rewards ?? 0;
-      updatedSettings = { ...prev, ...newSettings };
-      return updatedSettings;
-    });
+    userSettingsRef.current = settingsToSave;
+    setUserSettings(settingsToSave);
 
     // Optimistic update
     if (newSettings.total_rewards !== undefined) {
+      totalRewardsRef.current = newSettings.total_rewards;
       setTotalRewards(newSettings.total_rewards);
     }
 
     try {
-      const settingsToSave = updatedSettings ?? { ...userSettings, ...newSettings };
       const response = await HabitService.updateCurrentUser({ settings: settingsToSave }, token);
 
       // If backend failed silently, keep optimistic state but log
@@ -173,10 +146,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Error updating user settings, reverting:', error);
       // Revert on error
-      if (previous) {
-        setUserSettings(previous);
-      }
+      userSettingsRef.current = previous;
+      setUserSettings(previous);
       if (newSettings.total_rewards !== undefined) {
+        totalRewardsRef.current = previousTotalRewards;
         setTotalRewards(previousTotalRewards);
       }
       throw error;
@@ -184,8 +157,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addReward = async (amount: number) => {
-    const newTotal = totalRewards + amount;
+    const previousTotal = totalRewardsRef.current;
+    const newTotal = previousTotal + amount;
     // Optimistic update for immediate UI feedback
+    totalRewardsRef.current = newTotal;
     setTotalRewards(newTotal);
 
     // Add animation
@@ -201,14 +176,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       await updateUserSettings({ total_rewards: newTotal });
     } catch (error) {
       // Revert on error
-      setTotalRewards(totalRewards);
+      totalRewardsRef.current = previousTotal;
+      setTotalRewards(previousTotal);
       throw error;
     }
   };
 
   const subtractReward = async (amount: number) => {
-    const newTotal = totalRewards - amount;
+    const previousTotal = totalRewardsRef.current;
+    const newTotal = previousTotal - amount;
     // Optimistic update for immediate UI feedback
+    totalRewardsRef.current = newTotal;
     setTotalRewards(newTotal);
 
     // Add animation (negative amount)
@@ -224,7 +202,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       await updateUserSettings({ total_rewards: newTotal });
     } catch (error) {
       // Revert on error
-      setTotalRewards(totalRewards);
+      totalRewardsRef.current = previousTotal;
+      setTotalRewards(previousTotal);
       throw error;
     }
   };
@@ -252,6 +231,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     settingsLoadedRef.current = false;
     setSettingsLoaded(false);
+    userSettingsRef.current = DEFAULT_USER_SETTINGS;
+    totalRewardsRef.current = 0;
     loadUserData();
   }, [token]);
 

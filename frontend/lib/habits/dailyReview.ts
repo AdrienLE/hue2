@@ -33,6 +33,35 @@ export function getReviewDateKey(rolloverHour: number, reviewBaseDate: Date): st
   return getLogicalDate(rolloverHour, reviewBaseDate);
 }
 
+export function shouldDismissCompletedDailyReview({
+  isVisible,
+  pendingDailyReview,
+  lastSessionDate,
+  reviewDate,
+  rolloverHour,
+  currentDate = new Date(),
+}: {
+  isVisible: boolean;
+  pendingDailyReview?: { review_date: string; created_at: string } | null;
+  lastSessionDate?: string;
+  reviewDate: Date;
+  rolloverHour: number;
+  currentDate?: Date;
+}): boolean {
+  if (!isVisible || pendingDailyReview || !lastSessionDate) {
+    return false;
+  }
+
+  const currentLogicalDate = getLogicalDate(rolloverHour, currentDate);
+  if (lastSessionDate !== currentLogicalDate) {
+    return false;
+  }
+
+  const reviewBaseDate = getReviewBaseDate(reviewDate, rolloverHour);
+  const reviewDateKey = getReviewDateKey(rolloverHour, reviewBaseDate);
+  return reviewDateKey !== currentLogicalDate;
+}
+
 export function getUncheckedReviewHabits({
   habits,
   checks,

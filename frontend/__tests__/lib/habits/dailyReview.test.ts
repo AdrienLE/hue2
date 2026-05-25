@@ -3,6 +3,7 @@ import {
   getReviewBaseDate,
   getReviewCompletionSessionDate,
   getUncheckedReviewHabits,
+  shouldDismissCompletedDailyReview,
 } from '@/lib/habits/dailyReview';
 import type { Check, Count, Habit, WeightUpdate } from '@/lib/types/habits';
 
@@ -99,5 +100,47 @@ describe('daily review helpers', () => {
     expect(getReviewCompletionSessionDate(rolloverHour, new Date(2026, 4, 25, 2, 0, 0))).toBe(
       '2026-05-24'
     );
+  });
+
+  it('dismisses a stale open modal when another surface has completed the review', () => {
+    expect(
+      shouldDismissCompletedDailyReview({
+        isVisible: true,
+        pendingDailyReview: null,
+        lastSessionDate: '2026-05-25',
+        reviewDate: new Date(2026, 4, 24, 0, 0, 0),
+        rolloverHour,
+        currentDate: new Date(2026, 4, 25, 4, 0, 0),
+      })
+    ).toBe(true);
+  });
+
+  it('keeps an intentionally opened current-day review visible', () => {
+    expect(
+      shouldDismissCompletedDailyReview({
+        isVisible: true,
+        pendingDailyReview: null,
+        lastSessionDate: '2026-05-25',
+        reviewDate: new Date(2026, 4, 25, 0, 0, 0),
+        rolloverHour,
+        currentDate: new Date(2026, 4, 25, 4, 0, 0),
+      })
+    ).toBe(false);
+  });
+
+  it('keeps a stale-day review open while the server still has pending work', () => {
+    expect(
+      shouldDismissCompletedDailyReview({
+        isVisible: true,
+        pendingDailyReview: {
+          review_date: '2026-05-24T07:00:00.000Z',
+          created_at: '2026-05-25T11:00:00.000Z',
+        },
+        lastSessionDate: '2026-05-24',
+        reviewDate: new Date(2026, 4, 24, 0, 0, 0),
+        rolloverHour,
+        currentDate: new Date(2026, 4, 25, 4, 0, 0),
+      })
+    ).toBe(false);
   });
 });

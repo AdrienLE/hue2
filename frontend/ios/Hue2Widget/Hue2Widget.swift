@@ -2308,12 +2308,27 @@ private func parseFlexibleDate(_ value: String) -> Date? {
   let isoWithoutFractionalSeconds = ISO8601DateFormatter()
   isoWithoutFractionalSeconds.formatOptions = [.withInternetDateTime]
 
+  let localDateTimeWithMicroseconds = DateFormatter()
+  localDateTimeWithMicroseconds.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS"
+  localDateTimeWithMicroseconds.locale = Locale(identifier: "en_US_POSIX")
+
+  let localDateTimeWithMilliseconds = DateFormatter()
+  localDateTimeWithMilliseconds.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS"
+  localDateTimeWithMilliseconds.locale = Locale(identifier: "en_US_POSIX")
+
+  let localDateTimeWithoutFractionalSeconds = DateFormatter()
+  localDateTimeWithoutFractionalSeconds.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+  localDateTimeWithoutFractionalSeconds.locale = Locale(identifier: "en_US_POSIX")
+
   let dateOnlyFormatter = DateFormatter()
   dateOnlyFormatter.dateFormat = "yyyy-MM-dd"
   dateOnlyFormatter.locale = Locale(identifier: "en_US_POSIX")
 
   return isoWithFractionalSeconds.date(from: value)
     ?? isoWithoutFractionalSeconds.date(from: value)
+    ?? localDateTimeWithMicroseconds.date(from: value)
+    ?? localDateTimeWithMilliseconds.date(from: value)
+    ?? localDateTimeWithoutFractionalSeconds.date(from: value)
     ?? dateOnlyFormatter.date(from: value)
 }
 

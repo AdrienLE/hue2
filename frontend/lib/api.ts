@@ -40,21 +40,30 @@ class BaseApiClient implements ApiClient {
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
     const url = `${this.baseUrl}${endpoint}`;
+    const method = options.method || 'GET';
+    const isGetRequest = method.toUpperCase() === 'GET';
 
-    logApiDebug(`API ${options.method || 'GET'}: ${url}`);
+    logApiDebug(`API ${method}: ${url}`);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
     try {
+      const headers = {
+        ...(isGetRequest && { 'Cache-Control': 'no-cache', Pragma: 'no-cache' }),
+        ...(options.headers as Record<string, string> | undefined),
+      };
+
       const response = await fetch(url, {
         ...options,
+        headers,
+        cache: isGetRequest ? 'no-store' : options.cache,
         signal: controller.signal,
       });
 
       clearTimeout(timeoutId);
 
-      logApiDebug(`Response ${response.status}: ${options.method || 'GET'} ${url}`);
+      logApiDebug(`Response ${response.status}: ${method} ${url}`);
 
       if (!response.ok) {
         // Handle 401 Unauthorized specially
@@ -81,7 +90,7 @@ class BaseApiClient implements ApiClient {
     } catch (error: any) {
       clearTimeout(timeoutId);
 
-      logApiDebug(`Error: ${options.method || 'GET'} ${url} - ${error.message || 'Network error'}`);
+      logApiDebug(`Error: ${method} ${url} - ${error.message || 'Network error'}`);
       logApiDebug('Full API error:', error);
 
       return {

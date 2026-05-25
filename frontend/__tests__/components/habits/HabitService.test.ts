@@ -63,6 +63,22 @@ describe('HabitService', () => {
       expect(mockApi.put).toHaveBeenCalledWith('/api/users/me', updateData, mockToken);
       expect(result.data).toEqual(mockUpdatedUser);
     });
+
+    it('should request a widget refresh after updating user settings', async () => {
+      const updateData = {
+        settings: {
+          total_rewards: 8,
+          pending_daily_review: null,
+          last_session_date: '2026-05-25',
+        },
+      };
+
+      mockApi.put.mockResolvedValue({ data: { id: 'user-123', ...updateData }, status: 200 });
+
+      await HabitService.updateCurrentUser(updateData, mockToken);
+
+      expect(mockRequestWidgetRefresh).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('Habit Management', () => {
@@ -254,6 +270,21 @@ describe('HabitService', () => {
         mockToken
       );
       expect(result.data).toEqual(mockChecks);
+    });
+
+    it('should include review-window limits in check filters', async () => {
+      mockApi.get.mockResolvedValue({ data: [], status: 200 });
+
+      await HabitService.getChecks(mockToken, {
+        startDate: '2026-05-24T10:00:00.000Z',
+        endDate: '2026-05-25T09:59:59.999Z',
+        limit: 500,
+      });
+
+      expect(mockApi.get).toHaveBeenCalledWith(
+        '/api/checks?start_date=2026-05-24T10%3A00%3A00.000Z&end_date=2026-05-25T09%3A59%3A59.999Z&limit=500',
+        mockToken
+      );
     });
 
     it('should create check', async () => {

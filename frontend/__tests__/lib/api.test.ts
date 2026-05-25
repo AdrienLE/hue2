@@ -31,7 +31,10 @@ describe('ApiClient', () => {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache',
+            Pragma: 'no-cache',
           },
+          cache: 'no-store',
         })
       );
       expect(result.data).toEqual(mockData);
@@ -53,8 +56,11 @@ describe('ApiClient', () => {
         expect.objectContaining({
           headers: {
             'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache',
+            Pragma: 'no-cache',
             Authorization: 'Bearer test-token',
           },
+          cache: 'no-store',
         })
       );
     });

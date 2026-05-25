@@ -6,11 +6,14 @@ import { useThemeColor } from '@/hooks/useThemeColor';
 import { useAuth } from '@/auth/AuthContext';
 import { useUser } from '@/contexts/UserContext';
 import { HabitService } from '@/lib/services/habitService';
-import { getHabitColor } from '@/constants/Colors';
 import { HabitCard } from './habits/HabitCard';
-import { getLogicalDate, getCurrentDate } from '@/contexts/DevDateContext';
-import { isTimestampOnLogicalDay } from '@/lib/logicalTime';
-import { getCheckedHabitIdsToday } from '@/lib/habits/checkFilters';
+import { getCurrentDate } from '@/contexts/DevDateContext';
+import {
+  getReviewActivityWindow,
+  getReviewCompletionSessionDate,
+  getReviewDateKey,
+  getUncheckedReviewHabits,
+} from '@/lib/habits/dailyReview';
 import type { Habit } from '@/lib/types/habits';
 
 interface DailyReviewModalProps {
@@ -34,16 +37,11 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
 
   const handlePerfectCompletion = async () => {
     try {
-      // Calculate the next logical date to advance to
       const rolloverHour = userSettings?.day_rollover_hour ?? 3;
-      const currentLogicalDate = getLogicalDate(rolloverHour);
-      const nextDate = new Date(currentLogicalDate + 'T00:00:00');
-      nextDate.setDate(nextDate.getDate() + 1);
-      const nextLogicalDate = nextDate.toLocaleDateString('en-CA'); // YYYY-MM-DD format
+      const completedSessionDate = getReviewCompletionSessionDate(rolloverHour, getCurrentDate());
 
-      // Update last session date to advance to next day
-      await updateLastSessionDate(nextLogicalDate);
-      console.log('Perfect completion - advanced to next day:', nextLogicalDate);
+      await updateLastSessionDate(completedSessionDate);
+      console.log('Perfect completion - advanced to current logical day:', completedSessionDate);
 
       await clearPendingDailyReview();
       onClose();
@@ -82,9 +80,13 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
       }
 
       const rolloverHour = userSettings?.day_rollover_hour ?? 3;
-      const reviewBaseDate = new Date(reviewDate);
-      reviewBaseDate.setHours(rolloverHour, 0, 0, 0);
-      const reviewDateStr = getLogicalDate(rolloverHour, reviewBaseDate);
+      const {
+        baseDate: reviewBaseDate,
+        startDate,
+        endDate,
+        limit,
+      } = getReviewActivityWindow(reviewDate, rolloverHour);
+      const reviewDateStr = getReviewDateKey(rolloverHour, reviewBaseDate);
       console.log(
         'DailyReview: Review date string:',
         reviewDateStr,
@@ -94,49 +96,15 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
 
       // Get all types of activity data for the review date
       const [checksResponse, countsResponse, weightsResponse] = await Promise.all([
-        HabitService.getChecks(token),
-        HabitService.getCounts(token),
-        HabitService.getWeightUpdates(token, {}),
+        HabitService.getChecks(token, { startDate, endDate, limit }),
+        HabitService.getCounts(token, { startDate, endDate, limit }),
+        HabitService.getWeightUpdates(token, { startDate, endDate, limit }),
       ]);
 
       console.log('DailyReview: All checks:', checksResponse.data);
       console.log('DailyReview: All counts:', countsResponse.data);
       console.log('DailyReview: All weights:', weightsResponse.data);
 
-      // Get habit IDs that have been tracked for this date
-      const trackedHabitIds = new Set();
-
-      // Normal habits: checked in checks table
-      const allChecks = checksResponse.data || [];
-      console.log('DailyReview: Filtering checks for logical date:', reviewDateStr);
-      const checkedHabitIds = getCheckedHabitIdsToday(allChecks, rolloverHour, reviewBaseDate);
-      checkedHabitIds.forEach(habitId => {
-        console.log('DailyReview: Normal habit checked:', habitId);
-        trackedHabitIds.add(habitId);
-      });
-
-      // Count habits: have count entries for the date
-      (countsResponse.data || [])
-        .filter(count => isTimestampOnLogicalDay(count.count_date, rolloverHour, reviewBaseDate))
-        .forEach(count => {
-          console.log('DailyReview: Count habit tracked:', count.habit_id);
-          trackedHabitIds.add(count.habit_id);
-        });
-
-      // Weight habits: have weight updates for the date
-      (weightsResponse.data || [])
-        .filter(weight => isTimestampOnLogicalDay(weight.update_date, rolloverHour, reviewBaseDate))
-        .forEach(weight => {
-          console.log('DailyReview: Weight habit tracked:', weight.habit_id);
-          trackedHabitIds.add(weight.habit_id);
-        });
-
-      console.log('DailyReview: All tracked habit IDs for date:', Array.from(trackedHabitIds));
-
-      // Get the day of week for the review date (0 = Sunday, 6 = Saturday)
-      const reviewDayOfWeek = reviewDate.getDay();
-
-      // Filter to habits that were scheduled for this day AND weren't tracked
       const allHabits = habitsResponse.data;
       console.log(
         'DailyReview: All habits:',
@@ -148,13 +116,13 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
         }))
       );
 
-      const unchecked = allHabits.filter(habit => {
-        // Check if habit was scheduled for this day of week
-        const weekdays = habit.schedule_settings?.weekdays || [0, 1, 2, 3, 4, 5, 6];
-        const wasScheduledForThisDay = weekdays.includes(reviewDayOfWeek);
-
-        // Only include if it was scheduled AND not tracked
-        return wasScheduledForThisDay && !trackedHabitIds.has(habit.id);
+      const unchecked = getUncheckedReviewHabits({
+        habits: allHabits,
+        checks: checksResponse.data || [],
+        counts: countsResponse.data || [],
+        weights: weightsResponse.data || [],
+        rolloverHour,
+        reviewBaseDate,
       });
       console.log(
         'DailyReview: Untracked habits:',
@@ -194,23 +162,18 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
         }
       }
 
-      // Calculate the next logical date to advance to
       const rolloverHour = userSettings?.day_rollover_hour ?? 3;
-      const currentLogicalDate = getLogicalDate(rolloverHour);
-      const nextDate = new Date(currentLogicalDate + 'T00:00:00');
-      nextDate.setDate(nextDate.getDate() + 1);
-      const nextLogicalDate = nextDate.toLocaleDateString('en-CA'); // YYYY-MM-DD format
+      const completedSessionDate = getReviewCompletionSessionDate(rolloverHour, getCurrentDate());
 
       if (totalPenalty > 0) {
         console.log('DailyReview: Subtracting reward:', totalPenalty);
         await subtractReward(totalPenalty);
         console.log(
           'DailyReview: Reward subtracted, updating last session date to:',
-          nextLogicalDate
+          completedSessionDate
         );
-        // Update last session date to advance to next day
-        await updateLastSessionDate(nextLogicalDate);
-        console.log('Applied penalties and advanced to next day:', nextLogicalDate);
+        await updateLastSessionDate(completedSessionDate);
+        console.log('Applied penalties and advanced to current logical day:', completedSessionDate);
 
         // Close modal immediately and then show alert
         console.log('DailyReview: Closing modal after penalties');
@@ -222,11 +185,10 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
       } else {
         console.log(
           'DailyReview: No penalties to apply, updating last session date to:',
-          nextLogicalDate
+          completedSessionDate
         );
-        // Even with no penalties, advance to next day
-        await updateLastSessionDate(nextLogicalDate);
-        console.log('No penalties but advanced to next day:', nextLogicalDate);
+        await updateLastSessionDate(completedSessionDate);
+        console.log('No penalties but advanced to current logical day:', completedSessionDate);
 
         // Close modal immediately and then show alert
         console.log('DailyReview: Closing modal after no penalties');
@@ -251,7 +213,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
       setShowCelebration(false);
       loadUncheckedHabits();
     }
-  }, [visible, reviewDate, token]);
+  }, [visible, reviewDate, token, userSettings?.day_rollover_hour]);
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {

@@ -1616,8 +1616,13 @@ private struct Hue2APIClient {
 
     var request = URLRequest(url: url)
     request.httpMethod = method
+    request.cachePolicy = .reloadIgnoringLocalCacheData
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    if method == "GET" {
+      request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
+      request.setValue("no-cache", forHTTPHeaderField: "Pragma")
+    }
     if let body {
       request.httpBody = try JSONSerialization.data(withJSONObject: body)
     }

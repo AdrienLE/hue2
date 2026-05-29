@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
 import {
   exchangeCodeAsync,
@@ -15,6 +14,7 @@ import { useRouter } from 'expo-router';
 import jwtDecode from 'jwt-decode';
 import { APP_CONFIG } from '@/lib/config';
 import { clearWidgetAuthContext, syncWidgetAuthContext } from '@/lib/widgetBridge';
+import { authStorage } from './storage';
 
 // Close the Auth0 popup on web if a redirect back to the app occurred.
 WebBrowser.maybeCompleteAuthSession();
@@ -68,31 +68,6 @@ type StoredAuth = {
 
 const makeRedirectUriWithProxy = (options: RedirectUriOptionsWithProxy) =>
   makeRedirectUri(options as unknown as Parameters<typeof makeRedirectUri>[0]);
-
-const hasWindowStorage = () => Platform.OS === 'web' && typeof window !== 'undefined';
-
-const authStorage = {
-  async getItem(key: string): Promise<string | null> {
-    if (hasWindowStorage()) {
-      return window.sessionStorage.getItem(key);
-    }
-    return SecureStore.getItemAsync(key);
-  },
-  async setItem(key: string, value: string): Promise<void> {
-    if (hasWindowStorage()) {
-      window.sessionStorage.setItem(key, value);
-      return;
-    }
-    await SecureStore.setItemAsync(key, value);
-  },
-  async removeItem(key: string): Promise<void> {
-    if (hasWindowStorage()) {
-      window.sessionStorage.removeItem(key);
-      return;
-    }
-    await SecureStore.deleteItemAsync(key);
-  },
-};
 
 const readStoredAuth = async (): Promise<StoredAuth> => {
   const [accessToken, refreshToken, expiresAtRaw] = await Promise.all([

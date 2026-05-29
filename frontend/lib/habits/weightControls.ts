@@ -42,11 +42,11 @@ export function getInlineWeightInputWidth(
   platform: WeightInputPlatform = 'web'
 ): number {
   if (!value) {
-    return platform === 'ios' ? 72 : 52;
+    return platform === 'ios' ? 72 : 56;
   }
 
   if (platform !== 'ios') {
-    return Math.min(62, Math.max(30, value.length * 10 + 6));
+    return Math.min(104, Math.max(44, value.length * 13 + 16));
   }
 
   const digitCount = (value.match(/\d/g) ?? []).length;

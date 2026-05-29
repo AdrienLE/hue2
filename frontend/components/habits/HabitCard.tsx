@@ -775,6 +775,12 @@ export function HabitCard({
     await handleWeightUpdate(weight);
   };
 
+  const startInlineWeightEdit = () => {
+    if (loading || updating) return;
+    setInlineWeightValue(formatWeightValue(currentWeight));
+    setIsEditingInlineWeight(true);
+  };
+
   const updateWeight = async (increment: boolean, previousWeightOverride?: number | null) => {
     if (!token || updating) return;
 
@@ -1009,12 +1015,15 @@ export function HabitCard({
     }
   };
 
-  const inlineWeightInputValue = loading
-    ? ''
-    : isEditingInlineWeight
-      ? inlineWeightValue
-      : formatWeightValue(currentWeight);
-  const inlineWeightInputWidth = getInlineWeightInputWidth(inlineWeightInputValue, Platform.OS);
+  const inlineWeightDisplayValue = loading ? '...' : formatWeightValue(currentWeight);
+  const inlineWeightDisplayText = inlineWeightDisplayValue || 'No data';
+  const inlineWeightInputValue = isEditingInlineWeight
+    ? inlineWeightValue
+    : inlineWeightDisplayValue;
+  const inlineWeightControlWidth = getInlineWeightInputWidth(
+    isEditingInlineWeight ? inlineWeightValue || inlineWeightDisplayText : inlineWeightDisplayText,
+    Platform.OS
+  );
 
   if (isEditing) {
     return (
@@ -1779,38 +1788,60 @@ export function HabitCard({
             {habit.is_weight && (
               <>
                 <View style={styles.weightDisplay}>
-                  <TextInput
-                    style={[
-                      styles.inlineWeightInput,
-                      {
-                        color: textColor,
-                        width: inlineWeightInputWidth,
-                        borderColor: isEditingInlineWeight ? borderColor : 'transparent',
-                      },
-                    ]}
-                    value={inlineWeightInputValue}
-                    onFocus={() => {
-                      setIsEditingInlineWeight(true);
-                      setInlineWeightValue(formatWeightValue(currentWeight));
-                    }}
-                    onChangeText={value => {
-                      if (isPartialWeightInput(value)) {
-                        setInlineWeightValue(value);
-                      }
-                    }}
-                    onBlur={() => {
-                      void commitInlineWeight();
-                    }}
-                    onSubmitEditing={() => {
-                      void commitInlineWeight();
-                    }}
-                    placeholder={loading ? '...' : 'No data'}
-                    placeholderTextColor={textColor + '60'}
-                    keyboardType="decimal-pad"
-                    returnKeyType="done"
-                    selectTextOnFocus
-                    editable={!loading && !updating}
-                  />
+                  {isEditingInlineWeight ? (
+                    <TextInput
+                      style={[
+                        styles.inlineWeightInput,
+                        {
+                          color: textColor,
+                          width: inlineWeightControlWidth,
+                          borderColor,
+                        },
+                      ]}
+                      value={inlineWeightInputValue}
+                      onChangeText={value => {
+                        if (isPartialWeightInput(value)) {
+                          setInlineWeightValue(value);
+                        }
+                      }}
+                      onBlur={() => {
+                        void commitInlineWeight();
+                      }}
+                      onSubmitEditing={() => {
+                        void commitInlineWeight();
+                      }}
+                      placeholder="No data"
+                      placeholderTextColor={textColor + '60'}
+                      keyboardType="decimal-pad"
+                      returnKeyType="done"
+                      selectTextOnFocus
+                      autoFocus
+                      editable={!loading && !updating}
+                    />
+                  ) : (
+                    <Pressable
+                      style={[
+                        styles.inlineWeightValueButton,
+                        {
+                          width: inlineWeightControlWidth,
+                        },
+                      ]}
+                      onPress={startInlineWeightEdit}
+                      disabled={loading || updating}
+                      accessibilityRole="button"
+                      accessibilityLabel="Edit weight"
+                    >
+                      <ThemedText
+                        style={[
+                          styles.inlineWeightValueText,
+                          { color: inlineWeightDisplayValue ? textColor : textColor + '60' },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {inlineWeightDisplayText}
+                      </ThemedText>
+                    </Pressable>
+                  )}
                   <ThemedText style={styles.unit}>{unit}</ThemedText>
                 </View>
 
@@ -2102,12 +2133,26 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   inlineWeightInput: {
-    minWidth: 30,
-    paddingHorizontal: 2,
+    minWidth: 44,
+    paddingHorizontal: 6,
     paddingVertical: 1,
     borderWidth: 1,
     borderRadius: 4,
     fontSize: 20,
+    fontWeight: 'bold',
+    fontVariant: ['tabular-nums'],
+    textAlign: 'right',
+  },
+  inlineWeightValueButton: {
+    minWidth: 44,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  inlineWeightValueText: {
+    fontSize: 20,
+    lineHeight: 24,
     fontWeight: 'bold',
     fontVariant: ['tabular-nums'],
     textAlign: 'right',

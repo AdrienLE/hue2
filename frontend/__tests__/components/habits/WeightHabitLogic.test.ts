@@ -131,12 +131,13 @@ describe('Weight Habit Logic', () => {
       expect(getNextWeight(null, 'decrease')).toBe(0);
     });
 
-    it('should leave extra native iOS width for decimal weight values', () => {
+    it('should leave enough web and native width for decimal weight values', () => {
       expect(getInlineWeightInputWidth('184.4', 'ios') > 62).toBe(true);
-      expect(getInlineWeightInputWidth('184.4', 'web')).toBe(56);
+      expect(getInlineWeightInputWidth('184.4', 'web') > 62).toBe(true);
       expect(getInlineWeightInputWidth('', 'ios') > getInlineWeightInputWidth('', 'web')).toBe(
         true
       );
+      expect(getInlineWeightInputWidth('No data', 'web') > 90).toBe(true);
     });
   });
 });

@@ -23,6 +23,13 @@ interface DailyReviewModalProps {
 }
 
 export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewModalProps) {
+  const completeReviewSession = async () => {
+    const rolloverHour = userSettings?.day_rollover_hour ?? 3;
+    const completedSessionDate = getReviewCompletionSessionDate(rolloverHour, getCurrentDate());
+    await updateLastSessionDate(completedSessionDate);
+    console.log('DailyReview: Advanced review session to:', completedSessionDate);
+  };
+
   const handleClose = async () => {
     console.log('DailyReview: handleClose called');
     try {
@@ -35,14 +42,21 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
     }
   };
 
+  const handleSkip = async () => {
+    console.log('DailyReview: handleSkip called');
+    try {
+      await completeReviewSession();
+      await clearPendingDailyReview();
+      onClose();
+    } catch (error) {
+      console.error('Error skipping daily review:', error);
+      handleClose();
+    }
+  };
+
   const handlePerfectCompletion = async () => {
     try {
-      const rolloverHour = userSettings?.day_rollover_hour ?? 3;
-      const completedSessionDate = getReviewCompletionSessionDate(rolloverHour, getCurrentDate());
-
-      await updateLastSessionDate(completedSessionDate);
-      console.log('Perfect completion - advanced to current logical day:', completedSessionDate);
-
+      await completeReviewSession();
       await clearPendingDailyReview();
       onClose();
     } catch (error) {
@@ -378,7 +392,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
 
                 <TouchableOpacity
                   style={[styles.button, styles.skipButton]}
-                  onPress={handleClose}
+                  onPress={handleSkip}
                   disabled={applying}
                 >
                   <ThemedText style={[styles.skipButtonText, { color: textColor }]}>

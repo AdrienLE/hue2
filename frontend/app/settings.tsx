@@ -1,5 +1,5 @@
 import { Stack, useRouter } from 'expo-router';
-import { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Button,
@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import Slider from '@react-native-community/slider';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedTextInput } from '@/components/ThemedTextInput';
 import { IconSymbol } from '@/components/ui/IconSymbol';
@@ -52,6 +51,80 @@ const webChromaTrack =
       } as any)
     : undefined;
 
+const COLOR_CHROMA_MIN = 0;
+const COLOR_CHROMA_MAX = 30;
+const DEFAULT_COLOR_CHROMA = 30;
+
+const clampColorChroma = (value: number) =>
+  Math.max(COLOR_CHROMA_MIN, Math.min(COLOR_CHROMA_MAX, value));
+
+interface SettingsSliderProps {
+  style?: any;
+  minimumValue: number;
+  maximumValue: number;
+  step?: number;
+  value: number;
+  onValueChange: (value: number) => void;
+  onSlidingComplete?: () => void;
+  minimumTrackTintColor?: string;
+  maximumTrackTintColor?: string;
+  thumbTintColor?: string;
+  accessibilityLabel: string;
+}
+
+function SettingsSlider({
+  style,
+  minimumValue,
+  maximumValue,
+  step,
+  value,
+  onValueChange,
+  onSlidingComplete,
+  minimumTrackTintColor,
+  maximumTrackTintColor,
+  thumbTintColor,
+  accessibilityLabel,
+}: SettingsSliderProps) {
+  if (Platform.OS === 'web') {
+    return React.createElement('input', {
+      type: 'range',
+      'aria-label': accessibilityLabel,
+      min: minimumValue,
+      max: maximumValue,
+      step: step ?? 'any',
+      value,
+      onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
+        onValueChange(Number(event.currentTarget.value));
+      },
+      onPointerUp: onSlidingComplete,
+      onBlur: onSlidingComplete,
+      style: {
+        width: '100%',
+        height: 40,
+        margin: 0,
+        background: 'transparent',
+        cursor: 'pointer',
+      },
+    });
+  }
+
+  const NativeSlider = require('@react-native-community/slider').default;
+  return (
+    <NativeSlider
+      style={style}
+      minimumValue={minimumValue}
+      maximumValue={maximumValue}
+      step={step}
+      value={value}
+      onValueChange={onValueChange}
+      onSlidingComplete={onSlidingComplete}
+      minimumTrackTintColor={minimumTrackTintColor}
+      maximumTrackTintColor={maximumTrackTintColor}
+      thumbTintColor={thumbTintColor}
+    />
+  );
+}
+
 export default function SettingsScreen() {
   const [name, setName] = useState('');
   const [nickname, setNickname] = useState('');
@@ -79,12 +152,15 @@ export default function SettingsScreen() {
     (userSettings.day_rollover_hour ?? 3).toString()
   );
   const [colorLightness, setColorLightness] = useState(userSettings.color_brightness ?? 65);
-  const [colorChroma, setColorChroma] = useState(userSettings.color_saturation ?? 15);
+  const [colorChroma, setColorChroma] = useState(
+    clampColorChroma(userSettings.color_saturation ?? DEFAULT_COLOR_CHROMA)
+  );
   const [colorFrequency, setColorFrequency] = useState(
     // Undefined means "span all habits"; for UI default to 12
     userSettings.color_frequency ?? 12
   );
   const [isSlidingColors, setIsSlidingColors] = useState(false);
+  const displayColorChroma = clampColorChroma(colorChroma);
 
   // Compress image to reduce file size
   const compressImage = async (uri: string, fileName: string, mimeType: string) => {
@@ -200,7 +276,7 @@ export default function SettingsScreen() {
     setRewardPosition(userSettings.reward_unit_position || 'before');
     setRolloverHour((userSettings.day_rollover_hour ?? 3).toString());
     setColorLightness(userSettings.color_brightness ?? 65);
-    setColorChroma(userSettings.color_saturation ?? 15);
+    setColorChroma(clampColorChroma(userSettings.color_saturation ?? DEFAULT_COLOR_CHROMA));
     setColorFrequency(userSettings.color_frequency ?? 12);
   }, [userSettings, isDirty, isSlidingColors, saving]);
 
@@ -263,7 +339,7 @@ export default function SettingsScreen() {
         reward_unit_position: rewardPosition,
         day_rollover_hour: parsedRollover,
         color_brightness: colorLightness,
-        color_saturation: colorChroma,
+        color_saturation: displayColorChroma,
         color_frequency: Math.max(1, Math.round(colorFrequency)),
       });
       setIsDirty(false);
@@ -355,7 +431,10 @@ export default function SettingsScreen() {
               <ThemedTextInput
                 style={styles.input}
                 value={rewardUnit}
-                onChangeText={setRewardUnit}
+                onChangeText={value => {
+                  setIsDirty(true);
+                  setRewardUnit(value);
+                }}
                 placeholder="$"
               />
             </View>
@@ -374,7 +453,10 @@ export default function SettingsScreen() {
                       borderColor: Colors[colorScheme ?? 'light'].tint,
                     },
                   ]}
-                  onPress={() => setRewardPosition('before')}
+                  onPress={() => {
+                    setIsDirty(true);
+                    setRewardPosition('before');
+                  }}
                 >
                   <ThemedText
                     style={[
@@ -404,7 +486,10 @@ export default function SettingsScreen() {
                       borderColor: Colors[colorScheme ?? 'light'].tint,
                     },
                   ]}
-                  onPress={() => setRewardPosition('after')}
+                  onPress={() => {
+                    setIsDirty(true);
+                    setRewardPosition('after');
+                  }}
                 >
                   <ThemedText
                     style={[
@@ -430,7 +515,10 @@ export default function SettingsScreen() {
               <ThemedTextInput
                 style={styles.input}
                 value={rolloverHour}
-                onChangeText={setRolloverHour}
+                onChangeText={value => {
+                  setIsDirty(true);
+                  setRolloverHour(value);
+                }}
                 placeholder="3"
                 keyboardType="numeric"
               />
@@ -458,8 +546,9 @@ export default function SettingsScreen() {
                       colorScheme === 'dark' ? webBrightnessTrackDark : webBrightnessTrackLight,
                     ]}
                   />
-                  <Slider
+                  <SettingsSlider
                     style={styles.slider}
+                    accessibilityLabel="Lightness"
                     minimumValue={10}
                     maximumValue={90}
                     value={colorLightness}
@@ -483,15 +572,16 @@ export default function SettingsScreen() {
               <View style={styles.sliderContainer}>
                 <View style={styles.sliderWrapper}>
                   <View style={[styles.sliderTrack, styles.chromaTrack, webChromaTrack]} />
-                  <Slider
+                  <SettingsSlider
                     style={styles.slider}
-                    minimumValue={0}
-                    maximumValue={30}
-                    value={colorChroma}
+                    accessibilityLabel="Chroma"
+                    minimumValue={COLOR_CHROMA_MIN}
+                    maximumValue={COLOR_CHROMA_MAX}
+                    value={displayColorChroma}
                     onValueChange={v => {
                       setIsDirty(true);
                       setIsSlidingColors(true);
-                      setColorChroma(v);
+                      setColorChroma(clampColorChroma(v));
                     }}
                     onSlidingComplete={() => setIsSlidingColors(false)}
                     minimumTrackTintColor="transparent"
@@ -499,7 +589,7 @@ export default function SettingsScreen() {
                     thumbTintColor={Colors[colorScheme ?? 'light'].tint}
                   />
                 </View>
-                <ThemedText style={styles.sliderValue}>{Math.round(colorChroma)}</ThemedText>
+                <ThemedText style={styles.sliderValue}>{Math.round(displayColorChroma)}</ThemedText>
               </View>
             </View>
 
@@ -510,8 +600,9 @@ export default function SettingsScreen() {
               <View style={styles.sliderContainer}>
                 <View style={styles.sliderWrapper}>
                   <View style={[styles.sliderTrack, styles.chromaTrack, webChromaTrack]} />
-                  <Slider
+                  <SettingsSlider
                     style={styles.slider}
+                    accessibilityLabel="Hue Frequency"
                     minimumValue={1}
                     maximumValue={24}
                     step={1}
@@ -540,7 +631,7 @@ export default function SettingsScreen() {
                     i,
                     Math.max(1, Math.round(colorFrequency)),
                     colorLightness,
-                    colorChroma,
+                    displayColorChroma,
                     colorScheme === 'dark'
                   );
                   return <View key={i} style={[styles.previewSwatch, { borderColor: color }]} />;

@@ -19,7 +19,7 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   total_rewards: 0,
   day_rollover_hour: 3,
   color_brightness: 50,
-  color_saturation: 60,
+  color_saturation: 30,
   color_frequency: undefined,
   pending_daily_review: null,
 };

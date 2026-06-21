@@ -8,7 +8,6 @@ import {
   TextInput,
   Platform,
 } from 'react-native';
-import Slider from '@react-native-community/slider';
 import { getCurrentDate } from '@/contexts/DevDateContext';
 import {
   getLogicalDate,
@@ -426,6 +425,65 @@ export function HabitCard({
     }
   };
 
+  const saveEditingSubHabit = async () => {
+    if (!token || editingSubHabitId === null) return;
+
+    const subHabitId = editingSubHabitId;
+    const originalSubHabit = subHabits.find(subHabit => subHabit.id === subHabitId);
+    const trimmedName = editingSubHabitName.trim();
+
+    setEditingSubHabitId(null);
+    setEditingSubHabitName('');
+
+    if (!originalSubHabit || !trimmedName || trimmedName === originalSubHabit.name) {
+      return;
+    }
+
+    const previousSubHabits = subHabits;
+    setSubHabits(prev =>
+      prev.map(subHabit =>
+        subHabit.id === subHabitId ? { ...subHabit, name: trimmedName } : subHabit
+      )
+    );
+
+    try {
+      const response = await HabitService.updateSubHabit(subHabitId, { name: trimmedName }, token);
+      if (response.data) {
+        setSubHabits(prev =>
+          prev.map(subHabit => (subHabit.id === subHabitId ? response.data! : subHabit))
+        );
+      } else {
+        setSubHabits(previousSubHabits);
+        console.error('Failed to update sub-habit:', response.error);
+      }
+    } catch (error) {
+      setSubHabits(previousSubHabits);
+      console.error('Error updating sub-habit:', error);
+    }
+  };
+
+  const handleSubHabitReorder = async (data: SubHabit[]) => {
+    if (!token) return;
+
+    const previousSubHabits = subHabits;
+    const reorderedSubHabits = data.map((subHabit, index) => ({
+      ...subHabit,
+      order_index: index,
+    }));
+    setSubHabits(reorderedSubHabits);
+
+    try {
+      await Promise.all(
+        reorderedSubHabits.map(subHabit =>
+          HabitService.updateSubHabit(subHabit.id, { order_index: subHabit.order_index }, token)
+        )
+      );
+    } catch (error) {
+      setSubHabits(previousSubHabits);
+      console.error('Error updating sub-habit order:', error);
+    }
+  };
+
   // Load data based on habit type
   useEffect(() => {
     // Always load sub-habits to preserve them
@@ -545,14 +603,14 @@ export function HabitCard({
           // Reverse count-based penalties/bonuses
           const target = habit.count_settings?.target || 0;
           const countReward = habit.reward_settings?.count_reward || 0;
-          if (!habit.is_bad && target > 0 && todayCount < target && countReward > 0) {
+          if (countIsGood && target > 0 && todayCount < target && countReward > 0) {
             const countPenalty = (target - todayCount) * countReward;
             await addReward(countPenalty); // Give back the penalty
             console.log(
               `Reversed penalty of ${countPenalty} for being ${target - todayCount} counts below target`
             );
           }
-          if (habit.is_bad && target > 0 && todayCount < target && countReward > 0) {
+          if (!countIsGood && target > 0 && todayCount < target && countReward > 0) {
             const countBonus = (target - todayCount) * countReward;
             await subtractReward(countBonus); // Take back the bonus
             console.log(
@@ -601,7 +659,7 @@ export function HabitCard({
             // For good count habits: apply penalty if count is below target
             const target = habit.count_settings?.target || 0;
             const countReward = habit.reward_settings?.count_reward || 0;
-            if (!habit.is_bad && target > 0 && todayCount < target && countReward > 0) {
+            if (countIsGood && target > 0 && todayCount < target && countReward > 0) {
               const countPenalty = (target - todayCount) * countReward;
               await subtractReward(countPenalty);
               console.log(
@@ -609,7 +667,7 @@ export function HabitCard({
               );
             }
             // For bad count habits: apply bonus if count is below target
-            if (habit.is_bad && target > 0 && todayCount < target && countReward > 0) {
+            if (!countIsGood && target > 0 && todayCount < target && countReward > 0) {
               const countBonus = (target - todayCount) * countReward;
               await addReward(countBonus);
               console.log(
@@ -1121,8 +1179,7 @@ export function HabitCard({
                     <DraggableFlatList
                       data={subHabits}
                       onDragEnd={({ data }) => {
-                        setSubHabits(data);
-                        // TODO: Update order in backend
+                        void handleSubHabitReorder(data);
                       }}
                       keyExtractor={item => item.id.toString()}
                       renderItem={({ item, drag, isActive }: RenderItemParams<SubHabit>) => (
@@ -1149,12 +1206,10 @@ export function HabitCard({
                                 value={editingSubHabitName}
                                 onChangeText={setEditingSubHabitName}
                                 onBlur={() => {
-                                  // TODO: Save the edited name
-                                  setEditingSubHabitId(null);
+                                  void saveEditingSubHabit();
                                 }}
                                 onSubmitEditing={() => {
-                                  // TODO: Save the edited name
-                                  setEditingSubHabitId(null);
+                                  void saveEditingSubHabit();
                                 }}
                                 autoFocus
                                 returnKeyType="done"

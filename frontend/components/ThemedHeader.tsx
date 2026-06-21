@@ -32,7 +32,6 @@ import { ProfileMenu } from './ProfileMenu';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { useUser } from '@/contexts/UserContext';
 import { useDevDate } from '@/contexts/DevDateContext';
-import { DevTools } from './DevTools';
 import { RewardAnimation } from './ui/RewardAnimation';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 

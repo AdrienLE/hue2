@@ -69,9 +69,6 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
   const [currentlyCheckedHabits, setCurrentlyCheckedHabits] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
-  const [missedDays, setMissedDays] = useState<Date[]>([]);
-  const [currentDayIndex, setCurrentDayIndex] = useState(0);
-  const [showSkippedDaysOptions, setShowSkippedDaysOptions] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const { token } = useAuth();
   const { subtractReward, clearPendingDailyReview, userSettings, updateLastSessionDate } =
@@ -221,8 +218,6 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
   useEffect(() => {
     if (visible) {
       // Reset state when modal opens
-      setCurrentDayIndex(0);
-      setShowSkippedDaysOptions(false);
       setCurrentlyCheckedHabits(new Set());
       setShowCelebration(false);
       loadUncheckedHabits();
@@ -273,10 +268,6 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
     }, 100);
   };
 
-  const currentDate = missedDays[currentDayIndex] || reviewDate;
-  // For single day reviews, treat it as the last (and only) day
-  const isLastDay = missedDays.length <= 1 || currentDayIndex === missedDays.length - 1;
-  const hasMoreDays = missedDays.length > 1;
   const allHabitsCompleted = originallyUncheckedHabits.every(habit =>
     currentlyCheckedHabits.has(habit.id)
   );
@@ -284,10 +275,6 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
   console.log('DailyReview Button Logic:', {
     originallyUncheckedHabitsCount: originallyUncheckedHabits.length,
     allHabitsCompleted,
-    isLastDay,
-    hasMoreDays,
-    missedDaysLength: missedDays.length,
-    currentDayIndex,
     currentlyCheckedHabitsSize: currentlyCheckedHabits.size,
   });
 
@@ -296,15 +283,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
       <View style={styles.overlay}>
         <ThemedView style={[styles.modal, { borderColor }]}>
           <ThemedText style={styles.title}>Daily Review</ThemedText>
-          <ThemedText style={styles.subtitle}>{formatDate(currentDate)}</ThemedText>
-
-          {hasMoreDays && (
-            <View style={[styles.dayCounter, { backgroundColor: '#ff4444' }]}>
-              <ThemedText style={[styles.dayCounterText, { color: 'white' }]}>
-                Day {currentDayIndex + 1} of {missedDays.length} missed days
-              </ThemedText>
-            </View>
-          )}
+          <ThemedText style={styles.subtitle}>{formatDate(reviewDate)}</ThemedText>
 
           {loading ? (
             <View style={styles.centerContent}>
@@ -312,7 +291,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
             </View>
           ) : originallyUncheckedHabits.length === 0 ? (
             <View style={styles.centerContent}>
-              <ThemedText style={styles.successText}>🎉 Perfect day!</ThemedText>
+              <ThemedText style={styles.successText}>Perfect day!</ThemedText>
               <ThemedText style={styles.successSubtext}>All habits were completed</ThemedText>
             </View>
           ) : (
@@ -320,7 +299,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
               {showCelebration && (
                 <View style={[styles.celebrationBanner, { backgroundColor: tintColor }]}>
                   <ThemedText style={[styles.celebrationText, { color: backgroundColor }]}>
-                    🎉 All habits completed! Great job! 🎉
+                    All habits completed
                   </ThemedText>
                 </View>
               )}
@@ -357,25 +336,16 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
                 onPress={handlePerfectCompletion}
               >
                 <ThemedText style={[styles.buttonText, { color: backgroundColor }]}>
-                  All Done! 🎉
+                  All Done
                 </ThemedText>
               </TouchableOpacity>
-            ) : allHabitsCompleted && isLastDay ? (
+            ) : allHabitsCompleted ? (
               <TouchableOpacity
                 style={[styles.button, styles.fullButton, { backgroundColor: tintColor }]}
                 onPress={handlePerfectCompletion}
               >
                 <ThemedText style={[styles.buttonText, { color: backgroundColor }]}>
-                  Perfect! All Complete! 🎉
-                </ThemedText>
-              </TouchableOpacity>
-            ) : allHabitsCompleted && !isLastDay ? (
-              <TouchableOpacity
-                style={[styles.button, styles.fullButton, { backgroundColor: tintColor }]}
-                onPress={() => setCurrentDayIndex(prev => prev + 1)}
-              >
-                <ThemedText style={[styles.buttonText, { color: backgroundColor }]}>
-                  Next Day →
+                  Perfect! All Complete
                 </ThemedText>
               </TouchableOpacity>
             ) : (
@@ -532,16 +502,6 @@ const styles = StyleSheet.create({
   skipButtonText: {
     fontSize: 12,
     opacity: 0.7,
-  },
-  dayCounter: {
-    padding: 8,
-    borderRadius: 6,
-    marginBottom: 16,
-    alignItems: 'center',
-  },
-  dayCounterText: {
-    fontSize: 14,
-    fontWeight: '600',
   },
   fullButton: {
     flex: 1,

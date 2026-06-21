@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exception_handlers import http_exception_handler
 from sqlalchemy.orm import Session
 from sqlalchemy import inspect, text
+from sqlalchemy.exc import IntegrityError
 from .auth import verify_jwt, AUTH0_DOMAIN
 import os
 from contextlib import asynccontextmanager
@@ -1067,22 +1068,34 @@ def _merge_from_profile(settings: "models.UserSettings", profile_data: dict) -> 
     return updated
 
 
+def _get_or_create_user_settings(db: Session, user_id: str) -> "models.UserSettings":
+    settings = db.query(models.UserSettings).filter(models.UserSettings.user_id == user_id).first()
+    if settings:
+        return settings
+
+    settings = models.UserSettings(user_id=user_id)
+    db.add(settings)
+    try:
+        db.commit()
+        db.refresh(settings)
+        return settings
+    except IntegrityError:
+        db.rollback()
+        settings = (
+            db.query(models.UserSettings).filter(models.UserSettings.user_id == user_id).first()
+        )
+        if settings:
+            return settings
+        raise
+
+
 @app.get("/api/settings")
 def read_settings(
     db: Session = Depends(get_db),
     user=Depends(verify_jwt),
     request: Request = None,
 ):
-    settings = (
-        db.query(models.UserSettings).filter(models.UserSettings.user_id == user["sub"]).first()
-    )
-
-    # If no settings exist, create them
-    if not settings:
-        settings = models.UserSettings(user_id=user["sub"])
-        db.add(settings)
-        db.commit()
-        db.refresh(settings)
+    settings = _get_or_create_user_settings(db, user["sub"])
 
     # If any profile fields are missing, try to fetch from Auth0 userinfo endpoint
     needs_userinfo = not all([settings.name, settings.nickname, settings.email, settings.image_url])
@@ -1131,12 +1144,7 @@ def update_settings(
     db: Session = Depends(get_db),
     user=Depends(verify_jwt),
 ):
-    settings = (
-        db.query(models.UserSettings).filter(models.UserSettings.user_id == user["sub"]).first()
-    )
-    if not settings:
-        settings = models.UserSettings(user_id=user["sub"])
-        db.add(settings)
+    settings = _get_or_create_user_settings(db, user["sub"])
 
     # Only update fields that are provided in the request
     if data.name is not None:

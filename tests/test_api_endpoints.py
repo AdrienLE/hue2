@@ -72,6 +72,45 @@ class TestUserSettings:
         assert "nickname" in data
         assert "email" in data
 
+    def test_create_settings_recovers_from_concurrent_insert(self, tmp_path, monkeypatch):
+        """Settings creation should tolerate first-load request races."""
+        from sqlalchemy.exc import IntegrityError
+
+        from backend.main import _get_or_create_user_settings
+
+        db_path = tmp_path / "settings_race.db"
+        engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
+        TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        models.Base.metadata.create_all(bind=engine)
+
+        db = TestingSessionLocal()
+        session_cls = type(db)
+        original_commit = session_cls.commit
+        raised = {"done": False}
+
+        def racing_commit(session):
+            if session is db and not raised["done"]:
+                raised["done"] = True
+                competing_db = TestingSessionLocal()
+                try:
+                    competing_db.add(models.UserSettings(user_id="race_user", name="Race Winner"))
+                    original_commit(competing_db)
+                finally:
+                    competing_db.close()
+                raise IntegrityError(
+                    "INSERT INTO user_settings", {}, Exception("duplicate user_id")
+                )
+            return original_commit(session)
+
+        monkeypatch.setattr(session_cls, "commit", racing_commit)
+
+        try:
+            settings = _get_or_create_user_settings(db, "race_user")
+            assert settings.user_id == "race_user"
+            assert settings.name == "Race Winner"
+        finally:
+            db.close()
+
     def test_update_all_settings(self, client):
         """Test updating all user settings"""
         c, _ = client

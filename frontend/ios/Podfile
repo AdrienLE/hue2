@@ -57,6 +57,16 @@ target 'Hue2' do
       :ccache_enabled => (ccache_requested && ccache_present),
     )
 
+    # Xcode 26's C++20 consteval checks fail inside fmt 11 during simulator builds.
+    # Keep the override scoped to the pod that needs it.
+    installer.pods_project.targets.each do |target|
+      next unless target.name == 'fmt'
+
+      target.build_configurations.each do |config|
+        config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+      end
+    end
+
     # If ccache is disabled, scrub any stale ccache wrapper settings from user targets
     if !(ccache_requested && ccache_present)
       begin

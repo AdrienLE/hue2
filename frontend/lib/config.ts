@@ -60,7 +60,7 @@ export const APP_CONFIG = {
 
   // App Identity
   name: 'Base App',
-  version: '1.0.0',
+  version: '1.1.0',
   description: 'A modular base app for rapid development',
 
   // API Configuration

@@ -596,7 +596,7 @@ describe('HabitService', () => {
         data: [
           {
             id: 42,
-            sub_habit_id: 11,
+            sub_habit_id: null,
             check_date: '2024-06-01T02:15:30.000Z',
           },
         ],
@@ -627,7 +627,7 @@ describe('HabitService', () => {
       expect(deleteCheckSpy).toHaveBeenCalledWith(42, mockToken);
     });
 
-    it('removes matching sub-habit checks even when stored in UTC', async () => {
+    it('preserves sub-habit checks when unchecking the parent habit', async () => {
       const getChecksSpy = jest.spyOn(HabitService, 'getChecks');
       (getChecksSpy as any).mockResolvedValue({
         data: [
@@ -653,7 +653,7 @@ describe('HabitService', () => {
         currentDate: simulatedLocalMorning,
       });
 
-      expect(deleteCheckSpy).toHaveBeenCalledWith(99, mockToken);
+      expect(deleteCheckSpy).not.toHaveBeenCalled();
       expect(getChecksSpy).toHaveBeenCalled();
     });
   });

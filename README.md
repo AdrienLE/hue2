@@ -1,4 +1,4 @@
-# Hue 2
+# Swoosh
 
 A modern habit tracking app with beautiful design and powerful analytics
 

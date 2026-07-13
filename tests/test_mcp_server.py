@@ -142,3 +142,16 @@ def test_mcp_count_weight_and_sub_habit_tools(isolated_mcp_db):
     assert by_name["Morning routine"]["sub_habits"][0]["checked"] is True
     assert by_name["Read"]["count"]["total"] == 15
     assert by_name["Weigh in"]["weight"]["current"] == 179.5
+
+
+def test_mcp_unscheduled_activity_does_not_reduce_scheduled_remaining(isolated_mcp_db):
+    scheduled = mcp_server.create_habit(name="Scheduled", weekdays=[6])
+    unscheduled = mcp_server.create_habit(name="Unscheduled", weekdays=[0])
+    mcp_server.check_habit(habit_id=unscheduled["id"], at="2026-05-02T10:00:00-07:00")
+
+    state = mcp_server.get_habit_state(at="2026-05-02T12:00:00-07:00")
+
+    assert state["totals"]["scheduled"] == 1
+    assert state["totals"]["tracked"] == 1
+    assert state["totals"]["remaining_scheduled"] == 1
+    assert next(h for h in state["habits"] if h["id"] == scheduled["id"])["tracked_today"] is False

@@ -137,12 +137,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const response = await HabitService.updateCurrentUser({ settings: settingsToSave }, token);
-
-      // If backend failed silently, keep optimistic state but log
-      if (!response.data) {
-        console.warn('updateUserSettings: no data returned from server; keeping optimistic state');
-      }
+      const response = await HabitService.updateCurrentUser({ settings: newSettings }, token);
+      if (!response.data) throw new Error(response.error || 'Failed to save settings');
     } catch (error) {
       console.error('Error updating user settings, reverting:', error);
       // Revert on error
@@ -173,7 +169,16 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setRewardAnimations(prev => [...prev, newAnimation]);
 
     try {
-      await updateUserSettings({ total_rewards: newTotal });
+      if (!token) throw new Error('Not signed in');
+      const response = await HabitService.adjustReward(amount, token);
+      if (!response.data) throw new Error(response.error || 'Failed to add reward');
+      totalRewardsRef.current = response.data.total_rewards;
+      setTotalRewards(response.data.total_rewards);
+      userSettingsRef.current = {
+        ...userSettingsRef.current,
+        total_rewards: response.data.total_rewards,
+      };
+      setUserSettings(userSettingsRef.current);
     } catch (error) {
       // Revert on error
       totalRewardsRef.current = previousTotal;
@@ -199,7 +204,16 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setRewardAnimations(prev => [...prev, newAnimation]);
 
     try {
-      await updateUserSettings({ total_rewards: newTotal });
+      if (!token) throw new Error('Not signed in');
+      const response = await HabitService.adjustReward(-amount, token);
+      if (!response.data) throw new Error(response.error || 'Failed to subtract reward');
+      totalRewardsRef.current = response.data.total_rewards;
+      setTotalRewards(response.data.total_rewards);
+      userSettingsRef.current = {
+        ...userSettingsRef.current,
+        total_rewards: response.data.total_rewards,
+      };
+      setUserSettings(userSettingsRef.current);
     } catch (error) {
       // Revert on error
       totalRewardsRef.current = previousTotal;
@@ -233,6 +247,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setSettingsLoaded(false);
     userSettingsRef.current = DEFAULT_USER_SETTINGS;
     totalRewardsRef.current = 0;
+    setTotalRewards(0);
+    setRewardAnimations([]);
     loadUserData();
   }, [token]);
 

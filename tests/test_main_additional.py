@@ -2,7 +2,9 @@
 Additional tests for main.py to improve coverage
 """
 
+import io
 import pytest
+from PIL import Image
 from unittest.mock import patch, Mock
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -10,6 +12,12 @@ from sqlalchemy.orm import sessionmaker
 
 from backend import models
 from backend.main import app, get_db, verify_jwt, generate_nugget
+
+
+def image_bytes(image_format: str) -> bytes:
+    output = io.BytesIO()
+    Image.new("RGB", (2, 2), "green").save(output, format=image_format)
+    return output.getvalue()
 
 
 @pytest.fixture
@@ -71,9 +79,7 @@ class TestNuggetGeneration:
         """Test nugget generation with OpenAI error"""
         mock_openai_client.chat.completions.create.side_effect = Exception("OpenAI Error")
 
-        # The current implementation doesn't handle exceptions, so it will raise
-        with pytest.raises(Exception):
-            generate_nugget()
+        assert "Wisdom comes from experience" in generate_nugget()
 
     @patch("backend.main.client")
     def test_generate_nugget_empty_response(self, mock_openai_client):
@@ -105,7 +111,7 @@ class TestErrorHandling:
 
         response = c.post(
             "/api/upload-profile-picture",
-            files={"file": ("test.png", b"fake png data", "image/png")},
+            files={"file": ("test.png", image_bytes("PNG"), "image/png")},
         )
 
         assert response.status_code == 500
@@ -148,7 +154,7 @@ class TestHealthAndSPA:
         assert resp.status_code == 200
         data = resp.json()
         assert data.get("status") == "healthy"
-        assert data.get("service") == "base-app-api"
+        assert data.get("service") == "swoosh-api"
         assert data.get("database") == "connected"
         assert "openai" in data and "storage" in data
 

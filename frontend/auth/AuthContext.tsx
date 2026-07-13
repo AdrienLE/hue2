@@ -15,6 +15,7 @@ import jwtDecode from 'jwt-decode';
 import { APP_CONFIG } from '@/lib/config';
 import { clearWidgetAuthContext, syncWidgetAuthContext } from '@/lib/widgetBridge';
 import { authStorage } from './storage';
+import { setAuthTokenRefresher } from '@/lib/api';
 
 // Close the Auth0 popup on web if a redirect back to the app occurred.
 WebBrowser.maybeCompleteAuthSession();
@@ -197,6 +198,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return refreshPromiseRef.current;
   };
+
+  useEffect(() => {
+    setAuthTokenRefresher(refreshAccessToken);
+    return () => setAuthTokenRefresher(null);
+  }, []);
 
   useEffect(() => {
     const loadToken = async () => {

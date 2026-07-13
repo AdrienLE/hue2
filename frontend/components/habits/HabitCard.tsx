@@ -38,6 +38,7 @@ import {
   parseWeightInput,
   roundWeight,
 } from '@/lib/habits/weightControls';
+import { HabitActionSheet } from './HabitActionSheet';
 
 interface HabitCardProps {
   habit: Habit;
@@ -98,7 +99,6 @@ export function HabitCard({
 
   // Common state
   const [showDropdown, setShowDropdown] = useState(false);
-  const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
   const [checking, setChecking] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -162,7 +162,7 @@ export function HabitCard({
     habit.reward_settings?.penalty_points?.toString() || '0'
   );
   const [editSubHabitPoints, setEditSubHabitPoints] = useState(
-    habit.reward_settings?.sub_habit_points?.toString() || '2'
+    habit.reward_settings?.sub_habit_points?.toString() ?? '2'
   );
   const [editCountReward, setEditCountReward] = useState(
     habit.reward_settings?.count_reward?.toString() || '0.1'
@@ -701,12 +701,14 @@ export function HabitCard({
     try {
       const change = increment ? stepSize : -stepSize;
       const newValue = Math.max(0, todayCount + change);
+      const actualChange = newValue - todayCount;
+      if (actualChange === 0) return;
 
       const rolloverHour = userSettings.day_rollover_hour ?? 3;
       const baseDate = getBaseDate(rolloverHour);
       const countData = {
         habit_id: habit.id,
-        value: change,
+        value: actualChange,
         count_date: getLogicalDateTimestamp(rolloverHour, baseDate),
       };
 
@@ -718,17 +720,17 @@ export function HabitCard({
         // Calculate reward
         const countReward = habit.reward_settings?.count_reward || 0;
         if (countReward > 0) {
-          const rewardAmount = countReward * Math.abs(stepSize);
+          const rewardAmount = countReward * Math.abs(actualChange);
 
           if (countIsGood) {
-            if (increment) {
+            if (actualChange > 0) {
               await addReward(rewardAmount);
             } else {
               // Decrementing a good habit should subtract reward
               await subtractReward(rewardAmount);
             }
           } else {
-            if (!increment) {
+            if (actualChange < 0) {
               await addReward(rewardAmount);
             } else {
               // Incrementing a bad habit should subtract reward
@@ -736,6 +738,7 @@ export function HabitCard({
             }
           }
         }
+        onChecked?.(habit.id);
       } else {
         // Revert optimistic update on failure
         setTodayCount(todayCount);
@@ -802,6 +805,7 @@ export function HabitCard({
           setShowWeightInput(false);
         }
         console.log('Success: Weight updated successfully!');
+        onChecked?.(habit.id);
       } else {
         // Revert optimistic update on failure
         setCurrentWeight(oldWeight);
@@ -940,7 +944,9 @@ export function HabitCard({
         reward_settings: {
           success_points: parseFloat(editSuccessReward) || 0,
           penalty_points: parseFloat(editFailureReward) || 0,
-          sub_habit_points: parseFloat(editSubHabitPoints) || 2,
+          sub_habit_points: Number.isFinite(parseFloat(editSubHabitPoints))
+            ? parseFloat(editSubHabitPoints)
+            : 2,
           ...(editHabitType === 'count' && {
             count_reward: parseFloat(editCountReward) || 0,
             count_check_bonus: parseFloat(editCountCheckBonus) || 0,
@@ -989,7 +995,7 @@ export function HabitCard({
     setEditWeightUnit(habit.weight_settings?.unit || 'kg');
     setEditSuccessReward(habit.reward_settings?.success_points?.toString() || '1');
     setEditFailureReward(habit.reward_settings?.penalty_points?.toString() || '0');
-    setEditSubHabitPoints(habit.reward_settings?.sub_habit_points?.toString() || '2');
+    setEditSubHabitPoints(habit.reward_settings?.sub_habit_points?.toString() ?? '2');
     setEditCountReward(habit.reward_settings?.count_reward?.toString() || '0.1');
     setEditCountCheckBonus(habit.reward_settings?.count_check_bonus?.toString() || '2');
     setEditCountCheckPenalty(habit.reward_settings?.count_check_penalty?.toString() || '2');
@@ -1959,59 +1965,22 @@ export function HabitCard({
 
           <TouchableOpacity
             style={styles.menuButton}
-            onPress={event => {
-              event.currentTarget.measure((x, y, width, height, pageX, pageY) => {
-                setDropdownPosition({ x: pageX - 80, y: pageY + height });
-                setShowDropdown(true);
-              });
-            }}
+            accessibilityRole="button"
+            accessibilityLabel={`Actions for ${habit.name}`}
+            onPress={() => setShowDropdown(true)}
           >
             <ThemedText style={[styles.menuDots, { color: textColor }]}>⋮</ThemedText>
           </TouchableOpacity>
         </View>
       </ThemedView>
 
-      {/* Dropdown Menu */}
-      <Modal
+      <HabitActionSheet
         visible={showDropdown}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowDropdown(false)}
-      >
-        <Pressable style={styles.dropdownOverlay} onPress={() => setShowDropdown(false)}>
-          <ThemedView
-            style={[
-              styles.dropdownMenu,
-              {
-                position: 'absolute',
-                top: dropdownPosition.y,
-                left: dropdownPosition.x,
-                borderColor: borderColor,
-              },
-            ]}
-          >
-            <TouchableOpacity
-              style={styles.dropdownItem}
-              onPress={() => {
-                setShowDropdown(false);
-                onEdit?.();
-              }}
-            >
-              <ThemedText style={styles.dropdownText}>Edit</ThemedText>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.dropdownItem}
-              onPress={() => {
-                setShowDropdown(false);
-                handleDelete();
-              }}
-            >
-              <ThemedText style={[styles.dropdownText, styles.deleteText]}>Delete</ThemedText>
-            </TouchableOpacity>
-          </ThemedView>
-        </Pressable>
-      </Modal>
+        habitName={habit.name}
+        onClose={() => setShowDropdown(false)}
+        onEdit={() => onEdit?.()}
+        onDelete={handleDelete}
+      />
 
       {/* Weight input modal */}
       {habit.is_weight && (
@@ -2065,9 +2034,9 @@ export function HabitCard({
 
 const styles = StyleSheet.create({
   container: {
-    padding: 12,
-    marginVertical: 4,
-    borderRadius: 12,
+    padding: 14,
+    marginVertical: 5,
+    borderRadius: 14,
     borderWidth: 1,
     borderLeftWidth: 4,
   },
@@ -2241,36 +2210,6 @@ const styles = StyleSheet.create({
   menuDots: {
     fontSize: 20,
     fontWeight: 'bold',
-  },
-  dropdownOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dropdownMenu: {
-    borderRadius: 8,
-    paddingVertical: 4,
-    minWidth: 120,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  dropdownItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  dropdownText: {
-    fontSize: 16,
-  },
-  deleteText: {
-    color: '#ff4444',
   },
   modalOverlay: {
     flex: 1,

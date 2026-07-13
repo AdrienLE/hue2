@@ -147,6 +147,8 @@ class TestAuth:
 
     def test_verify_jwt_dev_token(self, monkeypatch):
         """Test opt-in developer token verification"""
+        monkeypatch.setenv("ENABLE_DEV_AUTH", "1")
+        monkeypatch.setenv("APP_ENV", "development")
         monkeypatch.setenv("DEV_AUTH_TOKEN", "local-token")
         monkeypatch.setenv("DEV_AUTH_USER_ID", "dev-widget-user")
         monkeypatch.setenv("DEV_AUTH_EMAIL", "widget.qa@example.com")
@@ -162,6 +164,17 @@ class TestAuth:
             "nickname": "Widget QA",
             "picture": None,
         }
+
+    @patch("backend.auth._get_rsa_key")
+    def test_verify_jwt_dev_token_is_disabled_in_production(self, mock_get_rsa_key, monkeypatch):
+        monkeypatch.setenv("ENABLE_DEV_AUTH", "1")
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("DEV_AUTH_TOKEN", "local-token")
+        mock_get_rsa_key.side_effect = HTTPException(status_code=401, detail="invalid")
+
+        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="local-token")
+        with pytest.raises(HTTPException):
+            verify_jwt(credentials)
 
     @patch("backend.auth._get_rsa_key")
     @patch("backend.auth.jwt.decode")

@@ -38,8 +38,6 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 interface ThemedHeaderProps {
   title: string;
   showIcon?: boolean;
-  showCheckedHabits: boolean;
-  onToggleCheckedHabits: () => void;
   onAdvanceDay?: () => void;
   onTriggerDailyReview?: () => void;
   onResetDay?: () => void;
@@ -48,8 +46,6 @@ interface ThemedHeaderProps {
 export function ThemedHeader({
   title,
   showIcon = true,
-  showCheckedHabits,
-  onToggleCheckedHabits,
   onAdvanceDay,
   onTriggerDailyReview,
   onResetDay,
@@ -116,11 +112,9 @@ export function ThemedHeader({
             resizeMode="contain"
           />
         )}
-        <Image
-          source={require('@/assets/images/maybe_text.png')}
-          style={styles.titleImage}
-          resizeMode="contain"
-        />
+        <ThemedText accessibilityRole="header" style={styles.wordmark}>
+          SWOOSH
+        </ThemedText>
       </View>
 
       <View style={styles.rightSection}>
@@ -148,26 +142,6 @@ export function ThemedHeader({
             />
           ))}
         </View>
-
-        <TouchableOpacity
-          style={[
-            styles.visibilityButton,
-            {
-              backgroundColor: showCheckedHabits ? tintColor : 'transparent',
-              borderColor: tintColor,
-            },
-          ]}
-          onPress={onToggleCheckedHabits}
-          accessibilityLabel={
-            showCheckedHabits ? 'Show all habits (unhide)' : 'Show only unchecked habits'
-          }
-        >
-          <IconSymbol
-            name={showCheckedHabits ? 'eye' : 'eye.slash'}
-            size={18}
-            color={showCheckedHabits ? (backgroundColor as string) : (tintColor as string)}
-          />
-        </TouchableOpacity>
 
         <ProfileMenu />
 
@@ -563,20 +537,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  titleImage: {
-    height: 24,
-    width: 36, // Calculated from image aspect ratio (1536x1024 = 1.5:1)
-    marginLeft: 8,
-  },
-  visibilityButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  visibilityButtonText: {
-    fontSize: 10,
-  },
+  wordmark: { fontSize: 18, fontWeight: '900', letterSpacing: 2.2 },
   devIndicator: {
     paddingHorizontal: 6,
     paddingVertical: 2,

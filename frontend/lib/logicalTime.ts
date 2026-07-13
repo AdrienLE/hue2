@@ -4,8 +4,6 @@
  * so the backend can store and compare consistently in UTC.
  */
 
-const MS_IN_DAY = 24 * 60 * 60 * 1000;
-
 export function getLogicalDayStartDate(
   rolloverHour: number = 3,
   currentDate: Date = new Date()
@@ -15,7 +13,7 @@ export function getLogicalDayStartDate(
   start.setHours(rolloverHour, 0, 0, 0);
 
   if (date.getTime() < start.getTime()) {
-    start.setTime(start.getTime() - MS_IN_DAY);
+    start.setDate(start.getDate() - 1);
   }
 
   return start;
@@ -26,7 +24,9 @@ export function getLogicalDayEndDate(
   currentDate: Date = new Date()
 ): Date {
   const start = getLogicalDayStartDate(rolloverHour, currentDate);
-  const end = new Date(start.getTime() + MS_IN_DAY - 1);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  end.setMilliseconds(end.getMilliseconds() - 1);
   return end;
 }
 

@@ -17,7 +17,7 @@ export async function syncWidgetAuthContext(token: string, apiBaseUrl: string) {
   try {
     await widgetBridge.syncAuthContext(token, apiBaseUrl);
   } catch (error) {
-    console.warn('Failed to sync auth context for Hue 2 widget', error);
+    console.warn('Failed to sync auth context for Swoosh widget', error);
   }
 }
 
@@ -27,7 +27,7 @@ export async function clearWidgetAuthContext() {
   try {
     await widgetBridge.clearAuthContext();
   } catch (error) {
-    console.warn('Failed to clear auth context for Hue 2 widget', error);
+    console.warn('Failed to clear auth context for Swoosh widget', error);
   }
 }
 
@@ -37,6 +37,6 @@ export async function requestWidgetRefresh() {
   try {
     await widgetBridge.reloadTimelines();
   } catch (error) {
-    console.warn('Failed to request Hue 2 widget refresh', error);
+    console.warn('Failed to request Swoosh widget refresh', error);
   }
 }

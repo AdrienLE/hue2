@@ -174,7 +174,7 @@ struct Hue2WidgetEntryView: View {
         readyContent
       case .signedOut:
         WidgetMessageView(
-          title: "Sign in to Hue 2",
+          title: "Sign in to Swoosh",
           detail: "Open the app once so the widget can sync your habits.",
           systemImage: "lock"
         )
@@ -311,7 +311,7 @@ struct Hue2WidgetEntryView: View {
     if isReviewMode {
       return compact || family == .systemSmall ? "Penalty" : "Apply Penalties"
     }
-    return "Hue 2"
+    return "Swoosh"
   }
 
   private var emptyTitle: String {
@@ -1114,7 +1114,7 @@ struct Hue2Widget: Widget {
       Hue2WidgetEntryView(entry: entry)
         .containerBackground(.clear, for: .widget)
     }
-    .configurationDisplayName("Hue 2 Habits")
+    .configurationDisplayName("Swoosh Habits")
     .description("Check off habits, subhabits, counts, and weights from your home screen.")
     .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     .contentMarginsDisabled()

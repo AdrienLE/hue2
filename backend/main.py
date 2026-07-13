@@ -5,6 +5,7 @@ from fastapi import (
     File,
     HTTPException,
     Request,
+    Query,
 )
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
@@ -24,6 +25,9 @@ from uuid import uuid4
 from hashlib import sha256
 import logging
 import requests
+import math
+from io import BytesIO
+from PIL import Image, UnidentifiedImageError
 
 from .database import Base, engine, SessionLocal
 from . import models
@@ -156,9 +160,24 @@ app.mount("/mcp", mcp_http_app)
 @app.get("/health")
 def health_check():
     """Health check endpoint for Railway deployment"""
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except Exception:
+        logger.exception("Database health check failed")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "service": "swoosh-api",
+                "openai": "configured" if client else "not configured",
+                "storage": "configured" if profile_picture_storage else "not configured",
+                "database": "disconnected",
+            },
+        )
     return {
         "status": "healthy",
-        "service": "base-app-api",
+        "service": "swoosh-api",
         "openai": "configured" if client else "not configured",
         "storage": "configured" if profile_picture_storage else "not configured",
         "database": "connected",
@@ -199,12 +218,16 @@ def generate_nugget() -> str:
         return "Wisdom comes from experience, and experience comes from making mistakes."
 
     prompt = "Provide a short nugget of wisdom in one sentence."
-    completion = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=30,
-    )
-    return completion.choices[0].message.content.strip()
+    try:
+        completion = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=30,
+        )
+        return completion.choices[0].message.content.strip()
+    except Exception:
+        logger.exception("Nugget generation failed; using local fallback")
+        return "Wisdom comes from experience, and experience comes from making mistakes."
 
 
 @app.get("/api/nugget")
@@ -416,6 +439,14 @@ class UserUpdate(BaseModel):
     settings: Optional[Dict[str, Any]] = None
 
 
+class RewardAdjustment(BaseModel):
+    delta: float
+
+
+class RewardBalance(BaseModel):
+    total_rewards: float
+
+
 class UserResponse(BaseModel):
     id: str
     email: str
@@ -464,16 +495,32 @@ def get_current_user(
     user = db.query(models.User).filter(models.User.id == current_user["sub"]).first()
     if not user:
         # Auto-create user if doesn't exist
+        email = current_user.get("email") or f"{current_user['sub']}@users.invalid"
         user = models.User(
             id=current_user["sub"],
-            email=current_user.get("email", ""),
+            email=email,
             name=current_user.get("name"),
             nickname=current_user.get("nickname"),
             image_url=current_user.get("picture"),
         )
         db.add(user)
-        db.commit()
-        db.refresh(user)
+        try:
+            db.commit()
+            db.refresh(user)
+        except IntegrityError:
+            db.rollback()
+            user = db.query(models.User).filter(models.User.id == current_user["sub"]).first()
+            if not user:
+                user = models.User(
+                    id=current_user["sub"],
+                    email=f"{current_user['sub']}@users.invalid",
+                    name=current_user.get("name"),
+                    nickname=current_user.get("nickname"),
+                    image_url=current_user.get("picture"),
+                )
+                db.add(user)
+                db.commit()
+                db.refresh(user)
     return user
 
 
@@ -487,19 +534,47 @@ def update_current_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    for field, value in user_data.dict(exclude_unset=True).items():
+    updates = user_data.model_dump(exclude_unset=True)
+    settings_patch = updates.pop("settings", None)
+    for field, value in updates.items():
         setattr(user, field, value)
+    if settings_patch is not None:
+        user.settings = {**(user.settings or {}), **settings_patch}
 
     db.commit()
     db.refresh(user)
     return user
 
 
+@app.post("/api/users/me/rewards/adjust", response_model=RewardBalance)
+def adjust_reward_balance(
+    adjustment: RewardAdjustment,
+    db: Session = Depends(get_db),
+    current_user=Depends(verify_jwt),
+):
+    if not math.isfinite(adjustment.delta):
+        raise HTTPException(status_code=422, detail="Reward adjustment must be finite")
+    user = (
+        db.query(models.User)
+        .filter(models.User.id == current_user["sub"])
+        .with_for_update()
+        .first()
+    )
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    settings = dict(user.settings or {})
+    current = float(settings.get("total_rewards", 0) or 0)
+    settings["total_rewards"] = current + adjustment.delta
+    user.settings = settings
+    db.commit()
+    return RewardBalance(total_rewards=settings["total_rewards"])
+
+
 # Habit management endpoints
 @app.get("/api/habits", response_model=List[HabitResponse])
 def get_habits(
     skip: int = 0,
-    limit: int = 100,
+    limit: int = Query(1000, ge=1, le=5000),
     include_deleted: bool = False,
     db: Session = Depends(get_db),
     current_user=Depends(verify_jwt),
@@ -517,7 +592,7 @@ def create_habit(
     db: Session = Depends(get_db),
     current_user=Depends(verify_jwt),
 ):
-    db_habit = models.Habit(user_id=current_user["sub"], **habit.dict())
+    db_habit = models.Habit(user_id=current_user["sub"], **habit.model_dump())
     db.add(db_habit)
     db.commit()
     db.refresh(db_habit)
@@ -555,7 +630,7 @@ def update_habit(
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found")
 
-    for field, value in habit_update.dict(exclude_unset=True).items():
+    for field, value in habit_update.model_dump(exclude_unset=True).items():
         setattr(habit, field, value)
 
     db.commit()
@@ -633,7 +708,7 @@ def create_sub_habit(
     if not habit:
         raise HTTPException(status_code=404, detail="Parent habit not found")
 
-    db_sub_habit = models.SubHabit(user_id=current_user["sub"], **sub_habit.dict())
+    db_sub_habit = models.SubHabit(user_id=current_user["sub"], **sub_habit.model_dump())
     db.add(db_sub_habit)
     db.commit()
     db.refresh(db_sub_habit)
@@ -655,7 +730,7 @@ def update_sub_habit(
     if not sub_habit:
         raise HTTPException(status_code=404, detail="Sub-habit not found")
 
-    for field, value in sub_habit_update.dict(exclude_unset=True).items():
+    for field, value in sub_habit_update.model_dump(exclude_unset=True).items():
         setattr(sub_habit, field, value)
 
     db.commit()
@@ -690,7 +765,7 @@ def get_checks(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     skip: int = 0,
-    limit: int = 100,
+    limit: int = Query(1000, ge=1, le=5000),
     db: Session = Depends(get_db),
     current_user=Depends(verify_jwt),
 ):
@@ -715,13 +790,18 @@ def create_check(
     db: Session = Depends(get_db),
     current_user=Depends(verify_jwt),
 ):
+    if check.habit_id is None and check.sub_habit_id is None:
+        raise HTTPException(status_code=422, detail="A habit or sub-habit is required")
+
     # Verify ownership of habit or sub-habit
     resolved_habit_id = check.habit_id
     if resolved_habit_id:
         habit = (
             db.query(models.Habit)
             .filter(
-                models.Habit.id == resolved_habit_id, models.Habit.user_id == current_user["sub"]
+                models.Habit.id == resolved_habit_id,
+                models.Habit.user_id == current_user["sub"],
+                models.Habit.deleted_at.is_(None),
             )
             .first()
         )
@@ -745,8 +825,22 @@ def create_check(
             raise HTTPException(status_code=400, detail="Sub-habit does not belong to habit")
         resolved_habit_id = resolved_habit_id or sub_habit_parent_id
 
-    check_data = check.dict()
+    check_data = check.model_dump()
     check_data["habit_id"] = resolved_habit_id
+
+    existing = (
+        db.query(models.Check)
+        .filter(
+            models.Check.user_id == current_user["sub"],
+            models.Check.habit_id == resolved_habit_id,
+            models.Check.sub_habit_id == check.sub_habit_id,
+            models.Check.check_date == check.check_date,
+            models.Check.checked == check.checked,
+        )
+        .first()
+    )
+    if existing:
+        return existing
 
     db_check = models.Check(user_id=current_user["sub"], **check_data)
     db.add(db_check)
@@ -781,7 +875,7 @@ def get_counts(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     skip: int = 0,
-    limit: int = 100,
+    limit: int = Query(1000, ge=1, le=5000),
     db: Session = Depends(get_db),
     current_user=Depends(verify_jwt),
 ):
@@ -807,13 +901,21 @@ def create_count(
     # Verify habit ownership
     habit = (
         db.query(models.Habit)
-        .filter(models.Habit.id == count.habit_id, models.Habit.user_id == current_user["sub"])
+        .filter(
+            models.Habit.id == count.habit_id,
+            models.Habit.user_id == current_user["sub"],
+            models.Habit.deleted_at.is_(None),
+        )
         .first()
     )
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found")
+    if not habit.has_counts:
+        raise HTTPException(status_code=422, detail="Habit does not support counts")
+    if not math.isfinite(count.value):
+        raise HTTPException(status_code=422, detail="Count value must be finite")
 
-    db_count = models.Count(user_id=current_user["sub"], **count.dict())
+    db_count = models.Count(user_id=current_user["sub"], **count.model_dump())
     db.add(db_count)
     db.commit()
     db.refresh(db_count)
@@ -827,7 +929,7 @@ def get_weight_updates(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     skip: int = 0,
-    limit: int = 100,
+    limit: int = Query(1000, ge=1, le=5000),
     db: Session = Depends(get_db),
     current_user=Depends(verify_jwt),
 ):
@@ -856,14 +958,22 @@ def create_weight_update(
     habit = (
         db.query(models.Habit)
         .filter(
-            models.Habit.id == weight_update.habit_id, models.Habit.user_id == current_user["sub"]
+            models.Habit.id == weight_update.habit_id,
+            models.Habit.user_id == current_user["sub"],
+            models.Habit.deleted_at.is_(None),
         )
         .first()
     )
     if not habit:
         raise HTTPException(status_code=404, detail="Habit not found")
+    if not habit.is_weight:
+        raise HTTPException(status_code=422, detail="Habit does not support weight updates")
+    if not math.isfinite(weight_update.weight) or weight_update.weight <= 0:
+        raise HTTPException(status_code=422, detail="Weight must be a positive finite number")
 
-    db_weight_update = models.WeightUpdate(user_id=current_user["sub"], **weight_update.dict())
+    db_weight_update = models.WeightUpdate(
+        user_id=current_user["sub"], **weight_update.model_dump()
+    )
     db.add(db_weight_update)
     db.commit()
     db.refresh(db_weight_update)
@@ -876,7 +986,7 @@ def get_active_days(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     skip: int = 0,
-    limit: int = 100,
+    limit: int = Query(1000, ge=1, le=5000),
     db: Session = Depends(get_db),
     current_user=Depends(verify_jwt),
 ):
@@ -897,7 +1007,7 @@ def create_active_day(
     db: Session = Depends(get_db),
     current_user=Depends(verify_jwt),
 ):
-    db_active_day = models.ActiveDay(user_id=current_user["sub"], **active_day.dict())
+    db_active_day = models.ActiveDay(user_id=current_user["sub"], **active_day.model_dump())
     db.add(db_active_day)
     db.commit()
     db.refresh(db_active_day)
@@ -941,9 +1051,7 @@ MAX_UPLOAD_SIZE = int(os.getenv("MAX_UPLOAD_SIZE", str(5 * 1024 * 1024)))  # 5 M
 
 
 def _profile_picture_key(user_sub: str, filename: str | None, content_type: str) -> str:
-    ext = os.path.splitext(filename or "image")[1]
-    if not ext:
-        ext = ALLOWED_CONTENT_TYPES[content_type]
+    ext = ALLOWED_CONTENT_TYPES[content_type]
 
     user_hash = sha256(user_sub.encode("utf-8")).hexdigest()[:32]
     return f"profile_pics/{user_hash}/{uuid4().hex}{ext.lower()}"
@@ -976,22 +1084,25 @@ def upload_profile_picture(
         if content_type not in ALLOWED_CONTENT_TYPES:
             raise HTTPException(status_code=400, detail="Unsupported content type")
 
-        # Determine size (best-effort)
-        try:
-            current = file.file.tell()
-            file.file.seek(0, os.SEEK_END)
-            size = file.file.tell()
-            file.file.seek(0)
-        except Exception:
-            size = getattr(file, "size", 0) or 0
-
-        if size and size > MAX_UPLOAD_SIZE:
+        payload = file.file.read(MAX_UPLOAD_SIZE + 1)
+        if len(payload) > MAX_UPLOAD_SIZE:
             raise HTTPException(status_code=413, detail="File too large")
+        if not payload:
+            raise HTTPException(status_code=400, detail="Empty image")
+
+        expected_formats = {"image/png": "PNG", "image/jpeg": "JPEG", "image/jpg": "JPEG"}
+        try:
+            with Image.open(BytesIO(payload)) as image:
+                image.verify()
+                if image.format != expected_formats[content_type]:
+                    raise HTTPException(status_code=400, detail="Image content does not match type")
+        except (UnidentifiedImageError, OSError):
+            raise HTTPException(status_code=400, detail="Invalid image")
 
         key = _profile_picture_key(user["sub"], file.filename, content_type)
         logger.info(f"Uploading profile picture to object storage key: {key}")
 
-        profile_picture_storage.upload_fileobj(file.file, key, content_type=file.content_type)
+        profile_picture_storage.upload_fileobj(BytesIO(payload), key, content_type=content_type)
         url = profile_picture_storage.public_object_url(key, _request_base_url(request))
         logger.info(f"Upload successful, URL: {url}")
         return {"url": url}

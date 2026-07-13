@@ -170,8 +170,12 @@ export default function SettingsScreen() {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
 
-      return new Promise<{ uri: string; fileName: string; mimeType: string }>(resolve => {
+      return new Promise<{ uri: string; fileName: string; mimeType: string }>((resolve, reject) => {
         img.onload = () => {
+          if (!ctx) {
+            reject(new Error('Image compression is unavailable in this browser'));
+            return;
+          }
           // Target size: 300px (suitable for profile pics)
           const maxSize = 300;
           let { width, height } = img;
@@ -190,7 +194,7 @@ export default function SettingsScreen() {
 
           canvas.width = width;
           canvas.height = height;
-          ctx?.drawImage(img, 0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
 
           canvas.toBlob(
             blob => {
@@ -201,12 +205,15 @@ export default function SettingsScreen() {
                   fileName,
                   mimeType: 'image/jpeg', // Always convert to JPEG for better compression
                 });
+              } else {
+                reject(new Error('Image compression failed'));
               }
             },
             'image/jpeg',
             0.8
           ); // 80% quality
         };
+        img.onerror = () => reject(new Error('The selected image could not be loaded'));
         img.src = uri;
       });
     } else {
@@ -325,7 +332,12 @@ export default function SettingsScreen() {
       }
 
       // Save settings with the final image URL
-      await api.post('/api/settings', { name, nickname, email, imageUrl: finalImageUrl }, token);
+      const settingsResponse = await api.post(
+        '/api/settings',
+        { name, nickname, email, imageUrl: finalImageUrl },
+        token
+      );
+      if (settingsResponse.error) throw new Error(settingsResponse.error);
 
       // Save reward settings
       const parsedRollover = (() => {
@@ -363,7 +375,12 @@ export default function SettingsScreen() {
           <Pressable onPress={router.back} style={styles.closeButton} hitSlop={8}>
             <IconSymbol name="xmark" size={24} color={Colors[colorScheme ?? 'light'].icon} />
           </Pressable>
-          <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets
+          >
             <View style={styles.pictureRow}>
               {pendingImage || imageUrl ? (
                 <Image source={{ uri: pendingImage?.uri || imageUrl }} style={styles.avatar} />

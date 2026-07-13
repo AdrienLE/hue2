@@ -2,7 +2,7 @@
  * Tests for API utilities
  */
 
-import { createApiClient } from '../../lib/api';
+import { createApiClient, setAuthTokenRefresher } from '../../lib/api';
 
 const mockFetch = fetch as jest.MockedFunction<typeof fetch>;
 
@@ -12,6 +12,7 @@ describe('ApiClient', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    setAuthTokenRefresher(null);
   });
 
   describe('GET requests', () => {
@@ -86,6 +87,32 @@ describe('ApiClient', () => {
 
       expect(result.status).toBe(0);
       expect(result.error).toBe('Network error');
+    });
+
+    test('refreshes and retries a 401 once on native-compatible code paths', async () => {
+      setAuthTokenRefresher(async () => 'fresh-token');
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          statusText: 'Unauthorized',
+          json: async () => ({ detail: 'expired' }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({ ok: true }),
+        } as Response);
+
+      const result = await api.get<{ ok: boolean }>('/test', 'old-token');
+
+      expect(result.data).toEqual({ ok: true });
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.test.com/test',
+        expect.objectContaining({
+          headers: expect.objectContaining({ Authorization: 'Bearer fresh-token' }),
+        })
+      );
     });
   });
 

@@ -4,12 +4,13 @@ import Head from 'expo-router/head';
 import { StatusBar } from 'expo-status-bar';
 import { View, Platform, AppState } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { AuthProvider, useAuth } from '@/auth/AuthContext';
-import { HabitVisibilityProvider, useHabitVisibility } from '@/contexts/HabitVisibilityContext';
+import { HabitVisibilityProvider } from '@/contexts/HabitVisibilityContext';
 import { UserProvider, useUser } from '@/contexts/UserContext';
 import { DevDateProvider, useDevDate } from '@/contexts/DevDateContext';
 import { Colors } from '@/constants/Colors';
@@ -20,17 +21,19 @@ import { shouldDismissCompletedDailyReview } from '@/lib/habits/dailyReview';
 
 export default function RootLayout() {
   return (
-    <SafeAreaProvider>
-      <AuthProvider>
-        <UserProvider>
-          <HabitVisibilityProvider>
-            <DevDateProvider>
-              <RootLayoutNav />
-            </DevDateProvider>
-          </HabitVisibilityProvider>
-        </UserProvider>
-      </AuthProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <AuthProvider>
+          <UserProvider>
+            <HabitVisibilityProvider>
+              <DevDateProvider>
+                <RootLayoutNav />
+              </DevDateProvider>
+            </HabitVisibilityProvider>
+          </UserProvider>
+        </AuthProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -44,7 +47,6 @@ function RootLayoutNav() {
     updateLastSessionDate,
     settingsLoaded,
   } = useUser();
-  const { showCheckedHabits, toggleCheckedHabits } = useHabitVisibility();
   const { advanceDay, resetToToday } = useDevDate();
   const [showDailyReview, setShowDailyReview] = useState(false);
   const [reviewDate, setReviewDate] = useState(getCurrentDate());
@@ -279,7 +281,7 @@ function RootLayoutNav() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Head>
-        <title>Hue - Habit Tracker</title>
+        <title>Swoosh - Habit Tracker</title>
         {/* Favicons - prefer higher-res PNGs only to avoid blurry icons */}
         <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -295,9 +297,7 @@ function RootLayoutNav() {
         <View style={{ flex: 1, width: '100%', maxWidth: 800 }}>
           {token && (
             <ThemedHeader
-              title="Hue 2"
-              showCheckedHabits={showCheckedHabits}
-              onToggleCheckedHabits={toggleCheckedHabits}
+              title="Swoosh"
               onAdvanceDay={handleAdvanceDay}
               onTriggerDailyReview={handleTriggerDailyReview}
               onResetDay={handleResetDay}

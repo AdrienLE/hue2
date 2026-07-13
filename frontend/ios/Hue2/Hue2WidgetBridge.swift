@@ -23,7 +23,7 @@ final class Hue2WidgetBridge: NSObject {
     rejecter reject: RCTPromiseRejectBlock
   ) {
     guard let defaults = UserDefaults(suiteName: Self.appGroup) else {
-      reject("HUE2_WIDGET_SYNC_FAILED", "The Hue 2 app group is not available in this build.", nil)
+      reject("HUE2_WIDGET_SYNC_FAILED", "The Swoosh app group is not available in this build.", nil)
       return
     }
 
@@ -41,7 +41,7 @@ final class Hue2WidgetBridge: NSObject {
     rejecter reject: RCTPromiseRejectBlock
   ) {
     guard let defaults = UserDefaults(suiteName: Self.appGroup) else {
-      reject("HUE2_WIDGET_CLEAR_FAILED", "The Hue 2 app group is not available in this build.", nil)
+      reject("HUE2_WIDGET_CLEAR_FAILED", "The Swoosh app group is not available in this build.", nil)
       return
     }
 

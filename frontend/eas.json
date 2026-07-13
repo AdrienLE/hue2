@@ -25,6 +25,7 @@
     },
     "production": {
       "distribution": "internal",
+      "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_ENVIRONMENT": "production",
         "EXPO_PUBLIC_API_URL_PRODUCTION": "https://hue2-production.up.railway.app",
@@ -35,6 +36,7 @@
     },
     "app-store": {
       "distribution": "store",
+      "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_ENVIRONMENT": "production",
         "EXPO_PUBLIC_API_URL_PRODUCTION": "https://hue2-production.up.railway.app",
@@ -45,6 +47,6 @@
     }
   },
   "submit": {
-    "production": {}
+    "app-store": {}
   }
 }

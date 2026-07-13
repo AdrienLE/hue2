@@ -29,6 +29,13 @@ export interface ApiClient {
   upload<T>(endpoint: string, file: File | FormData, token?: string): Promise<ApiResponse<T>>;
 }
 
+type AuthTokenRefresher = () => Promise<string | null>;
+let authTokenRefresher: AuthTokenRefresher | null = null;
+
+export function setAuthTokenRefresher(refresher: AuthTokenRefresher | null) {
+  authTokenRefresher = refresher;
+}
+
 class BaseApiClient implements ApiClient {
   private baseUrl: string;
   private timeout: number;
@@ -38,7 +45,11 @@ class BaseApiClient implements ApiClient {
     this.timeout = timeout || APP_CONFIG.api.timeout;
   }
 
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {},
+    allowAuthRetry = true
+  ): Promise<ApiResponse<T>> {
     const url = `${this.baseUrl}${endpoint}`;
     const method = options.method || 'GET';
     const isGetRequest = method.toUpperCase() === 'GET';
@@ -66,7 +77,23 @@ class BaseApiClient implements ApiClient {
       logApiDebug(`Response ${response.status}: ${method} ${url}`);
 
       if (!response.ok) {
-        // Handle 401 Unauthorized specially
+        if (response.status === 401 && allowAuthRetry && authTokenRefresher) {
+          const refreshedToken = await authTokenRefresher();
+          if (refreshedToken) {
+            return this.request<T>(
+              endpoint,
+              {
+                ...options,
+                headers: {
+                  ...(options.headers as Record<string, string> | undefined),
+                  Authorization: `Bearer ${refreshedToken}`,
+                },
+              },
+              false
+            );
+          }
+        }
+
         if (response.status === 401) {
           logApiDebug('401 Unauthorized - token may be expired');
           // Emit a custom event that AuthContext can listen to
@@ -79,12 +106,24 @@ class BaseApiClient implements ApiClient {
           }
         }
 
+        let detail = response.statusText;
+        try {
+          const body = await response.json();
+          detail = body.detail || body.error || detail;
+        } catch {
+          // Some error responses have no JSON body.
+        }
         return {
           status: response.status,
-          error: `HTTP ${response.status}: ${response.statusText}`,
+          error: `HTTP ${response.status}: ${detail}`,
         };
       }
 
+      if (response.status === 204) return { status: response.status };
+      const contentType = response.headers?.get?.('content-type') ?? '';
+      if (contentType && !contentType.includes('application/json')) {
+        return { data: (await response.text()) as T, status: response.status };
+      }
       const data = await response.json();
       return { data, status: response.status };
     } catch (error: any) {

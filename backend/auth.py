@@ -1,5 +1,6 @@
 import os
 import logging
+import secrets
 from functools import lru_cache
 
 import requests
@@ -23,12 +24,22 @@ LOG_JWT_PAYLOADS = os.getenv("LOG_JWT_PAYLOADS", "").lower() in {"1", "true", "y
 
 
 def _dev_auth_payload(token: str) -> dict | None:
+    enabled = os.getenv("ENABLE_DEV_AUTH", "").lower() in {"1", "true", "yes"}
+    environment = (
+        os.getenv("APP_ENV")
+        or os.getenv("RAILWAY_ENVIRONMENT")
+        or os.getenv("EXPO_PUBLIC_ENVIRONMENT")
+        or "development"
+    ).lower()
+    if not enabled or environment in {"production", "prod"}:
+        return None
+
     expected_token = os.getenv("DEV_AUTH_TOKEN")
-    if not expected_token or token != expected_token:
+    if not expected_token or not secrets.compare_digest(token, expected_token):
         return None
 
     user_id = os.getenv("DEV_AUTH_USER_ID", "dev-user")
-    name = os.getenv("DEV_AUTH_NAME", "Hue Dev User")
+    name = os.getenv("DEV_AUTH_NAME", "Swoosh Dev User")
     return {
         "sub": user_id,
         "email": os.getenv("DEV_AUTH_EMAIL", f"{user_id}@example.dev"),

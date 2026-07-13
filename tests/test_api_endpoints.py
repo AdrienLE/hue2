@@ -10,12 +10,19 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 os.environ.setdefault("OPENAI_API_KEY", "test")
 
 import pytest
+from PIL import Image
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from backend import models
 from backend.main import app, get_db, verify_jwt
+
+
+def image_bytes(image_format: str) -> bytes:
+    output = io.BytesIO()
+    Image.new("RGB", (2, 2), "red").save(output, format=image_format)
+    return output.getvalue()
 
 
 @pytest.fixture
@@ -158,7 +165,7 @@ class TestFileUpload:
     def test_upload_profile_picture_png(self, client):
         """Test uploading PNG profile picture"""
         c, uploads = client
-        file_data = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+        file_data = image_bytes("PNG")
 
         response = c.post(
             "/api/upload-profile-picture",
@@ -176,7 +183,7 @@ class TestFileUpload:
     def test_upload_profile_picture_jpg(self, client):
         """Test uploading JPG profile picture"""
         c, uploads = client
-        file_data = b"\xff\xd8\xff\xe0\x00\x10JFIF"
+        file_data = image_bytes("JPEG")
 
         response = c.post(
             "/api/upload-profile-picture",

@@ -1,6 +1,6 @@
 # Hue2Widget
 
-Interactive WidgetKit extension for Hue 2 habits.
+Interactive WidgetKit extension for Swoosh habits.
 
 The widget reads the current app access token from the shared app group
 `group.com.adrienle.hue2`, fetches the existing REST API, and uses AppIntents

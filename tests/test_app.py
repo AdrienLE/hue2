@@ -5,12 +5,19 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 os.environ.setdefault("OPENAI_API_KEY", "test")
 import pytest
+from PIL import Image
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from backend import models
 from backend.main import app, get_db, verify_jwt, generate_nugget
+
+
+def image_bytes(image_format: str) -> bytes:
+    output = io.BytesIO()
+    Image.new("RGB", (2, 2), "blue").save(output, format=image_format)
+    return output.getvalue()
 
 
 @pytest.fixture
@@ -92,7 +99,7 @@ def test_settings_update(client):
 
 def test_upload_profile_picture(client):
     c, uploads = client
-    data = {"file": ("pic.png", b"data", "image/png")}
+    data = {"file": ("pic.png", image_bytes("PNG"), "image/png")}
     resp = c.post("/api/upload-profile-picture", files=data)
     assert resp.status_code == 200
     url = resp.json()["url"]

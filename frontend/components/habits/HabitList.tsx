@@ -1,14 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  ActivityIndicator,
-  RefreshControl,
-  Platform,
-  View,
-} from 'react-native';
+import { StyleSheet, ActivityIndicator, RefreshControl, Platform, View } from 'react-native';
 import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedView } from '../ThemedView';
 import { ThemedText } from '../ThemedText';
 import { DndKitHabitList } from './DndKitHabitList';
@@ -29,6 +22,12 @@ import type { Habit } from '@/lib/types/habits';
 import { HabitItem } from './HabitItem';
 import { QuickAddHabit } from './QuickAddHabit';
 import { useRefetchOnFocus } from '@/hooks/useRefetchOnFocus';
+import { HabitFilterBar } from './HabitFilterBar';
+import {
+  filterHabitsForMode,
+  getEmptyHabitMessage,
+  getHabitDayState,
+} from '@/lib/habits/visibility';
 
 export function HabitList() {
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -38,9 +37,12 @@ export function HabitList() {
   const [editingHabitId, setEditingHabitId] = useState<number | null>(null);
   const { token } = useAuth();
   const { userSettings } = useUser();
-  const { showCheckedHabits } = useHabitVisibility();
+  const { mode, setMode } = useHabitVisibility();
   const { customDateOverride } = useDevDate();
   const textColor = useThemeColor({}, 'text');
+  const mutedColor = useThemeColor({ light: '#69727d', dark: '#929aa5' }, 'text');
+  const surfaceColor = useThemeColor({ light: '#ffffff', dark: '#171a1f' }, 'background');
+  const insets = useSafeAreaInsets();
 
   console.log('🔍 HabitList render - token:', token ? 'EXISTS' : 'MISSING', 'loading:', loading);
 
@@ -165,22 +167,19 @@ export function HabitList() {
   const [y, m, d] = todayLogical.split('-').map(Number);
   const currentDayOfWeek = new Date(y, m - 1, d).getDay();
 
-  // Determine scheduled status per habit and compute visible list
-  const unscheduledHabitIds = new Set<number>();
-  const visibleHabits = habits.filter(habit => {
-    const weekdays = habit.schedule_settings?.weekdays || [0, 1, 2, 3, 4, 5, 6];
-    const isScheduledToday = weekdays.includes(currentDayOfWeek);
-    if (!isScheduledToday) unscheduledHabitIds.add(habit.id);
-
-    // When not in unhide mode, apply filters (scheduled today and not checked)
-    if (!showCheckedHabits) {
-      if (!isScheduledToday) return false;
-      if (checkedHabitsToday.has(habit.id)) return false;
-    }
-
-    // In unhide mode, show all habits regardless of schedule/completion
-    return true;
-  });
+  const dayState = useMemo(
+    () => getHabitDayState(habits, checkedHabitsToday, currentDayOfWeek),
+    [habits, checkedHabitsToday, currentDayOfWeek]
+  );
+  const visibleHabits = useMemo(
+    () => filterHabitsForMode(habits, mode, dayState),
+    [habits, mode, dayState]
+  );
+  const scheduledCount = dayState.scheduledIds.size;
+  const completedScheduledCount = [...dayState.scheduledIds].filter(id =>
+    checkedHabitsToday.has(id)
+  ).length;
+  const completionRatio = scheduledCount ? completedScheduledCount / scheduledCount : 1;
 
   const colorIndexLookup = useMemo(() => {
     const lookup = new Map<number, number>();
@@ -232,84 +231,89 @@ export function HabitList() {
 
   return (
     <ThemedView style={styles.fullContainer}>
-      <QuickAddHabit onHabitAdded={() => loadHabits(true)} />
+      <View style={styles.ledgerHeader}>
+        <View style={styles.dayRow}>
+          <View>
+            <ThemedText style={styles.dayTitle}>
+              {currentDate.toLocaleDateString(undefined, {
+                weekday: 'long',
+                month: 'short',
+                day: 'numeric',
+              })}
+            </ThemedText>
+            <ThemedText style={[styles.dayMeta, { color: mutedColor }]}>
+              {completedScheduledCount} of {scheduledCount} scheduled complete
+            </ThemedText>
+          </View>
+          <ThemedText style={styles.percent}>{Math.round(completionRatio * 100)}%</ThemedText>
+        </View>
+        <View style={[styles.progressTrack, { backgroundColor: surfaceColor }]}>
+          <View style={[styles.progressFill, { width: `${completionRatio * 100}%` }]} />
+        </View>
+        <HabitFilterBar mode={mode} onChange={setMode} />
+      </View>
 
-      {habits.length === 0 ? (
-        <ThemedView style={styles.centerContainer}>
-          <ThemedText style={styles.emptyText}>No habits yet!</ThemedText>
-          <ThemedText style={styles.emptySubtext}>
-            Create your first habit to get started
+      {visibleHabits.length === 0 && (
+        <View pointerEvents="none" style={styles.emptyOverlay}>
+          <ThemedText style={styles.emptyText}>
+            {getEmptyHabitMessage(mode, habits.length > 0)}
           </ThemedText>
-        </ThemedView>
-      ) : visibleHabits.length === 0 ? (
-        <ThemedView style={styles.centerContainer}>
-          <ThemedText style={styles.emptyText}>All habits completed! 🎉</ThemedText>
-          <ThemedText style={styles.emptySubtext}>Great job staying on track today</ThemedText>
-        </ThemedView>
-      ) : showCheckedHabits ? (
-        // Show all habits with drag and drop support
-        Platform.OS === 'web' ? (
-          <DndKitHabitList
-            habits={visibleHabits}
-            onReorder={handleHabitReorder}
-            onHabitUpdate={handleHabitUpdate}
-            onHabitDelete={handleHabitDelete}
-            onHabitChecked={handleHabitChecked}
-            onHabitUnchecked={handleHabitUnchecked}
-            checkedHabitsToday={checkedHabitsToday}
-            inactiveHabitIds={showCheckedHabits ? unscheduledHabitIds : undefined}
-            editingHabitId={editingHabitId}
-            onStartEditing={handleStartEditing}
-            onCancelEditing={handleCancelEditing}
-            refreshing={refreshing}
-            onRefresh={() => loadHabits(true)}
-            colorTotal={paletteSize}
-            getColorIndex={getColorIndex}
-          />
-        ) : (
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <DraggableFlatList
-              data={visibleHabits}
-              onDragEnd={({ data }) => handleHabitReorder(data)}
-              keyExtractor={item => item.id.toString()}
-              renderItem={({ item, drag, isActive }) => (
-                <ScaleDecorator activeScale={1.05}>
-                  <HabitItem
-                    key={item.id}
-                    habit={item}
-                    onUpdate={handleHabitUpdate}
-                    onDelete={handleHabitDelete}
-                    onChecked={handleHabitChecked}
-                    onUnchecked={handleHabitUnchecked}
-                    isCheckedToday={checkedHabitsToday.has(item.id)}
-                    isInactive={showCheckedHabits ? unscheduledHabitIds.has(item.id) : false}
-                    isDraggable={true}
-                    onDrag={drag}
-                    isActive={isActive}
-                    isEditing={editingHabitId === item.id}
-                    onStartEditing={() => handleStartEditing(item.id)}
-                    onCancelEditing={handleCancelEditing}
-                    colorIndex={getColorIndex(item.id)}
-                    colorTotal={paletteSize}
-                  />
-                </ScaleDecorator>
-              )}
-              style={styles.container}
-              contentContainerStyle={styles.containerContent}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={() => loadHabits(true)}
-                  tintColor={textColor}
-                />
-              }
-            />
-          </GestureHandlerRootView>
-        )
+          <ThemedText style={[styles.emptySubtext, { color: mutedColor }]}>
+            Use All to review or reorder your ledger
+          </ThemedText>
+        </View>
+      )}
+
+      {Platform.OS === 'web' ? (
+        <DndKitHabitList
+          habits={visibleHabits}
+          onReorder={handleHabitReorder}
+          onHabitUpdate={handleHabitUpdate}
+          onHabitDelete={handleHabitDelete}
+          onHabitChecked={handleHabitChecked}
+          onHabitUnchecked={handleHabitUnchecked}
+          checkedHabitsToday={checkedHabitsToday}
+          inactiveHabitIds={dayState.unscheduledIds}
+          editingHabitId={editingHabitId}
+          onStartEditing={handleStartEditing}
+          onCancelEditing={handleCancelEditing}
+          refreshing={refreshing}
+          onRefresh={() => loadHabits(true)}
+          colorTotal={paletteSize}
+          getColorIndex={getColorIndex}
+          reorderEnabled={mode === 'all'}
+          contentBottom={insets.bottom + 24}
+        />
       ) : (
-        // Regular scroll view when some habits are hidden
-        <ScrollView
+        <DraggableFlatList
+          data={visibleHabits}
+          containerStyle={styles.nativeListContainer}
+          onDragEnd={({ data }) => handleHabitReorder(data)}
+          keyExtractor={item => item.id.toString()}
+          renderItem={({ item, drag, isActive }) => (
+            <ScaleDecorator activeScale={1.05}>
+              <HabitItem
+                key={item.id}
+                habit={item}
+                onUpdate={handleHabitUpdate}
+                onDelete={handleHabitDelete}
+                onChecked={handleHabitChecked}
+                onUnchecked={handleHabitUnchecked}
+                isCheckedToday={checkedHabitsToday.has(item.id)}
+                isInactive={dayState.unscheduledIds.has(item.id)}
+                isDraggable={mode === 'all'}
+                onDrag={mode === 'all' ? drag : undefined}
+                isActive={isActive}
+                isEditing={editingHabitId === item.id}
+                onStartEditing={() => handleStartEditing(item.id)}
+                onCancelEditing={handleCancelEditing}
+                colorIndex={getColorIndex(item.id)}
+                colorTotal={paletteSize}
+              />
+            </ScaleDecorator>
+          )}
           style={styles.container}
+          contentContainerStyle={[styles.containerContent, { paddingBottom: insets.bottom + 24 }]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -317,26 +321,9 @@ export function HabitList() {
               tintColor={textColor}
             />
           }
-        >
-          {visibleHabits.map((habit, index) => (
-            <HabitItem
-              key={habit.id}
-              habit={habit}
-              onUpdate={handleHabitUpdate}
-              onDelete={handleHabitDelete}
-              onChecked={handleHabitChecked}
-              onUnchecked={handleHabitUnchecked}
-              isCheckedToday={checkedHabitsToday.has(habit.id)}
-              isInactive={showCheckedHabits ? unscheduledHabitIds.has(habit.id) : false}
-              isEditing={editingHabitId === habit.id}
-              onStartEditing={() => handleStartEditing(habit.id)}
-              onCancelEditing={handleCancelEditing}
-              colorIndex={getColorIndex(habit.id)}
-              colorTotal={paletteSize}
-            />
-          ))}
-        </ScrollView>
+        />
       )}
+      <QuickAddHabit onHabitAdded={() => loadHabits(true)} />
     </ThemedView>
   );
 }
@@ -344,15 +331,32 @@ export function HabitList() {
 const styles = StyleSheet.create({
   fullContainer: {
     flex: 1,
+    position: 'relative',
   },
+  ledgerHeader: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, gap: 12 },
+  dayRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  dayTitle: { fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
+  dayMeta: { fontSize: 12, marginTop: 3 },
+  percent: { fontSize: 14, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  progressTrack: { height: 4, borderRadius: 2, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 2, backgroundColor: '#65c7c1' },
   container: {
     flex: 1,
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 16,
   },
+  nativeListContainer: { flex: 1 },
   containerContent: {
-    paddingVertical: 8,
+    paddingTop: 8,
+  },
+  emptyOverlay: {
+    position: 'absolute',
+    top: 230,
+    left: 24,
+    right: 24,
+    zIndex: 1,
+    alignItems: 'center',
   },
   centerContainer: {
     flex: 1,
@@ -365,13 +369,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   emptyText: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 17,
+    fontWeight: '700',
     textAlign: 'center',
     marginBottom: 8,
   },
   emptySubtext: {
-    fontSize: 16,
+    fontSize: 13,
     textAlign: 'center',
     opacity: 0.7,
   },

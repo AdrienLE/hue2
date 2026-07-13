@@ -70,7 +70,7 @@ def test_health_endpoint():
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "healthy"
-    assert data["service"] == "base-app-api"
+    assert data["service"] == "swoosh-api"
     # Optional service statuses reflect configuration (may be configured in env)
     assert data["openai"] in ("configured", "not configured")
     assert data["storage"] in ("configured", "not configured")
@@ -105,6 +105,61 @@ def test_post_settings_and_get():
     assert data["imageUrl"] == fake_user["picture"]
 
 
+def test_user_settings_updates_merge_and_reward_adjustments_are_incremental():
+    user = client.get("/api/users/me", headers=auth_headers)
+    assert user.status_code == 200
+    starting_total = float((user.json().get("settings") or {}).get("total_rewards", 0))
+
+    first = client.put(
+        "/api/users/me",
+        json={"settings": {"theme": "dark", "day_rollover_hour": 4}},
+        headers=auth_headers,
+    )
+    assert first.status_code == 200
+    second = client.put(
+        "/api/users/me", json={"settings": {"theme": "light"}}, headers=auth_headers
+    )
+    assert second.status_code == 200
+    assert second.json()["settings"]["theme"] == "light"
+    assert second.json()["settings"]["day_rollover_hour"] == 4
+
+    add = client.post("/api/users/me/rewards/adjust", json={"delta": 3.5}, headers=auth_headers)
+    subtract = client.post(
+        "/api/users/me/rewards/adjust", json={"delta": -1.25}, headers=auth_headers
+    )
+    assert add.json()["total_rewards"] == starting_total + 3.5
+    assert subtract.json()["total_rewards"] == starting_total + 2.25
+
+
+def test_activity_endpoints_validate_target_and_habit_type():
+    client.get("/api/users/me", headers=auth_headers)
+    plain = client.post("/api/habits", json={"name": "Plain"}, headers=auth_headers).json()
+    count = client.post(
+        "/api/habits", json={"name": "Count", "has_counts": True}, headers=auth_headers
+    ).json()
+
+    missing_target = client.post(
+        "/api/checks",
+        json={"check_date": "2026-07-12T12:00:00Z"},
+        headers=auth_headers,
+    )
+    assert missing_target.status_code == 422
+
+    wrong_count_type = client.post(
+        "/api/counts",
+        json={"habit_id": plain["id"], "value": 1, "count_date": "2026-07-12T12:00:00Z"},
+        headers=auth_headers,
+    )
+    assert wrong_count_type.status_code == 422
+
+    valid_count = client.post(
+        "/api/counts",
+        json={"habit_id": count["id"], "value": 1, "count_date": "2026-07-12T12:00:00Z"},
+        headers=auth_headers,
+    )
+    assert valid_count.status_code == 200
+
+
 def test_nugget_api_no_openai_fallback():
     """Test that nugget API returns fallback text when OpenAI is not configured"""
     # This test verifies the fallback behavior we added
@@ -124,6 +179,18 @@ def test_upload_profile_picture_not_configured():
     detail = resp.json().get("detail", "")
     # Depending on env, either bucket not configured or upload fails
     assert detail == "Object storage bucket not configured" or detail.startswith("Upload failed")
+
+
+def test_upload_profile_picture_rejects_spoofed_image_content(monkeypatch):
+    class DummyStorage:
+        def upload_fileobj(self, *args, **kwargs):
+            raise AssertionError("invalid image must not be uploaded")
+
+    monkeypatch.setattr(main_module, "profile_picture_storage", DummyStorage())
+    files = {"file": ("fake.jpg", b"this is not an image", "image/jpeg")}
+    response = client.post("/api/upload-profile-picture", files=files, headers=auth_headers)
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid image"
 
 
 def test_serve_spa_root_and_fallback():

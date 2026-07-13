@@ -1,30 +1,20 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useMemo, useState } from 'react';
+
+export type HabitVisibilityMode = 'active' | 'done' | 'all';
 
 interface HabitVisibilityContextType {
-  showCheckedHabits: boolean;
-  setShowCheckedHabits: (show: boolean) => void;
-  toggleCheckedHabits: () => void;
+  mode: HabitVisibilityMode;
+  setMode: (mode: HabitVisibilityMode) => void;
 }
 
 const HabitVisibilityContext = createContext<HabitVisibilityContextType | undefined>(undefined);
 
 export function HabitVisibilityProvider({ children }: { children: React.ReactNode }) {
-  const [showCheckedHabits, setShowCheckedHabits] = useState(false);
-
-  const toggleCheckedHabits = () => {
-    setShowCheckedHabits(!showCheckedHabits);
-  };
+  const [mode, setMode] = useState<HabitVisibilityMode>('active');
+  const value = useMemo(() => ({ mode, setMode }), [mode]);
 
   return (
-    <HabitVisibilityContext.Provider
-      value={{
-        showCheckedHabits,
-        setShowCheckedHabits,
-        toggleCheckedHabits,
-      }}
-    >
-      {children}
-    </HabitVisibilityContext.Provider>
+    <HabitVisibilityContext.Provider value={value}>{children}</HabitVisibilityContext.Provider>
   );
 }
 

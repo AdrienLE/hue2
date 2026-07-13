@@ -1,4 +1,4 @@
-import { getHabitColor, oklchToHex } from '@/constants/Colors';
+import { getHabitColor, getHabitColorByIndex, oklchToHex } from '@/constants/Colors';
 
 describe('Color System', () => {
   describe('oklchToHex', () => {
@@ -169,6 +169,22 @@ describe('Color System', () => {
 
       const uniqueHueRanges = new Set(hues.map(h => Math.floor((h * 6) / Math.PI)));
       expect(uniqueHueRanges.size > 5).toBe(true); // Should have good distribution
+    });
+  });
+
+  describe('getHabitColorByIndex', () => {
+    it('repeats colors at the configured palette frequency', () => {
+      expect(getHabitColorByIndex(0, 3)).toBe(getHabitColorByIndex(3, 3));
+      expect(getHabitColorByIndex(1, 3)).toBe(getHabitColorByIndex(4, 3));
+    });
+
+    it('allows a zero-chroma grayscale palette', () => {
+      const color = getHabitColorByIndex(0, 4, 50, 0, false);
+      const r = parseInt(color.slice(1, 3), 16);
+      const g = parseInt(color.slice(3, 5), 16);
+      const b = parseInt(color.slice(5, 7), 16);
+      expect(Math.abs(r - g) < 5).toBe(true);
+      expect(Math.abs(g - b) < 5).toBe(true);
     });
   });
 });

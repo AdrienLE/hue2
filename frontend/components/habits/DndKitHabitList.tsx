@@ -35,6 +35,7 @@ interface SortableHabitItemProps {
   onCancelEditing: () => void;
   colorIndex: number;
   colorTotal: number;
+  reorderEnabled: boolean;
 }
 
 function SortableHabitItem({
@@ -50,9 +51,11 @@ function SortableHabitItem({
   onCancelEditing,
   colorIndex,
   colorTotal,
+  reorderEnabled,
 }: SortableHabitItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: habit.id,
+    disabled: !reorderEnabled,
   });
 
   const style = {
@@ -75,7 +78,7 @@ function SortableHabitItem({
 
   return (
     <View ref={setSortableNodeRef} style={[styles.sortableItem, style]}>
-      {Platform.OS === 'web' && (
+      {Platform.OS === 'web' && reorderEnabled && (
         <View style={[styles.dragHandle, dragHandleCursor, { borderColor }]} {...dragHandleProps}>
           <View style={styles.dragDots}>
             <View style={styles.dotRow}>
@@ -130,6 +133,8 @@ interface DndKitHabitListProps {
   onRefresh: () => void;
   colorTotal: number; // palette size (hue frequency)
   getColorIndex: (habitId: number) => number;
+  reorderEnabled?: boolean;
+  contentBottom?: number;
 }
 
 export function DndKitHabitList({
@@ -148,6 +153,8 @@ export function DndKitHabitList({
   onRefresh,
   colorTotal,
   getColorIndex,
+  reorderEnabled = true,
+  contentBottom = 24,
 }: DndKitHabitListProps) {
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -161,7 +168,7 @@ export function DndKitHabitList({
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
 
-    if (active.id !== over?.id) {
+    if (reorderEnabled && active.id !== over?.id) {
       const oldIndex = habits.findIndex(habit => habit.id === active.id);
       const newIndex = habits.findIndex(habit => habit.id === over?.id);
 
@@ -174,7 +181,7 @@ export function DndKitHabitList({
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.containerContent}
+        contentContainerStyle={[styles.containerContent, { paddingBottom: contentBottom }]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={textColor} />
         }
@@ -195,6 +202,7 @@ export function DndKitHabitList({
               onCancelEditing={onCancelEditing}
               colorIndex={getColorIndex(habit.id)}
               colorTotal={colorTotal}
+              reorderEnabled={reorderEnabled}
             />
           ))}
         </SortableContext>

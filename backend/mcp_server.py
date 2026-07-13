@@ -549,6 +549,11 @@ def get_habit_state(
 
         scheduled_count = sum(1 for habit in state_habits if habit["scheduled_for_logical_day"])
         tracked_count = sum(1 for habit in state_habits if habit["tracked_today"])
+        tracked_scheduled_count = sum(
+            1
+            for habit in state_habits
+            if habit["scheduled_for_logical_day"] and habit["tracked_today"]
+        )
         return {
             "user_id": user_id,
             "generated_at": datetime.now(UTC).isoformat(),
@@ -566,7 +571,7 @@ def get_habit_state(
                 "habits": len(state_habits),
                 "scheduled": scheduled_count,
                 "tracked": tracked_count,
-                "remaining_scheduled": max(scheduled_count - tracked_count, 0),
+                "remaining_scheduled": max(scheduled_count - tracked_scheduled_count, 0),
             },
             "habits": state_habits,
         }

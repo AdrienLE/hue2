@@ -60,6 +60,12 @@ export class HabitService {
     return notifyWidgetAfterSuccess(api.put<User>('/api/users/me', userData, token));
   }
 
+  static async adjustReward(delta: number, token: string) {
+    return notifyWidgetAfterSuccess(
+      api.post<{ total_rewards: number }>('/api/users/me/rewards/adjust', { delta }, token)
+    );
+  }
+
   // Habit management
   static async getHabits(token: string, includeDeleted = false) {
     const endpoint = `/api/habits?include_deleted=${includeDeleted}`;
@@ -147,9 +153,11 @@ export class HabitService {
       endDate,
     });
 
-    // Delete all checks for today
+    // A parent uncheck must not erase independently completed sub-habits.
     if (checks.data && checks.data.length > 0) {
-      const deletePromises = checks.data.map(check => this.deleteCheck(check.id, token));
+      const deletePromises = checks.data
+        .filter(check => check.sub_habit_id == null)
+        .map(check => this.deleteCheck(check.id, token));
       return Promise.all(deletePromises);
     }
 

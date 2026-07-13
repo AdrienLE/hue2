@@ -38,17 +38,21 @@ export function DevDateProvider({ children }: DevDateProviderProps) {
     setCurrentDate(prev => {
       const newDate = new Date(prev);
       newDate.setDate(newDate.getDate() + 1);
+      setGlobalCurrentDate(newDate);
       return newDate;
     });
   };
 
   const resetToToday = () => {
-    setCurrentDate(new Date());
+    const today = new Date();
+    setCurrentDate(today);
+    setGlobalCurrentDate(today);
     setCustomDateOverride(null);
   };
 
   const setDate = (date: Date) => {
     setCurrentDate(new Date(date));
+    setGlobalCurrentDate(date);
   };
 
   return (
@@ -79,9 +83,14 @@ export function useDevDate() {
 // Store for custom date override outside of React context
 // This allows getCurrentDate to work outside of React components
 let globalCustomDateOverride: Date | null = null;
+let globalCurrentDate: Date | null = null;
 
 export function setGlobalCustomDateOverride(date: Date | null) {
   globalCustomDateOverride = date;
+}
+
+function setGlobalCurrentDate(date: Date) {
+  globalCurrentDate = new Date(date);
 }
 
 // Helper function to get the current date (either real or simulated)
@@ -98,14 +107,7 @@ export function getCurrentDate(): Date {
     return new Date();
   }
 
-  // In development, try to use the dev date context if available
-  try {
-    const { customDateOverride, currentDate } = useDevDate();
-    return customDateOverride || currentDate;
-  } catch {
-    // Fallback to real date if context is not available
-    return new Date();
-  }
+  return globalCurrentDate ? new Date(globalCurrentDate) : new Date();
 }
 
 // Helper function to get the "logical date" for habit tracking

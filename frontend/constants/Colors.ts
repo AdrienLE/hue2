@@ -3,8 +3,8 @@
  * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
  */
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+const tintColorLight = '#176b87';
+const tintColorDark = '#f3f5f7';
 
 // Default hue values (0-360 degrees) - pleasant, well-distributed colors
 export const DefaultHues = [
@@ -27,20 +27,26 @@ export const DefaultHues = [
 
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
+    text: '#15191e',
+    background: '#f5f6f7',
     tint: tintColorLight,
     icon: '#687076',
-    border: '#e1e5e9',
+    border: '#dfe3e8',
+    surface: '#ffffff',
+    surfaceElevated: '#edf0f2',
+    muted: '#69727d',
     tabIconDefault: '#687076',
     tabIconSelected: tintColorLight,
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
+    text: '#f3f5f7',
+    background: '#0d0f12',
     tint: tintColorDark,
     icon: '#9BA1A6',
-    border: '#333333',
+    border: '#2d323a',
+    surface: '#171a1f',
+    surfaceElevated: '#23272e',
+    muted: '#929aa5',
     tabIconDefault: '#9BA1A6',
     tabIconSelected: tintColorDark,
   },
@@ -128,7 +134,8 @@ export const getHabitColorByIndex = (
   // Use golden-angle hue spacing for more natural distribution and less clumping
   const GOLDEN_ANGLE = 137.508;
   const baseHue = 200; // pleasant starting point (sky blue)
-  const hue = (baseHue + index * GOLDEN_ANGLE) % 360;
+  const paletteIndex = index % Math.max(total, 1);
+  const hue = (baseHue + paletteIndex * GOLDEN_ANGLE) % 360;
 
   // Base lightness from settings (in OKLCH percent). In dark mode, invert the control.
   const baseL = globalLightness ?? (isDarkMode ? 75 : 65);
@@ -136,14 +143,14 @@ export const getHabitColorByIndex = (
 
   // Alternate lightness slightly to increase discriminability across neighbors
   const altAmplitude = 8; // +/- points in [0..100]
-  const lOffset = (index % 2 === 0 ? 1 : -1) * altAmplitude;
+  const lOffset = (paletteIndex % 2 === 0 ? 1 : -1) * altAmplitude;
   const finalL = Math.max(10, Math.min(90, effectiveL + lOffset));
   const oklchLightness = finalL / 100;
 
   // Chroma from settings with a tiny wobble to avoid near-equal neighbors in CVD ranges
   const baseC = globalChroma ?? 15; // [0..30] mapped to [0..0.3]
-  const wobble = Math.sin((index * Math.PI) / 3) * 2; // ~[-2..2]
-  const finalC = Math.max(6, Math.min(30, baseC + wobble));
+  const wobble = Math.sin((paletteIndex * Math.PI) / 3) * 2; // ~[-2..2]
+  const finalC = baseC === 0 ? 0 : Math.max(6, Math.min(30, baseC + wobble));
   const oklchChroma = finalC / 100;
 
   return oklchToHex(oklchLightness, oklchChroma, hue);

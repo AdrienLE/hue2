@@ -70,6 +70,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const { token } = useAuth();
   const { subtractReward, clearPendingDailyReview, userSettings, updateLastSessionDate } =
     useUser();
@@ -82,6 +83,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
     if (!token || !visible) return;
 
     setLoading(true);
+    setLoadError(null);
     try {
       // Get all habits
       const habitsResponse = await HabitService.getHabits(token);
@@ -111,6 +113,8 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
         HabitService.getCounts(token, { startDate, endDate, limit }),
         HabitService.getWeightUpdates(token, { startDate, endDate, limit }),
       ]);
+      const activityError = checksResponse.error || countsResponse.error || weightsResponse.error;
+      if (activityError) throw new Error(activityError);
 
       console.log('DailyReview: All checks:', checksResponse.data);
       console.log('DailyReview: All counts:', countsResponse.data);
@@ -150,6 +154,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
     } catch (error) {
       console.error('Error loading unchecked habits:', error);
       setOriginallyUncheckedHabits([]);
+      setLoadError(error instanceof Error ? error.message : 'Could not load review activity');
     } finally {
       setLoading(false);
     }
@@ -166,7 +171,10 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
     try {
       let totalPenalty = 0;
 
-      for (const habit of originallyUncheckedHabits) {
+      const unresolvedHabits = originallyUncheckedHabits.filter(
+        habit => !currentlyCheckedHabits.has(habit.id)
+      );
+      for (const habit of unresolvedHabits) {
         const penaltyPoints = habit.reward_settings?.penalty_points || 0;
         if (penaltyPoints > 0) {
           totalPenalty += penaltyPoints;
@@ -191,7 +199,7 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
         await handleClose();
 
         console.log(
-          `Penalties Applied: Deducted ${totalPenalty} points for ${originallyUncheckedHabits.length} missed habits.`
+          `Penalties Applied: Deducted ${totalPenalty} points for ${unresolvedHabits.length} missed habits.`
         );
       } else {
         console.log(
@@ -289,6 +297,17 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
             <View style={styles.centerContent}>
               <ThemedText style={styles.loadingText}>Loading...</ThemedText>
             </View>
+          ) : loadError ? (
+            <View style={styles.centerContent}>
+              <ThemedText style={styles.successText}>Review unavailable</ThemedText>
+              <ThemedText style={styles.successSubtext}>{loadError}</ThemedText>
+              <TouchableOpacity
+                style={[styles.button, { marginTop: 16 }]}
+                onPress={loadUncheckedHabits}
+              >
+                <ThemedText>Try again</ThemedText>
+              </TouchableOpacity>
+            </View>
           ) : originallyUncheckedHabits.length === 0 ? (
             <View style={styles.centerContent}>
               <ThemedText style={styles.successText}>Perfect day!</ThemedText>
@@ -330,7 +349,11 @@ export function DailyReviewModal({ visible, onClose, reviewDate }: DailyReviewMo
           )}
 
           <View style={styles.buttonRow}>
-            {originallyUncheckedHabits.length === 0 ? (
+            {loadError ? (
+              <TouchableOpacity style={[styles.button, styles.fullButton]} onPress={handleClose}>
+                <ThemedText style={styles.skipButtonText}>Close</ThemedText>
+              </TouchableOpacity>
+            ) : originallyUncheckedHabits.length === 0 ? (
               <TouchableOpacity
                 style={[styles.button, styles.fullButton, { backgroundColor: tintColor }]}
                 onPress={handlePerfectCompletion}

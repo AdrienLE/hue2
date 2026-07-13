@@ -83,6 +83,17 @@ describe('logical time utilities', () => {
       expect(startDate.startsWith(expectedStart.toISOString().split('T')[0])).toBe(true);
       expect(end.getTime() - start.getTime()).toBe(DAY_IN_MS - 1);
     });
+
+    it('uses calendar-day boundaries across daylight-saving changes', () => {
+      const springForward = new Date(2024, 2, 10, 12, 0, 0, 0);
+      const { startDate, endDate } = getLogicalDateRange(3, springForward);
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+
+      expect(start.getHours()).toBe(3);
+      expect(end.getHours()).toBe(2);
+      expect(end.getDate()).toBe(11);
+    });
   });
 
   describe('isTimestampOnLogicalDay', () => {

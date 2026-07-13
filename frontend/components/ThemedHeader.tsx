@@ -112,9 +112,13 @@ export function ThemedHeader({
             resizeMode="contain"
           />
         )}
-        <ThemedText accessibilityRole="header" style={styles.wordmark}>
-          SWOOSH
-        </ThemedText>
+        <View accessibilityRole="header" accessibilityLabel="Swoosh" style={styles.wordmarkFrame}>
+          <Image
+            source={require('@/assets/images/swoosh-wordmark.png')}
+            style={styles.wordmarkImage}
+            resizeMode="cover"
+          />
+        </View>
       </View>
 
       <View style={styles.rightSection}>
@@ -537,7 +541,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  wordmark: { fontSize: 18, fontWeight: '900', letterSpacing: 2.2 },
+  wordmarkFrame: {
+    width: 116,
+    height: 36,
+    overflow: 'hidden',
+    borderRadius: 4,
+    backgroundColor: '#0d0f12',
+  },
+  wordmarkImage: {
+    width: '100%',
+    height: '100%',
+  },
   devIndicator: {
     paddingHorizontal: 6,
     paddingVertical: 2,

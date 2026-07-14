@@ -501,7 +501,7 @@ export function ThemedHeader({
 
 const styles = StyleSheet.create({
   container: {
-    paddingBottom: 8,
+    paddingBottom: 6,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     flexDirection: 'row',
@@ -516,15 +516,15 @@ const styles = StyleSheet.create({
   rightSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
   rewardContainer: {
     position: 'relative',
   },
   rewardDisplay: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 6,
     borderWidth: 1,
     backgroundColor: 'transparent',
   },
@@ -533,17 +533,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   icon: {
-    width: 24,
-    height: 24,
-    marginRight: 8,
+    width: 32,
+    height: 32,
+    marginRight: 6,
   },
   title: {
     fontSize: 18,
     fontWeight: '600',
   },
   wordmarkFrame: {
-    width: 116,
-    height: 36,
+    width: 92,
+    height: 28,
     overflow: 'hidden',
     borderRadius: 4,
     backgroundColor: '#0d0f12',

@@ -115,13 +115,11 @@ describe('Color System', () => {
       expect(vivid).not.toBe(gray);
     });
 
-    it('should adjust colors for dark mode', () => {
-      // Test with explicit global lightness (which triggers inversion)
+    it('should preserve explicit lightness across color schemes', () => {
       const lightMode = getHabitColor(1, undefined, 60, 20, false);
       const darkMode = getHabitColor(1, undefined, 60, 20, true);
 
-      // Should be different when global lightness is provided
-      expect(lightMode).not.toBe(darkMode);
+      expect(lightMode).toBe(darkMode);
 
       // Test default behavior (without global lightness)
       const lightModeDefault = getHabitColor(1, undefined, undefined, 20, false);
@@ -185,6 +183,12 @@ describe('Color System', () => {
       const b = parseInt(color.slice(5, 7), 16);
       expect(Math.abs(r - g) < 5).toBe(true);
       expect(Math.abs(g - b) < 5).toBe(true);
+    });
+
+    it('preserves an explicit vivid palette in dark mode', () => {
+      expect(getHabitColorByIndex(2, 6, 68, 24, true)).toBe(
+        getHabitColorByIndex(2, 6, 68, 24, false)
+      );
     });
   });
 });

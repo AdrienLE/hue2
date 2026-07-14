@@ -1093,12 +1093,7 @@ export function HabitCard({
     return (
       <>
         {/* Editing View */}
-        <ThemedView
-          style={[
-            styles.container,
-            { borderColor: liveHabitColor, borderLeftWidth: 4, borderLeftColor: liveHabitColor },
-          ]}
-        >
+        <ThemedView style={[styles.container, { borderColor }]}>
           <View style={styles.mainRow}>
             {/* Disabled check button during editing */}
             <TouchableOpacity
@@ -1191,7 +1186,10 @@ export function HabitCard({
                       renderItem={({ item, drag, isActive }: RenderItemParams<SubHabit>) => (
                         <ScaleDecorator activeScale={1.05}>
                           <View
-                            style={[styles.subHabitItemInCard, { opacity: isActive ? 0.8 : 1 }]}
+                            style={[
+                              styles.subHabitItemInCard,
+                              { borderTopColor: borderColor, opacity: isActive ? 0.8 : 1 },
+                            ]}
                           >
                             <TouchableOpacity style={styles.subHabitCheckbox} disabled={true}>
                               <View
@@ -1275,7 +1273,7 @@ export function HabitCard({
                   )}
 
                   {/* Add new sub-habit input at the bottom */}
-                  <View style={styles.subHabitItemInCard}>
+                  <View style={[styles.subHabitItemInCard, { borderTopColor: borderColor }]}>
                     <View
                       style={[
                         styles.subHabitCheckbox,
@@ -1658,9 +1656,7 @@ export function HabitCard({
         style={[
           styles.container,
           {
-            borderColor: liveHabitColor,
-            borderLeftWidth: 4,
-            borderLeftColor: liveHabitColor,
+            borderColor,
             opacity: isInactive ? 0.4 : isActive ? 0.7 : 1,
           },
         ]}
@@ -1683,6 +1679,10 @@ export function HabitCard({
             ]}
             onPress={handleCheck}
             disabled={checking}
+            accessibilityRole="checkbox"
+            accessibilityLabel={`${habit.name}, ${isCheckedToday ? 'completed' : 'not completed'}`}
+            accessibilityState={{ checked: !!isCheckedToday, disabled: checking }}
+            hitSlop={6}
           >
             <ThemedText
               style={[
@@ -1757,8 +1757,14 @@ export function HabitCard({
                 {subHabits.map(subHabit => (
                   <TouchableOpacity
                     key={subHabit.id}
-                    style={styles.subHabitItemInCard}
+                    style={[styles.subHabitItemInCard, { borderTopColor: borderColor }]}
                     onPress={() => toggleSubHabit(subHabit.id)}
+                    accessibilityRole="checkbox"
+                    accessibilityLabel={`${subHabit.name}, ${
+                      checkedSubHabits.has(subHabit.id) ? 'completed' : 'not completed'
+                    }`}
+                    accessibilityState={{ checked: checkedSubHabits.has(subHabit.id) }}
+                    hitSlop={{ top: 5, right: 4, bottom: 5, left: 4 }}
                   >
                     <View style={styles.subHabitCheckbox}>
                       <View
@@ -1968,6 +1974,7 @@ export function HabitCard({
             accessibilityRole="button"
             accessibilityLabel={`Actions for ${habit.name}`}
             onPress={() => setShowDropdown(true)}
+            hitSlop={8}
           >
             <ThemedText style={[styles.menuDots, { color: textColor }]}>⋮</ThemedText>
           </TouchableOpacity>
@@ -2034,23 +2041,24 @@ export function HabitCard({
 
 const styles = StyleSheet.create({
   container: {
-    padding: 14,
-    marginVertical: 5,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderLeftWidth: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    marginVertical: 1,
+    borderRadius: 0,
+    borderWidth: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   mainRow: {
     flexDirection: 'row',
     alignItems: 'flex-start', // Align to top instead of center
-    gap: 6,
+    gap: 5,
   },
   dragHandle: {
     paddingHorizontal: 4,
     paddingVertical: 4,
     justifyContent: 'flex-start',
     alignItems: 'center',
-    marginTop: 8, // Align with text baseline
+    marginTop: 5, // Align with text baseline
   },
   dragHandleText: {
     fontSize: 12,
@@ -2058,15 +2066,15 @@ const styles = StyleSheet.create({
     lineHeight: 14,
   },
   checkButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 2, // Slight offset to align with first line of text
+    marginTop: 1, // Slight offset to align with first line of text
   },
   checkButtonText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
   },
   leftSection: {
@@ -2078,12 +2086,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   habitName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     marginBottom: 2,
   },
   description: {
-    fontSize: 12,
+    fontSize: 11,
     opacity: 0.7,
     marginBottom: 4,
   },
@@ -2473,15 +2481,16 @@ const styles = StyleSheet.create({
   },
   // Sub-habits in main card area
   subHabitsInCard: {
-    marginTop: 6,
-    gap: 2,
+    marginTop: 4,
   },
   subHabitItemInCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 3,
+    minHeight: 27,
+    paddingVertical: 4,
     paddingRight: 2,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   subHabitCheckbox: {
     width: 16,
@@ -2492,7 +2501,7 @@ const styles = StyleSheet.create({
   subHabitCheckboxInner: {
     width: 16,
     height: 16,
-    borderRadius: 3,
+    borderRadius: 4,
     borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',

@@ -215,20 +215,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 16,
+    paddingTop: 2,
+    paddingBottom: 8,
   },
   containerContent: {
-    paddingVertical: 8,
+    paddingVertical: 2,
   },
   sortableItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 4,
+    marginVertical: 1,
   },
   dragHandle: {
-    padding: 8,
-    marginRight: 8,
+    padding: 7,
+    marginRight: 5,
     borderRadius: 4,
     borderWidth: 1,
     justifyContent: 'center',

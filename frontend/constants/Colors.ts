@@ -110,11 +110,9 @@ export const getHabitColor = (
   const defaultLightness = isDarkMode ? 75 : 65;
   const lightness = globalLightness ?? defaultLightness;
 
-  // Invert lightness for dark mode if using global lightness
-  const finalLightness =
-    globalLightness !== undefined && isDarkMode ? 100 - globalLightness : lightness;
-
-  const oklchLightness = finalLightness / 100; // Convert to 0-1 range
+  // A saved lightness is an absolute OKLCH value. Inverting it in dark mode made
+  // the same user setting unexpectedly muddy (for example 65 became 35).
+  const oklchLightness = lightness / 100; // Convert to 0-1 range
 
   // Use OKLCH chroma directly (0-30 range, converted to 0-0.3)
   const chroma = globalChroma ?? 15;
@@ -137,14 +135,14 @@ export const getHabitColorByIndex = (
   const paletteIndex = index % Math.max(total, 1);
   const hue = (baseHue + paletteIndex * GOLDEN_ANGLE) % 360;
 
-  // Base lightness from settings (in OKLCH percent). In dark mode, invert the control.
+  // Base lightness from settings (in OKLCH percent). Saved values are absolute,
+  // while the mode-specific fallback keeps an unset dark palette readable.
   const baseL = globalLightness ?? (isDarkMode ? 75 : 65);
-  const effectiveL = globalLightness !== undefined && isDarkMode ? 100 - globalLightness : baseL;
 
   // Alternate lightness slightly to increase discriminability across neighbors
   const altAmplitude = 8; // +/- points in [0..100]
   const lOffset = (paletteIndex % 2 === 0 ? 1 : -1) * altAmplitude;
-  const finalL = Math.max(10, Math.min(90, effectiveL + lOffset));
+  const finalL = Math.max(10, Math.min(90, baseL + lOffset));
   const oklchLightness = finalL / 100;
 
   // Chroma from settings with a tiny wobble to avoid near-equal neighbors in CVD ranges

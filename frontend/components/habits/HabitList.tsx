@@ -282,7 +282,7 @@ export function HabitList() {
           colorTotal={paletteSize}
           getColorIndex={getColorIndex}
           reorderEnabled={mode === 'all'}
-          contentBottom={insets.bottom + 24}
+          contentBottom={insets.bottom + 12}
         />
       ) : (
         <DraggableFlatList
@@ -313,7 +313,7 @@ export function HabitList() {
             </ScaleDecorator>
           )}
           style={styles.container}
-          contentContainerStyle={[styles.containerContent, { paddingBottom: insets.bottom + 24 }]}
+          contentContainerStyle={[styles.containerContent, { paddingBottom: insets.bottom + 12 }]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -333,22 +333,22 @@ const styles = StyleSheet.create({
     flex: 1,
     position: 'relative',
   },
-  ledgerHeader: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, gap: 12 },
+  ledgerHeader: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 5, gap: 8 },
   dayRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  dayTitle: { fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
-  dayMeta: { fontSize: 12, marginTop: 3 },
+  dayTitle: { fontSize: 19, fontWeight: '800', letterSpacing: -0.3 },
+  dayMeta: { fontSize: 11, marginTop: 1 },
   percent: { fontSize: 14, fontWeight: '800', fontVariant: ['tabular-nums'] },
   progressTrack: { height: 4, borderRadius: 2, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 2, backgroundColor: '#65c7c1' },
   container: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 16,
+    paddingTop: 2,
+    paddingBottom: 8,
   },
   nativeListContainer: { flex: 1 },
   containerContent: {
-    paddingTop: 8,
+    paddingTop: 2,
   },
   emptyOverlay: {
     position: 'absolute',

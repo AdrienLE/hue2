@@ -23,6 +23,11 @@ struct Hue2WidgetProvider: TimelineProvider {
   }
 
   func getSnapshot(in context: Context, completion: @escaping (Hue2WidgetEntry) -> Void) {
+    if context.isPreview {
+      completion(Hue2WidgetEntry.placeholder(family: context.family))
+      return
+    }
+
     Task {
       completion(await Hue2WidgetLoader.load(family: context.family))
     }
@@ -245,9 +250,6 @@ struct Hue2WidgetEntryView: View {
       Text(habitsLeftText(compact: compact))
         .font(.caption2.monospacedDigit().weight(.semibold))
         .foregroundStyle(isReviewMode ? reviewAccentColor : .secondary)
-        .padding(.horizontal, 4)
-        .padding(.vertical, 1)
-        .background(Capsule().fill(headerBadgeColor))
     }
     .lineLimit(1)
     .minimumScaleFactor(0.8)
@@ -487,10 +489,6 @@ struct Hue2WidgetEntryView: View {
     dailyReview != nil
   }
 
-  private var headerBadgeColor: Color {
-    isReviewMode ? reviewAccentColor.opacity(colorScheme == .dark ? 0.22 : 0.14) : Color.primary.opacity(0.07)
-  }
-
   private var reviewAccentColor: Color {
     colorScheme == .dark
       ? Color(red: 1.0, green: 0.48, blue: 0.32)
@@ -547,6 +545,7 @@ private struct WidgetHabitRow: View {
           }
       }
       .buttonStyle(.plain)
+      .accessibilityLabel("Complete \(habit.name)")
 
       VStack(alignment: .leading, spacing: contentSpacing) {
         HStack(alignment: .firstTextBaseline, spacing: 5) {
@@ -588,13 +587,11 @@ private struct WidgetHabitRow: View {
     .padding(.leading, horizontalPadding)
     .padding(.trailing, horizontalPadding)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    .background(
-      RoundedRectangle(cornerRadius: 10, style: .continuous)
-        .fill(cardColor)
-    )
-    .overlay {
-      RoundedRectangle(cornerRadius: 10, style: .continuous)
-        .stroke(accentColor, lineWidth: 1.2)
+    .background(cardColor)
+    .overlay(alignment: .bottom) {
+      Rectangle()
+        .fill(Color.primary.opacity(colorScheme == .dark ? 0.18 : 0.12))
+        .frame(height: 0.5)
     }
   }
 
@@ -805,6 +802,9 @@ private struct WidgetSubHabitGrid: View {
               .frame(maxWidth: .infinity, alignment: .leading)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(
+              "\(subHabit.checked ? "Uncheck" : "Check") \(subHabit.name)"
+            )
           }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -904,6 +904,7 @@ private struct WidgetCountControls: View {
       .buttonStyle(.plain)
       .foregroundStyle(.white)
       .disabled(!canDecrement)
+      .accessibilityLabel("Decrease \(habit.name)")
 
       Button(
         intent: AdjustCountIntent(
@@ -918,6 +919,7 @@ private struct WidgetCountControls: View {
       }
       .buttonStyle(.plain)
       .foregroundStyle(.white)
+      .accessibilityLabel("Increase \(habit.name)")
     }
     .font(.caption.weight(.bold))
   }
@@ -960,11 +962,12 @@ private struct WidgetWeightControls: View {
       ) {
         Image(systemName: "minus")
           .frame(width: controlSize, height: controlSize)
-          .background(controlBackground(decreaseColor.opacity(canDecrement ? 1 : 0.35)))
+          .background(controlBackground(decreaseColor.opacity(canAdjust ? 1 : 0.35)))
       }
       .buttonStyle(.plain)
       .foregroundStyle(.white)
-      .disabled(!canDecrement)
+      .disabled(!canAdjust)
+      .accessibilityLabel("Decrease \(habit.name) weight")
 
       Button(
         intent: AdjustWeightIntent(
@@ -976,10 +979,12 @@ private struct WidgetWeightControls: View {
       ) {
         Image(systemName: "plus")
           .frame(width: controlSize, height: controlSize)
-          .background(controlBackground(increaseColor))
+          .background(controlBackground(increaseColor.opacity(canAdjust ? 1 : 0.35)))
       }
       .buttonStyle(.plain)
       .foregroundStyle(.white)
+      .disabled(!canAdjust)
+      .accessibilityLabel("Increase \(habit.name) weight")
     }
     .font(.caption.weight(.bold))
   }
@@ -988,7 +993,7 @@ private struct WidgetWeightControls: View {
     controlSize <= 18 ? 4 : 5
   }
 
-  private var canDecrement: Bool {
+  private var canAdjust: Bool {
     guard let current = habit.weightCurrent else {
       return false
     }
@@ -1058,6 +1063,7 @@ private struct WidgetCompactPageControls: View {
       }
       .buttonStyle(.plain)
       .disabled(page <= 0)
+      .accessibilityLabel("Previous habits page")
 
       Text("\(page + 1)/\(totalPages)")
         .font(.caption2.monospacedDigit().weight(.semibold))
@@ -1068,11 +1074,9 @@ private struct WidgetCompactPageControls: View {
       }
       .buttonStyle(.plain)
       .disabled(page >= totalPages - 1)
+      .accessibilityLabel("Next habits page")
     }
     .foregroundStyle(.secondary)
-    .padding(.horizontal, compact ? 3 : 5)
-    .padding(.vertical, 1)
-    .background(Capsule().fill(Color.primary.opacity(0.07)))
     .fixedSize(horizontal: true, vertical: false)
   }
 }
@@ -1543,10 +1547,14 @@ private struct Hue2APIClient {
     )
   }
 
-  func fetchWeightUpdates(limit: Int) async throws -> [APIWeightUpdate] {
-    try await request(
+  func fetchWeightUpdates(habitId: Int? = nil, limit: Int) async throws -> [APIWeightUpdate] {
+    var query = [URLQueryItem(name: "limit", value: String(limit))]
+    if let habitId {
+      query.append(URLQueryItem(name: "habit_id", value: String(habitId)))
+    }
+    return try await request(
       "/api/weight-updates",
-      query: [URLQueryItem(name: "limit", value: String(limit))]
+      query: query
     )
   }
 
@@ -1614,7 +1622,7 @@ private struct Hue2APIClient {
       throw Hue2APIError.invalidURL
     }
 
-    var request = URLRequest(url: url)
+    var request = URLRequest(url: url, timeoutInterval: 15)
     request.httpMethod = method
     request.cachePolicy = .reloadIgnoringLocalCacheData
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -1711,13 +1719,15 @@ private enum Hue2WidgetActions {
     currentWeight: Double,
     step: Double
   ) async throws {
-    if direction < 0 && currentWeight <= 0 {
+    let client = try client()
+    let latestWeight = try await client.fetchWeightUpdates(habitId: habitId, limit: 1).first?.weight
+      ?? currentWeight
+    guard latestWeight > 0 else {
       return
     }
 
     let signedStep = direction >= 0 ? step : -step
-    let next = max(0.1, roundToTenths(currentWeight + signedStep))
-    let client = try client()
+    let next = max(0.1, roundToTenths(latestWeight + signedStep))
     let window = try await mutationWindow(client: client)
     try await client.createWeight(habitId: habitId, weight: next, date: window.reference)
     WidgetCenter.shared.reloadTimelines(ofKind: Hue2WidgetConstants.kind)
@@ -2359,13 +2369,14 @@ private extension Color {
     let goldenAngle = 137.508
     let hue = (200 + Double(index) * goldenAngle).truncatingRemainder(dividingBy: 360)
     let baseLightness = globalLightness ?? (darkMode ? 75 : 65)
-    let effectiveLightness = globalLightness != nil && darkMode ? 100 - baseLightness : baseLightness
     let lightnessOffset = (index.isMultiple(of: 2) ? 1.0 : -1.0) * 8
-    let finalLightness = min(max(effectiveLightness + lightnessOffset, 10), 90) / 100
+    let finalLightness = min(max(baseLightness + lightnessOffset, 10), 90) / 100
 
     let baseChroma = globalChroma ?? 15
     let chromaWobble = sin((Double(index) * Double.pi) / 3) * 2
-    let finalChroma = min(max(baseChroma + chromaWobble, 6), 30) / 100
+    let finalChroma = baseChroma == 0
+      ? 0
+      : min(max(baseChroma + chromaWobble, 6), 30) / 100
 
     return oklch(lightness: finalLightness, chroma: finalChroma, hue: hue)
   }

@@ -16,12 +16,16 @@ interface HabitFilterBarProps {
 }
 
 export function HabitFilterBar({ mode, onChange }: HabitFilterBarProps) {
-  const surface = useThemeColor({ light: '#e8ebee', dark: '#171a1f' }, 'background');
-  const selected = useThemeColor({ light: '#ffffff', dark: '#2b3038' }, 'background');
+  const surface = useThemeColor({ light: '#f5f6f7', dark: '#0d0f12' }, 'background');
+  const selected = useThemeColor({ light: '#e9edf0', dark: '#242930' }, 'background');
   const muted = useThemeColor({ light: '#69727d', dark: '#929aa5' }, 'text');
+  const border = useThemeColor({ light: '#dfe3e8', dark: '#2d323a' }, 'border');
 
   return (
-    <View accessibilityRole="tablist" style={[styles.container, { backgroundColor: surface }]}>
+    <View
+      accessibilityRole="tablist"
+      style={[styles.container, { backgroundColor: surface, borderColor: border }]}
+    >
       {FILTERS.map(filter => {
         const isSelected = filter.key === mode;
         return (
@@ -44,7 +48,7 @@ export function HabitFilterBar({ mode, onChange }: HabitFilterBarProps) {
 }
 
 const styles = StyleSheet.create({
-  container: { flexDirection: 'row', borderRadius: 11, padding: 3, gap: 2 },
-  tab: { flex: 1, minHeight: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
-  label: { fontSize: 13, fontWeight: '700' },
+  container: { flexDirection: 'row', borderRadius: 8, borderWidth: 1, padding: 2, gap: 2 },
+  tab: { flex: 1, minHeight: 31, alignItems: 'center', justifyContent: 'center', borderRadius: 5 },
+  label: { fontSize: 12, fontWeight: '700' },
 });

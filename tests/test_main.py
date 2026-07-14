@@ -160,6 +160,45 @@ def test_activity_endpoints_validate_target_and_habit_type():
     assert valid_count.status_code == 200
 
 
+def test_weight_updates_filter_and_return_latest_first():
+    first_habit = client.post(
+        "/api/habits",
+        json={
+            "name": "Morning weight",
+            "is_weight": True,
+            "weight_settings": {"starting_weight": 180, "target_weight": 170, "unit": "lbs"},
+        },
+        headers=auth_headers,
+    ).json()
+    second_habit = client.post(
+        "/api/habits",
+        json={"name": "Evening weight", "is_weight": True},
+        headers=auth_headers,
+    ).json()
+
+    for habit_id, weight, update_date in (
+        (first_habit["id"], 180.0, "2026-07-12T08:00:00Z"),
+        (first_habit["id"], 179.4, "2026-07-13T08:00:00Z"),
+        (second_habit["id"], 150.0, "2026-07-14T08:00:00Z"),
+    ):
+        response = client.post(
+            "/api/weight-updates",
+            json={"habit_id": habit_id, "weight": weight, "update_date": update_date},
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+
+    latest = client.get(
+        f"/api/weight-updates?habit_id={first_habit['id']}&limit=1",
+        headers=auth_headers,
+    )
+
+    assert latest.status_code == 200
+    assert [(item["habit_id"], item["weight"]) for item in latest.json()] == [
+        (first_habit["id"], 179.4)
+    ]
+
+
 def test_nugget_api_no_openai_fallback():
     """Test that nugget API returns fallback text when OpenAI is not configured"""
     # This test verifies the fallback behavior we added

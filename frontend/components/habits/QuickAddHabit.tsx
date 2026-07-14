@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Platform, TextInput } from 'react-native';
 import { ThemedTextInput } from '../ThemedTextInput';
+import { ThemedText } from '../ThemedText';
 import { HabitService } from '@/lib/services/habitService';
 import { useAuth } from '@/auth/AuthContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
@@ -16,6 +17,7 @@ export function QuickAddHabit({ onHabitAdded }: QuickAddHabitProps) {
   const inputRef = useRef<TextInput>(null);
   const { token } = useAuth();
   const borderColor = useThemeColor({}, 'text');
+  const tintColor = useThemeColor({ light: '#176b87', dark: '#20cfe0' }, 'tint');
 
   const handleSubmit = async () => {
     if (!token) {
@@ -69,10 +71,13 @@ export function QuickAddHabit({ onHabitAdded }: QuickAddHabitProps) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <View style={styles.inputContainer}>
+      <View style={[styles.inputContainer, { borderColor: borderColor + '30' }]}>
+        <View style={[styles.addIcon, { borderColor: tintColor }]} pointerEvents="none">
+          <ThemedText style={[styles.addIconText, { color: tintColor }]}>+</ThemedText>
+        </View>
         <ThemedTextInput
           ref={inputRef}
-          style={[styles.input, { borderColor: borderColor + '30' }]}
+          style={styles.input}
           value={habitName}
           onChangeText={setHabitName}
           placeholder="Add a new habit..."
@@ -90,16 +95,37 @@ export function QuickAddHabit({ onHabitAdded }: QuickAddHabitProps) {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingTop: 5,
+    paddingBottom: 7,
   },
   inputContainer: {
-    position: 'relative',
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+  },
+  addIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 7,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addIconText: {
+    fontSize: 22,
+    lineHeight: 22,
+    fontWeight: '500',
   },
   input: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
+    flex: 1,
+    borderWidth: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 9,
+    fontSize: 14,
     backgroundColor: 'transparent',
   },
 });

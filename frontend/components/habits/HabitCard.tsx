@@ -1093,14 +1093,19 @@ export function HabitCard({
     return (
       <>
         {/* Editing View */}
-        <ThemedView style={[styles.container, { borderColor }]}>
+        <ThemedView
+          style={[
+            styles.container,
+            { borderColor, borderLeftColor: liveHabitColor, borderLeftWidth: 4 },
+          ]}
+        >
           <View style={styles.mainRow}>
             {/* Disabled check button during editing */}
             <TouchableOpacity
               style={[
                 styles.checkButton,
                 {
-                  backgroundColor: 'transparent',
+                  backgroundColor: `${liveHabitColor}18`,
                   borderColor: liveHabitColor,
                   borderWidth: 2,
                   opacity: 0.5,
@@ -1657,6 +1662,8 @@ export function HabitCard({
           styles.container,
           {
             borderColor,
+            borderLeftColor: liveHabitColor,
+            borderLeftWidth: 4,
             opacity: isInactive ? 0.4 : isActive ? 0.7 : 1,
           },
         ]}
@@ -1672,7 +1679,7 @@ export function HabitCard({
             style={[
               styles.checkButton,
               {
-                backgroundColor: isCheckedToday ? liveHabitColor : 'transparent',
+                backgroundColor: isCheckedToday ? liveHabitColor : `${liveHabitColor}18`,
                 borderColor: liveHabitColor,
                 borderWidth: isCheckedToday ? 0 : 2,
               },
@@ -1861,7 +1868,7 @@ export function HabitCard({
                         styles.inlineWeightInput,
                         {
                           color: textColor,
-                          width: inlineWeightControlWidth,
+                          minWidth: inlineWeightControlWidth,
                           borderColor,
                         },
                       ]}
@@ -1890,7 +1897,7 @@ export function HabitCard({
                       style={[
                         styles.inlineWeightValueButton,
                         {
-                          width: inlineWeightControlWidth,
+                          minWidth: inlineWeightControlWidth,
                         },
                       ]}
                       onPress={startInlineWeightEdit}
@@ -1903,7 +1910,6 @@ export function HabitCard({
                           styles.inlineWeightValueText,
                           { color: inlineWeightDisplayValue ? textColor : textColor + '60' },
                         ]}
-                        numberOfLines={1}
                       >
                         {inlineWeightDisplayText}
                       </ThemedText>
@@ -2084,6 +2090,7 @@ const styles = StyleSheet.create({
   rightSection: {
     alignItems: 'center',
     gap: 8,
+    flexShrink: 0,
   },
   habitName: {
     fontSize: 15,
@@ -2188,6 +2195,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontVariant: ['tabular-nums'],
     textAlign: 'right',
+    flexShrink: 0,
   },
   currentWeightInput: {
     fontSize: 20,
@@ -2214,6 +2222,7 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 8,
     marginTop: 2, // Align with text baseline
+    flexShrink: 0,
   },
   menuDots: {
     fontSize: 20,

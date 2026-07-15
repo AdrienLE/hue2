@@ -6,6 +6,7 @@ import { HabitService } from '@/lib/services/habitService';
 import { useAuth } from '@/auth/AuthContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import type { HabitCreate } from '@/lib/types/habits';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface QuickAddHabitProps {
   onHabitAdded?: () => void;
@@ -18,6 +19,7 @@ export function QuickAddHabit({ onHabitAdded }: QuickAddHabitProps) {
   const { token } = useAuth();
   const borderColor = useThemeColor({}, 'text');
   const tintColor = useThemeColor({ light: '#176b87', dark: '#20cfe0' }, 'tint');
+  const insets = useSafeAreaInsets();
 
   const handleSubmit = async () => {
     if (!token) {
@@ -67,36 +69,43 @@ export function QuickAddHabit({ onHabitAdded }: QuickAddHabitProps) {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
+    <View
+      style={[
+        styles.container,
+        {
+          paddingLeft: Math.max(16, insets.left + 12),
+          paddingRight: Math.max(16, insets.right + 12),
+          paddingBottom: Math.max(32, insets.bottom + 8),
+        },
+      ]}
     >
-      <View style={[styles.inputContainer, { borderColor: borderColor + '30' }]}>
-        <View style={[styles.addIcon, { borderColor: tintColor }]} pointerEvents="none">
-          <ThemedText style={[styles.addIconText, { color: tintColor }]}>+</ThemedText>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <View style={[styles.inputContainer, { borderColor: borderColor + '30' }]}>
+          <View style={[styles.addIcon, { borderColor: tintColor }]} pointerEvents="none">
+            <ThemedText style={[styles.addIconText, { color: tintColor }]}>+</ThemedText>
+          </View>
+          <ThemedTextInput
+            ref={inputRef}
+            style={styles.input}
+            value={habitName}
+            onChangeText={setHabitName}
+            placeholder="Add a new habit..."
+            placeholderTextColor={borderColor + '60'}
+            onSubmitEditing={handleSubmit}
+            returnKeyType="done"
+            editable={!creating}
+            maxLength={100}
+          />
         </View>
-        <ThemedTextInput
-          ref={inputRef}
-          style={styles.input}
-          value={habitName}
-          onChangeText={setHabitName}
-          placeholder="Add a new habit..."
-          placeholderTextColor={borderColor + '60'}
-          onSubmitEditing={handleSubmit}
-          returnKeyType="done"
-          editable={!creating}
-          maxLength={100}
-        />
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 16,
     paddingTop: 5,
-    paddingBottom: 7,
+    flexShrink: 0,
   },
   inputContainer: {
     minHeight: 44,

@@ -62,6 +62,8 @@ struct Hue2WidgetEntry: TimelineEntry {
   let page: Int
   let totalPages: Int
   let totalVisibleHabits: Int
+  let completedScheduledHabits: Int
+  let totalScheduledHabits: Int
 
   static func placeholder(family: WidgetFamily) -> Hue2WidgetEntry {
     Hue2WidgetEntry(
@@ -71,7 +73,9 @@ struct Hue2WidgetEntry: TimelineEntry {
       habits: WidgetHabit.previewHabits,
       page: 0,
       totalPages: 2,
-      totalVisibleHabits: 5
+      totalVisibleHabits: 5,
+      completedScheduledHabits: 3,
+      totalScheduledHabits: 8
     )
   }
 }
@@ -242,18 +246,35 @@ struct Hue2WidgetEntryView: View {
   }
 
   private func header(compact: Bool) -> some View {
-    HStack(spacing: 5) {
-      Text(headerTitle(compact: compact))
-        .font(headerTitleFont)
-        .foregroundStyle(isReviewMode ? reviewAccentColor : .primary)
+    VStack(spacing: 4) {
+      HStack(alignment: .firstTextBaseline, spacing: 5) {
+        Text(headerTitle(compact: compact))
+          .font(headerTitleFont)
+          .foregroundStyle(isReviewMode ? reviewAccentColor : .primary)
 
-      Text(habitsLeftText(compact: compact))
-        .font(.caption2.monospacedDigit().weight(.semibold))
-        .foregroundStyle(isReviewMode ? reviewAccentColor : .secondary)
+        Text(habitsLeftText(compact: compact))
+          .font(.caption2.monospacedDigit().weight(.semibold))
+          .foregroundStyle(isReviewMode ? reviewAccentColor : .secondary)
+
+        Spacer(minLength: 4)
+
+        Text("\(completionPercentage)%")
+          .font(.caption2.monospacedDigit().weight(.bold))
+          .foregroundStyle(isReviewMode ? reviewAccentColor : .primary)
+      }
+
+      WidgetOverallProgressBar(
+        progress: completionProgress,
+        accent: isReviewMode ? reviewAccentColor : completionAccentColor,
+        track: progressTrackColor
+      )
     }
     .lineLimit(1)
     .minimumScaleFactor(0.8)
-    .frame(maxWidth: .infinity, alignment: .center)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(progressAccessibilityLabel)
+    .accessibilityValue("\(completionPercentage) percent")
   }
 
   @ViewBuilder
@@ -344,11 +365,11 @@ struct Hue2WidgetEntryView: View {
   private var headerHeight: CGFloat {
     switch family {
     case .systemSmall:
-      13
+      24
     case .systemMedium:
-      12
+      23
     default:
-      14
+      25
     }
   }
 
@@ -474,8 +495,39 @@ struct Hue2WidgetEntryView: View {
         : Color(red: 1.0, green: 0.95, blue: 0.92)
     }
     return colorScheme == .dark
-      ? Color(red: 0.08, green: 0.09, blue: 0.09)
+      ? Color(red: 0.051, green: 0.059, blue: 0.071)
+      : Color(red: 0.961, green: 0.965, blue: 0.969)
+  }
+
+  private var completionProgress: Double {
+    guard entry.totalScheduledHabits > 0 else {
+      return 1
+    }
+    return min(
+      max(Double(entry.completedScheduledHabits) / Double(entry.totalScheduledHabits), 0),
+      1
+    )
+  }
+
+  private var completionPercentage: Int {
+    Int((completionProgress * 100).rounded())
+  }
+
+  private var completionAccentColor: Color {
+    Color(red: 0.396, green: 0.780, blue: 0.757)
+  }
+
+  private var progressTrackColor: Color {
+    colorScheme == .dark
+      ? Color(red: 0.09, green: 0.102, blue: 0.122)
       : Color.white
+  }
+
+  private var progressAccessibilityLabel: String {
+    if isReviewMode {
+      return "Penalty review, \(entry.completedScheduledHabits) of \(entry.totalScheduledHabits) habits tracked"
+    }
+    return "Swoosh, \(entry.completedScheduledHabits) of \(entry.totalScheduledHabits) scheduled habits complete"
   }
 
   private var dailyReview: WidgetDailyReview? {
@@ -739,8 +791,8 @@ private struct WidgetHabitRow: View {
 
   private var cardColor: Color {
     colorScheme == .dark
-      ? Color(red: 0.08, green: 0.09, blue: 0.09)
-      : Color.white
+      ? Color(red: 0.051, green: 0.059, blue: 0.071)
+      : Color(red: 0.961, green: 0.965, blue: 0.969)
   }
 
   private func weightDeltaText(current: Double, target: Double) -> String {
@@ -1044,6 +1096,24 @@ private struct WidgetProgressBar: View {
   }
 }
 
+private struct WidgetOverallProgressBar: View {
+  let progress: Double
+  let accent: Color
+  let track: Color
+
+  var body: some View {
+    GeometryReader { proxy in
+      ZStack(alignment: .leading) {
+        Capsule().fill(track)
+        Capsule()
+          .fill(accent)
+          .frame(width: proxy.size.width * min(max(progress, 0), 1))
+      }
+    }
+    .frame(height: 4)
+  }
+}
+
 private struct WidgetCompactPageControls: View {
   let page: Int
   let totalPages: Int
@@ -1135,7 +1205,9 @@ fileprivate enum Hue2WidgetLoader {
         habits: [],
         page: 0,
         totalPages: 1,
-        totalVisibleHabits: 0
+        totalVisibleHabits: 0,
+        completedScheduledHabits: 0,
+        totalScheduledHabits: 0
       )
     }
 
@@ -1182,10 +1254,12 @@ fileprivate enum Hue2WidgetLoader {
         .sorted(by: sortHabits)
       let colorIndexByHabitId = Dictionary(uniqueKeysWithValues: sortedHabits.enumerated().map { ($0.element.id, $0.offset) })
 
-      let visibleHabits = sortedHabits.filter { habit in
+      let scheduledHabits = sortedHabits.filter { habit in
         let weekdays = habit.scheduleSettings?.weekdays ?? [0, 1, 2, 3, 4, 5, 6]
-        return weekdays.contains(window.dayOfWeek) && !checkedHabitIds.contains(habit.id)
+        return weekdays.contains(window.dayOfWeek)
       }
+      let visibleHabits = scheduledHabits.filter { !checkedHabitIds.contains($0.id) }
+      let completedScheduledHabits = scheduledHabits.filter { checkedHabitIds.contains($0.id) }.count
 
       let pages = habitPages(for: visibleHabits, family: family)
       let totalPages = max(1, pages.count)
@@ -1252,7 +1326,9 @@ fileprivate enum Hue2WidgetLoader {
         habits: widgetHabits,
         page: page,
         totalPages: totalPages,
-        totalVisibleHabits: visibleHabits.count
+        totalVisibleHabits: visibleHabits.count,
+        completedScheduledHabits: completedScheduledHabits,
+        totalScheduledHabits: scheduledHabits.count
       )
     } catch {
       return Hue2WidgetEntry(
@@ -1262,7 +1338,9 @@ fileprivate enum Hue2WidgetLoader {
         habits: [],
         page: 0,
         totalPages: 1,
-        totalVisibleHabits: 0
+        totalVisibleHabits: 0,
+        completedScheduledHabits: 0,
+        totalScheduledHabits: 0
       )
     }
   }
@@ -1295,10 +1373,12 @@ fileprivate enum Hue2WidgetLoader {
       window: window
     )
 
-    let visibleHabits = sortedHabits.filter { habit in
+    let scheduledHabits = sortedHabits.filter { habit in
       let weekdays = habit.scheduleSettings?.weekdays ?? [0, 1, 2, 3, 4, 5, 6]
-      return weekdays.contains(window.dayOfWeek) && !trackedHabitIds.contains(habit.id)
+      return weekdays.contains(window.dayOfWeek)
     }
+    let visibleHabits = scheduledHabits.filter { !trackedHabitIds.contains($0.id) }
+    let completedScheduledHabits = scheduledHabits.filter { trackedHabitIds.contains($0.id) }.count
 
     let pages = habitPages(for: visibleHabits, family: family)
     let totalPages = max(1, pages.count)
@@ -1370,7 +1450,9 @@ fileprivate enum Hue2WidgetLoader {
       habits: widgetHabits,
       page: page,
       totalPages: totalPages,
-      totalVisibleHabits: visibleHabits.count
+      totalVisibleHabits: visibleHabits.count,
+      completedScheduledHabits: completedScheduledHabits,
+      totalScheduledHabits: scheduledHabits.count
     )
   }
 

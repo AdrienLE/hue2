@@ -20,6 +20,14 @@ import { getHabitColorByIndex } from '@/constants/Colors';
 import { useAuth } from '@/auth/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useUser } from '@/contexts/UserContext';
+import {
+  WEB_CHROMA_TRACK_BACKGROUND,
+  WEB_FREQUENCY_TRACK_BACKGROUND,
+  WEB_LIGHTNESS_TRACK_BACKGROUND,
+  WEB_SETTINGS_SLIDER_CLASS,
+  WEB_SETTINGS_SLIDER_CSS,
+  getKeyboardSliderValue,
+} from '@/lib/settingsSliderStyles';
 
 interface SettingsResponse {
   name?: string;
@@ -32,22 +40,22 @@ interface UploadProfilePictureResponse {
   url: string;
 }
 
-const webBrightnessTrackLight =
+const webBrightnessTrack =
   Platform.OS === 'web'
     ? ({
-        background: 'linear-gradient(to right, #000000 0%, #ffffff 100%)',
-      } as any)
-    : undefined;
-const webBrightnessTrackDark =
-  Platform.OS === 'web'
-    ? ({
-        background: 'linear-gradient(to right, #ffffff 0%, #000000 100%)',
+        background: WEB_LIGHTNESS_TRACK_BACKGROUND,
       } as any)
     : undefined;
 const webChromaTrack =
   Platform.OS === 'web'
     ? ({
-        background: 'linear-gradient(to right, #808080 0%, #ff0000 100%)',
+        background: WEB_CHROMA_TRACK_BACKGROUND,
+      } as any)
+    : undefined;
+const webFrequencyTrack =
+  Platform.OS === 'web'
+    ? ({
+        background: WEB_FREQUENCY_TRACK_BACKGROUND,
       } as any)
     : undefined;
 
@@ -85,26 +93,41 @@ function SettingsSlider({
   thumbTintColor,
   accessibilityLabel,
 }: SettingsSliderProps) {
+  const effectiveStep = step ?? 1;
+
   if (Platform.OS === 'web') {
     return React.createElement('input', {
       type: 'range',
+      className: WEB_SETTINGS_SLIDER_CLASS,
       'aria-label': accessibilityLabel,
       min: minimumValue,
       max: maximumValue,
-      step: step ?? 'any',
+      step: effectiveStep,
       value,
-      onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
+      onInput: (event: React.FormEvent<HTMLInputElement>) => {
         onValueChange(Number(event.currentTarget.value));
       },
+      onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => {
+        const nextValue = getKeyboardSliderValue(
+          event.key,
+          value,
+          minimumValue,
+          maximumValue,
+          effectiveStep
+        );
+        if (nextValue === null) return;
+        event.preventDefault();
+        onValueChange(nextValue);
+      },
       onPointerUp: onSlidingComplete,
+      onPointerCancel: onSlidingComplete,
+      onKeyUp: onSlidingComplete,
       onBlur: onSlidingComplete,
       style: {
-        width: '100%',
-        height: 40,
-        margin: 0,
-        background: 'transparent',
-        cursor: 'pointer',
-      },
+        '--settings-slider-thumb-color': thumbTintColor,
+        '--settings-slider-thumb-border-color':
+          thumbTintColor === '#ffffff' ? '#5f6368' : '#ffffff',
+      } as React.CSSProperties,
     });
   }
 
@@ -114,7 +137,7 @@ function SettingsSlider({
       style={style}
       minimumValue={minimumValue}
       maximumValue={maximumValue}
-      step={step}
+      step={effectiveStep}
       value={value}
       onValueChange={onValueChange}
       onSlidingComplete={onSlidingComplete}
@@ -366,6 +389,7 @@ export default function SettingsScreen() {
 
   return (
     <>
+      {Platform.OS === 'web' ? React.createElement('style', null, WEB_SETTINGS_SLIDER_CSS) : null}
       <Stack.Screen options={{ title: 'Settings' }} />
       <Pressable style={styles.overlay} onPress={router.back}>
         <Pressable
@@ -560,7 +584,7 @@ export default function SettingsScreen() {
                       colorScheme === 'dark'
                         ? styles.brightnessTrackDark
                         : styles.brightnessTrackLight,
-                      colorScheme === 'dark' ? webBrightnessTrackDark : webBrightnessTrackLight,
+                      webBrightnessTrack,
                     ]}
                   />
                   <SettingsSlider
@@ -616,7 +640,7 @@ export default function SettingsScreen() {
               </ThemedText>
               <View style={styles.sliderContainer}>
                 <View style={styles.sliderWrapper}>
-                  <View style={[styles.sliderTrack, styles.chromaTrack, webChromaTrack]} />
+                  <View style={[styles.sliderTrack, styles.frequencyTrack, webFrequencyTrack]} />
                   <SettingsSlider
                     style={styles.slider}
                     accessibilityLabel="Hue Frequency"
@@ -783,10 +807,11 @@ const styles = StyleSheet.create({
   },
   sliderTrack: {
     position: 'absolute',
-    left: 16,
-    right: 16,
+    left: 10,
+    right: 10,
     height: 6,
     borderRadius: 3,
+    pointerEvents: 'none',
   },
   brightnessTrackLight: {
     backgroundColor: '#000',
@@ -795,6 +820,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   chromaTrack: {
+    backgroundColor: '#808080',
+  },
+  frequencyTrack: {
     backgroundColor: '#808080',
   },
   slider: {

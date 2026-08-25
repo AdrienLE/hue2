@@ -805,7 +805,6 @@ export function HabitCard({
           setShowWeightInput(false);
         }
         console.log('Success: Weight updated successfully!');
-        onChecked?.(habit.id);
       } else {
         // Revert optimistic update on failure
         setCurrentWeight(oldWeight);
@@ -1939,6 +1938,8 @@ export function HabitCard({
                       void endWeightHold();
                     }}
                     disabled={updating || !currentWeight || currentWeight <= 0}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Decrease ${habit.name} weight`}
                   >
                     <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>
                       -
@@ -1965,6 +1966,8 @@ export function HabitCard({
                       void endWeightHold();
                     }}
                     disabled={updating}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Increase ${habit.name} weight`}
                   >
                     <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>
                       +

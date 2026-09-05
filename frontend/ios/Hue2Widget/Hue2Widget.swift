@@ -612,19 +612,21 @@ private struct WidgetHabitRow: View {
           metric
         }
 
-        if family != .systemSmall {
-          switch habit.kind {
-          case .normal:
-            WidgetSubHabitGrid(habit: habit, family: family)
-          case .count:
+        switch habit.kind {
+        case .normal:
+          WidgetSubHabitRow(habit: habit, family: family)
+        case .count:
+          if family != .systemSmall {
             WidgetProgressBar(total: habit.countTotal, target: habit.countTarget, accent: accentColor)
-          case .weight:
-            if let target = habit.weightTarget, let current = habit.weightCurrent {
-              Text(weightDeltaText(current: current, target: target))
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            }
+          }
+        case .weight:
+          if family != .systemSmall,
+            let target = habit.weightTarget, let current = habit.weightCurrent
+          {
+            Text(weightDeltaText(current: current, target: target))
+              .font(.caption2)
+              .foregroundStyle(.secondary)
+              .lineLimit(1)
           }
         }
       }
@@ -774,7 +776,7 @@ private struct WidgetHabitRow: View {
     case .systemSmall:
       5
     case .systemMedium:
-      4
+      2
     default:
       5
     }
@@ -805,98 +807,119 @@ private struct WidgetHabitRow: View {
   }
 }
 
-private struct WidgetSubHabitGrid: View {
+struct WidgetSubHabitPage {
+  let subHabits: [WidgetSubHabit]
+  let page: Int
+  let totalPages: Int
+
+  init(subHabits: [WidgetSubHabit], family: WidgetFamily, requestedPage: Int) {
+    let remaining = subHabits.filter { !$0.checked }
+    let capacity = family == .systemSmall ? 1 : 2
+    totalPages = max(1, (remaining.count + capacity - 1) / capacity)
+    page = min(max(requestedPage, 0), totalPages - 1)
+    let start = min(page * capacity, remaining.count)
+    self.subHabits = Array(remaining.dropFirst(start).prefix(capacity))
+  }
+
+  static func nextPage(current: Int, direction: Int, totalPages: Int) -> Int {
+    let lastPage = max(totalPages - 1, 0)
+    let visiblePage = min(max(current, 0), lastPage)
+    return min(max(visiblePage + direction, 0), lastPage)
+  }
+}
+
+private struct WidgetSubHabitRow: View {
   let habit: WidgetHabit
   let family: WidgetFamily
 
   @Environment(\.colorScheme) private var colorScheme
 
   var body: some View {
-    if !habit.subHabits.isEmpty {
-      HStack(alignment: .top, spacing: family == .systemMedium ? 3 : 4) {
-        LazyVGrid(
-          columns: columns,
-          alignment: .leading,
-          spacing: family == .systemMedium ? 0 : 3
-        ) {
-          ForEach(visibleSubHabits) { subHabit in
+    let selection = WidgetSubHabitPage(
+      subHabits: habit.subHabits,
+      family: family,
+      requestedPage: UserDefaults.standard.integer(
+        forKey: Hue2WidgetConstants.subHabitPageKey(habit.id)
+      )
+    )
+
+    if !selection.subHabits.isEmpty {
+      HStack(spacing: 3) {
+        HStack(spacing: family == .systemMedium ? 3 : 4) {
+          ForEach(selection.subHabits) { subHabit in
             Button(
               intent: ToggleSubHabitIntent(
                 parentHabitId: habit.id,
                 subHabitId: subHabit.id,
-                currentlyChecked: subHabit.checked
+                currentlyChecked: false
               )
             ) {
               HStack(spacing: family == .systemMedium ? 3 : 5) {
-                ZStack {
-                  RoundedRectangle(cornerRadius: 3, style: .continuous)
-                    .fill(Color.clear)
-                    .overlay {
-                      RoundedRectangle(cornerRadius: 3, style: .continuous)
-                        .stroke(accentColor, lineWidth: 1.5)
-                    }
-
-                  if subHabit.checked {
-                    Image(systemName: "checkmark")
-                      .font(.system(size: 8, weight: .bold))
-                      .foregroundStyle(accentColor)
-                  }
-                }
-                .frame(width: subHabitCheckSize, height: subHabitCheckSize)
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                  .stroke(accentColor, lineWidth: 1.5)
+                  .frame(width: subHabitCheckSize, height: subHabitCheckSize)
 
                 Text(subHabit.name)
                   .lineLimit(1)
                   .minimumScaleFactor(0.7)
               }
               .font(.caption2)
-              .foregroundStyle(subHabit.checked ? .secondary : .primary)
-              .padding(.vertical, 0)
+              .foregroundStyle(.primary)
+              .frame(height: controlHeight)
               .frame(maxWidth: .infinity, alignment: .leading)
+              .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(
-              "\(subHabit.checked ? "Uncheck" : "Check") \(subHabit.name)"
-            )
+            .accessibilityLabel("Check \(subHabit.name)")
           }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
 
-        if totalPages > 1 {
+        if selection.totalPages > 1 {
           HStack(spacing: 3) {
             Button(
-              intent: PageSubHabitsIntent(habitId: habit.id, direction: -1, totalPages: totalPages)
+              intent: PageSubHabitsIntent(
+                habitId: habit.id, direction: -1, totalPages: selection.totalPages
+              )
             ) {
               Image(systemName: "chevron.left")
-                .frame(width: family == .systemMedium ? 10 : 12, height: 12)
+                .frame(width: controlHeight, height: controlHeight)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .disabled(page <= 0)
+            .disabled(selection.page <= 0)
+            .accessibilityLabel("Previous subhabits for \(habit.name)")
 
-            Text("\(page + 1)/\(totalPages)")
-              .font(.caption2.monospacedDigit())
-              .foregroundStyle(.secondary)
+            if family != .systemSmall {
+              Text("\(selection.page + 1)/\(selection.totalPages)")
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.secondary)
+            }
 
             Button(
-              intent: PageSubHabitsIntent(habitId: habit.id, direction: 1, totalPages: totalPages)
+              intent: PageSubHabitsIntent(
+                habitId: habit.id, direction: 1, totalPages: selection.totalPages
+              )
             ) {
               Image(systemName: "chevron.right")
-                .frame(width: family == .systemMedium ? 10 : 12, height: 12)
+                .frame(width: controlHeight, height: controlHeight)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .disabled(page >= totalPages - 1)
+            .disabled(selection.page >= selection.totalPages - 1)
+            .accessibilityLabel("Next subhabits for \(habit.name)")
           }
           .font(.caption2.weight(.semibold))
           .foregroundStyle(.secondary)
+          .fixedSize()
         }
       }
+      .fixedSize(horizontal: false, vertical: true)
     }
   }
 
-  private var columns: [GridItem] {
-    [
-      GridItem(.flexible(), spacing: family == .systemMedium ? 3 : 4),
-      GridItem(.flexible(), spacing: family == .systemMedium ? 3 : 4),
-    ]
+  private var controlHeight: CGFloat {
+    family == .systemMedium ? 14 : 18
   }
 
   private var subHabitCheckSize: CGFloat {
@@ -910,29 +933,6 @@ private struct WidgetSubHabitGrid: View {
       globalLightness: habit.colorBrightness,
       globalChroma: habit.colorSaturation
     )
-  }
-
-  private var capacity: Int {
-    switch family {
-    case .systemMedium, .systemLarge:
-      2
-    default:
-      2
-    }
-  }
-
-  private var totalPages: Int {
-    max(1, Int(ceil(Double(habit.subHabits.count) / Double(capacity))))
-  }
-
-  private var page: Int {
-    min(max(UserDefaults.standard.integer(forKey: Hue2WidgetConstants.subHabitPageKey(habit.id)), 0), totalPages - 1)
-  }
-
-  private var visibleSubHabits: [WidgetSubHabit] {
-    let start = min(page * capacity, habit.subHabits.count)
-    let end = min(start + capacity, habit.subHabits.count)
-    return Array(habit.subHabits[start..<end])
   }
 }
 
@@ -2055,7 +2055,9 @@ struct PageSubHabitsIntent: AppIntent {
   func perform() async throws -> some IntentResult {
     let key = Hue2WidgetConstants.subHabitPageKey(habitId)
     let current = UserDefaults.standard.integer(forKey: key)
-    let next = min(max(current + direction, 0), max(totalPages - 1, 0))
+    let next = WidgetSubHabitPage.nextPage(
+      current: current, direction: direction, totalPages: totalPages
+    )
     UserDefaults.standard.set(next, forKey: key)
     WidgetCenter.shared.reloadTimelines(ofKind: Hue2WidgetConstants.kind)
     return .result()

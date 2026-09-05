@@ -152,13 +152,19 @@ export class HabitService {
       startDate,
       endDate,
     });
+    if (checks.error || !checks.data) {
+      throw new Error(checks.error || 'Unable to load habit checks');
+    }
 
     // A parent uncheck must not erase independently completed sub-habits.
     if (checks.data && checks.data.length > 0) {
       const deletePromises = checks.data
         .filter(check => check.sub_habit_id == null)
         .map(check => this.deleteCheck(check.id, token));
-      return Promise.all(deletePromises);
+      const results = await Promise.all(deletePromises);
+      const failed = results.find(result => result.error);
+      if (failed) throw new Error(failed.error);
+      return results;
     }
 
     return [];

@@ -1,3 +1,4 @@
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { HabitService } from '@/lib/services/habitService';
 import { getLogicalDateRange } from '@/lib/logicalTime';
 import { api } from '@/lib/api';
@@ -588,6 +589,22 @@ describe('HabitService', () => {
   describe('uncheckHabitToday', () => {
     afterEach(() => {
       jest.clearAllMocks();
+    });
+
+    it('rejects a failed check lookup instead of treating it as an empty day', async () => {
+      jest.spyOn(HabitService, 'getChecks').mockResolvedValue({ error: 'Offline', status: 0 });
+      const deleteSpy = jest.spyOn(HabitService, 'deleteCheck');
+      await expect(HabitService.uncheckHabitToday(7, mockToken)).rejects.toThrow('Offline');
+      expect(deleteSpy).not.toHaveBeenCalled();
+    });
+
+    it('rejects a failed delete so callers do not reverse rewards or completion', async () => {
+      jest.spyOn(HabitService, 'getChecks').mockResolvedValue({
+        data: [{ id: 42, sub_habit_id: null }] as any,
+        status: 200,
+      });
+      jest.spyOn(HabitService, 'deleteCheck').mockResolvedValue({ error: 'Offline', status: 0 });
+      await expect(HabitService.uncheckHabitToday(7, mockToken)).rejects.toThrow('Offline');
     });
 
     it('uses logical day boundaries including timezone offsets when fetching checks', async () => {

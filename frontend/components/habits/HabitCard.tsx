@@ -102,6 +102,8 @@ export function HabitCard({
   const [checking, setChecking] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const pendingSubHabits = useRef(new Set<number>());
 
   // Count habit state
   const [todayCount, setTodayCount] = useState(0);
@@ -237,6 +239,9 @@ export function HabitCard({
   const colorScheme = useColorScheme();
   const isDarkMode = colorScheme === 'dark';
   const backgroundColor = useThemeColor({}, 'background');
+  const surfaceColor = useThemeColor({}, 'surface');
+  const mutedColor = useThemeColor({}, 'muted');
+  const errorColor = useThemeColor({ light: '#b42318', dark: '#ffb4ab' }, 'text');
   const textColor = useThemeColor({}, 'text');
   const tintColor = useThemeColor({}, 'tint');
   const borderColor = useThemeColor({ light: '#e1e5e9', dark: '#333' }, 'border');
@@ -331,8 +336,12 @@ export function HabitCard({
 
   // Toggle sub-habit checked status (persist to server to avoid desync)
   const toggleSubHabit = async (subHabitId: number) => {
+    if (!token || pendingSubHabits.current.has(subHabitId)) return;
+    pendingSubHabits.current.add(subHabitId);
+    setActionError(null);
     const subHabitPoints = habit.reward_settings?.sub_habit_points || 0;
     const wasChecked = checkedSubHabits.has(subHabitId);
+    let checkSaved = false;
 
     // Optimistic UI update
     setCheckedSubHabits(prev => {
@@ -355,13 +364,16 @@ export function HabitCard({
           startDate,
           endDate,
         });
+        if (resp.error || !resp.data) throw new Error(resp.error || 'Unable to load checks');
         const todays = (resp.data || []).filter(c => {
           if (c.sub_habit_id !== subHabitId) return false;
           return isTimestampOnLogicalDay(c.check_date, rolloverHour, baseDate);
         });
         for (const c of todays) {
-          await HabitService.deleteCheck(c.id, token!);
+          const result = await HabitService.deleteCheck(c.id, token!);
+          if (result.error) throw new Error(result.error);
         }
+        checkSaved = true;
         if (subHabitPoints > 0) {
           await subtractReward(subHabitPoints);
         }
@@ -374,19 +386,31 @@ export function HabitCard({
           check_date: getLogicalDateTimestamp(rolloverHour, baseDate),
         };
         const createResp = await HabitService.createCheck(checkData as any, token!);
+        if (createResp.error || !createResp.data) {
+          throw new Error(createResp.error || 'Unable to save check');
+        }
+        checkSaved = true;
         if (createResp.data && subHabitPoints > 0) {
           await addReward(subHabitPoints);
         }
       }
     } catch (error) {
       // Revert UI on failure
-      setCheckedSubHabits(prev => {
-        const newSet = new Set(prev);
-        if (wasChecked) newSet.add(subHabitId);
-        else newSet.delete(subHabitId);
-        return newSet;
-      });
+      if (!checkSaved)
+        setCheckedSubHabits(prev => {
+          const newSet = new Set(prev);
+          if (wasChecked) newSet.add(subHabitId);
+          else newSet.delete(subHabitId);
+          return newSet;
+        });
       console.error('Error persisting sub-habit toggle:', error);
+      setActionError(
+        checkSaved
+          ? 'Check saved, but rewards could not update.'
+          : 'Could not save this check. Please try again.'
+      );
+    } finally {
+      pendingSubHabits.current.delete(subHabitId);
     }
   };
 
@@ -559,6 +583,7 @@ export function HabitCard({
     if (!token || checking) return;
 
     setChecking(true);
+    setActionError(null);
     try {
       const successReward = habit.reward_settings?.success_points || 0;
 
@@ -681,13 +706,13 @@ export function HabitCard({
           console.log('Success: Habit checked!');
           onChecked?.(habit.id);
         } else {
-          console.error('Failed to check habit:', response.error);
-          console.error('Failed to check habit');
+          throw new Error(response.error || 'Unable to save check');
         }
       }
     } catch (error) {
       console.error('Error checking/unchecking habit:', error);
       console.error('Failed to check/uncheck habit');
+      setActionError('Could not save this check. Please try again.');
     } finally {
       setChecking(false);
     }
@@ -695,9 +720,11 @@ export function HabitCard({
 
   // Handle count updates
   const updateCount = async (increment: boolean) => {
-    if (!token || updating) return;
+    if (!token || updating || loading) return;
 
     setUpdating(true);
+    setActionError(null);
+    let countSaved = false;
     try {
       const change = increment ? stepSize : -stepSize;
       const newValue = Math.max(0, todayCount + change);
@@ -717,6 +744,7 @@ export function HabitCard({
 
       const response = await HabitService.createCount(countData, token);
       if (response.data) {
+        countSaved = true;
         // Calculate reward
         const countReward = habit.reward_settings?.count_reward || 0;
         if (countReward > 0) {
@@ -738,14 +766,20 @@ export function HabitCard({
             }
           }
         }
-        onChecked?.(habit.id);
       } else {
         // Revert optimistic update on failure
         setTodayCount(todayCount);
+        setActionError('Could not save the count. Please try again.');
         console.error('Failed to update count:', response.error);
         console.error('Failed to update count');
       }
     } catch (error) {
+      if (!countSaved) setTodayCount(todayCount);
+      setActionError(
+        countSaved
+          ? 'Count saved, but rewards could not update.'
+          : 'Could not save the count. Please try again.'
+      );
       console.error('Error updating count:', error);
       console.error('Failed to update count');
     } finally {
@@ -1660,10 +1694,11 @@ export function HabitCard({
         style={[
           styles.container,
           {
+            backgroundColor: surfaceColor,
             borderColor,
             borderLeftColor: liveHabitColor,
             borderLeftWidth: 4,
-            opacity: isInactive ? 0.4 : isActive ? 0.7 : 1,
+            opacity: isInactive ? 0.65 : isActive ? 0.7 : 1,
           },
         ]}
       >
@@ -1698,7 +1733,7 @@ export function HabitCard({
                 },
               ]}
             >
-              {checking ? '...' : '✓'}
+              {checking ? '…' : isCheckedToday ? '✓' : ''}
             </ThemedText>
           </TouchableOpacity>
 
@@ -1706,7 +1741,7 @@ export function HabitCard({
             <ThemedText
               style={[
                 styles.habitName,
-                isInactive ? { textDecorationLine: 'line-through', opacity: 0.8 } : null,
+                isCheckedToday ? { color: mutedColor, textDecorationLine: 'line-through' } : null,
               ]}
               numberOfLines={1}
               ellipsizeMode="tail"
@@ -1827,14 +1862,17 @@ export function HabitCard({
                     style={[
                       styles.controlButton,
                       {
-                        backgroundColor: countIsGood ? '#ff4444' : '#4CAF50',
-                        borderColor: countIsGood ? '#ff4444' : '#4CAF50',
+                        backgroundColor: `${liveHabitColor}18`,
+                        borderColor: `${liveHabitColor}55`,
+                        opacity: updating || loading || todayCount <= 0 ? 0.4 : 1,
                       },
                     ]}
                     onPress={() => updateCount(false)}
-                    disabled={updating || todayCount <= 0}
+                    disabled={updating || loading || todayCount <= 0}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Decrease ${habit.name} count`}
                   >
-                    <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>
+                    <ThemedText style={[styles.controlButtonText, { color: textColor }]}>
                       -
                     </ThemedText>
                   </TouchableOpacity>
@@ -1843,14 +1881,17 @@ export function HabitCard({
                     style={[
                       styles.controlButton,
                       {
-                        backgroundColor: countIsGood ? '#4CAF50' : '#ff4444',
-                        borderColor: countIsGood ? '#4CAF50' : '#ff4444',
+                        backgroundColor: `${liveHabitColor}18`,
+                        borderColor: `${liveHabitColor}55`,
+                        opacity: updating || loading ? 0.4 : 1,
                       },
                     ]}
                     onPress={() => updateCount(true)}
-                    disabled={updating}
+                    disabled={updating || loading}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Increase ${habit.name} count`}
                   >
-                    <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>
+                    <ThemedText style={[styles.controlButtonText, { color: textColor }]}>
                       +
                     </ThemedText>
                   </TouchableOpacity>
@@ -1922,8 +1963,10 @@ export function HabitCard({
                     style={[
                       styles.controlButton,
                       {
-                        backgroundColor: getWeightButtonColors().decreaseColor,
-                        borderColor: getWeightButtonColors().decreaseColor,
+                        backgroundColor: `${getWeightButtonColors().decreaseColor}18`,
+                        borderColor: `${getWeightButtonColors().decreaseColor}55`,
+                        opacity:
+                          updating || loading || !currentWeight || currentWeight <= 0 ? 0.4 : 1,
                       },
                     ]}
                     onPress={() => {
@@ -1937,11 +1980,11 @@ export function HabitCard({
                     onPressOut={() => {
                       void endWeightHold();
                     }}
-                    disabled={updating || !currentWeight || currentWeight <= 0}
+                    disabled={updating || loading || !currentWeight || currentWeight <= 0}
                     accessibilityRole="button"
                     accessibilityLabel={`Decrease ${habit.name} weight`}
                   >
-                    <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>
+                    <ThemedText style={[styles.controlButtonText, { color: textColor }]}>
                       -
                     </ThemedText>
                   </TouchableOpacity>
@@ -1950,8 +1993,9 @@ export function HabitCard({
                     style={[
                       styles.controlButton,
                       {
-                        backgroundColor: getWeightButtonColors().increaseColor,
-                        borderColor: getWeightButtonColors().increaseColor,
+                        backgroundColor: `${getWeightButtonColors().increaseColor}18`,
+                        borderColor: `${getWeightButtonColors().increaseColor}55`,
+                        opacity: updating || loading ? 0.4 : 1,
                       },
                     ]}
                     onPress={() => {
@@ -1965,11 +2009,11 @@ export function HabitCard({
                     onPressOut={() => {
                       void endWeightHold();
                     }}
-                    disabled={updating}
+                    disabled={updating || loading}
                     accessibilityRole="button"
                     accessibilityLabel={`Increase ${habit.name} weight`}
                   >
-                    <ThemedText style={[styles.controlButtonText, { color: 'white' }]}>
+                    <ThemedText style={[styles.controlButtonText, { color: textColor }]}>
                       +
                     </ThemedText>
                   </TouchableOpacity>
@@ -1988,6 +2032,11 @@ export function HabitCard({
             <ThemedText style={[styles.menuDots, { color: textColor }]}>⋮</ThemedText>
           </TouchableOpacity>
         </View>
+        {actionError && (
+          <ThemedText accessibilityRole="alert" style={[styles.actionError, { color: errorColor }]}>
+            {actionError}
+          </ThemedText>
+        )}
       </ThemedView>
 
       <HabitActionSheet
@@ -2050,17 +2099,17 @@ export function HabitCard({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    marginVertical: 1,
-    borderRadius: 0,
-    borderWidth: 0,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginVertical: 3,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
   },
+  actionError: { fontSize: 12, lineHeight: 18, marginTop: 8 },
   mainRow: {
     flexDirection: 'row',
     alignItems: 'flex-start', // Align to top instead of center
-    gap: 5,
+    gap: 8,
   },
   dragHandle: {
     paddingHorizontal: 4,
@@ -2096,12 +2145,14 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   habitName: {
-    fontSize: 15,
+    fontSize: 16,
+    lineHeight: 23,
     fontWeight: '600',
     marginBottom: 2,
   },
   description: {
-    fontSize: 11,
+    fontSize: 12,
+    lineHeight: 18,
     opacity: 0.7,
     marginBottom: 4,
   },
@@ -2120,7 +2171,8 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   targetText: {
-    fontSize: 10,
+    fontSize: 12,
+    lineHeight: 18,
     opacity: 0.7,
     minWidth: 40,
   },
@@ -2151,8 +2203,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   controlButton: {
-    width: 32,
-    height: 32,
+    width: 36,
+    height: 36,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2222,7 +2274,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   menuButton: {
-    padding: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 8,
     borderRadius: 8,
     marginTop: 2, // Align with text baseline
     flexShrink: 0,

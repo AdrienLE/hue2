@@ -1,5 +1,12 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { StyleSheet, ActivityIndicator, RefreshControl, Platform, View } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import {
+  StyleSheet,
+  ActivityIndicator,
+  RefreshControl,
+  Platform,
+  View,
+  Pressable,
+} from 'react-native';
 import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedView } from '../ThemedView';
@@ -35,6 +42,9 @@ export function HabitList() {
   const [refreshing, setRefreshing] = useState(false);
   const [checkedHabitsToday, setCheckedHabitsToday] = useState<Set<number>>(new Set());
   const [editingHabitId, setEditingHabitId] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const reordering = useRef(false);
+  const [savingOrder, setSavingOrder] = useState(false);
   const { token } = useAuth();
   const { userSettings } = useUser();
   const { mode, setMode } = useHabitVisibility();
@@ -76,10 +86,12 @@ export function HabitList() {
         // Load today's checks to determine which habits are completed
         await loadTodaysChecks();
       } else {
-        console.error('Failed to load habits:', response.error);
+        throw new Error(response.error || 'Unable to load habits');
       }
+      setLoadError(null);
     } catch (error) {
       console.error('Error loading habits:', error);
+      setLoadError('Could not refresh your habits. Please try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -131,7 +143,15 @@ export function HabitList() {
   };
 
   const handleHabitReorder = async (data: Habit[]) => {
-    setHabits(data);
+    if (!token || reordering.current) return;
+    reordering.current = true;
+    setSavingOrder(true);
+    const previousHabits = habits;
+    const orderedHabits = data.map((habit, order) => ({
+      ...habit,
+      display_settings: { ...habit.display_settings, order },
+    }));
+    setHabits(orderedHabits);
 
     // Update the order in the backend
     try {
@@ -152,11 +172,17 @@ export function HabitList() {
         return null;
       });
 
-      await Promise.all(updatePromises);
+      const results = await Promise.all(updatePromises);
+      if (results.some(result => result?.error)) throw new Error('Unable to save habit order');
     } catch (error) {
       console.error('Error updating habit order:', error);
-      // Revert to original order if backend update fails
-      await loadHabits();
+      setHabits(previousHabits);
+      // Reconcile any partially persisted order with the server.
+      await loadHabits(true);
+      setLoadError('Could not save the habit order. Please try again.');
+    } finally {
+      reordering.current = false;
+      setSavingOrder(false);
     }
   };
 
@@ -210,7 +236,7 @@ export function HabitList() {
   // Refetch on app/window focus and poll periodically to keep devices in sync
   useRefetchOnFocus(
     () => {
-      if (token) return loadHabits(true);
+      if (token && !reordering.current) return loadHabits(true);
     },
     { enabled: !!token, intervalMs: 30000, focusThrottleMs: 1000 }
   );
@@ -235,7 +261,7 @@ export function HabitList() {
         <View style={styles.dayRow}>
           <View>
             <ThemedText style={styles.dayTitle}>
-              {currentDate.toLocaleDateString(undefined, {
+              {new Date(y, m - 1, d).toLocaleDateString(undefined, {
                 weekday: 'long',
                 month: 'short',
                 day: 'numeric',
@@ -251,15 +277,28 @@ export function HabitList() {
           <View style={[styles.progressFill, { width: `${completionRatio * 100}%` }]} />
         </View>
         <HabitFilterBar mode={mode} onChange={setMode} />
+        {loadError && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading habits"
+            onPress={() => loadHabits(true)}
+          >
+            <ThemedText style={[styles.errorText, { color: mutedColor }]}>
+              {loadError} Tap to retry.
+            </ThemedText>
+          </Pressable>
+        )}
       </View>
 
-      {visibleHabits.length === 0 && (
+      {visibleHabits.length === 0 && !loadError && (
         <View pointerEvents="none" style={styles.emptyOverlay}>
           <ThemedText style={styles.emptyText}>
             {getEmptyHabitMessage(mode, habits.length > 0)}
           </ThemedText>
           <ThemedText style={[styles.emptySubtext, { color: mutedColor }]}>
-            Use All to review or reorder your ledger
+            {habits.length
+              ? 'Use All to review or reorder your habits'
+              : 'Add your first habit below to get started'}
           </ThemedText>
         </View>
       )}
@@ -281,7 +320,7 @@ export function HabitList() {
           onRefresh={() => loadHabits(true)}
           colorTotal={paletteSize}
           getColorIndex={getColorIndex}
-          reorderEnabled={mode === 'all'}
+          reorderEnabled={mode === 'all' && !savingOrder}
           contentBottom={insets.bottom + 12}
         />
       ) : (
@@ -301,8 +340,8 @@ export function HabitList() {
                 onUnchecked={handleHabitUnchecked}
                 isCheckedToday={checkedHabitsToday.has(item.id)}
                 isInactive={dayState.unscheduledIds.has(item.id)}
-                isDraggable={mode === 'all'}
-                onDrag={mode === 'all' ? drag : undefined}
+                isDraggable={mode === 'all' && !savingOrder}
+                onDrag={mode === 'all' && !savingOrder ? drag : undefined}
                 isActive={isActive}
                 isEditing={editingHabitId === item.id}
                 onStartEditing={() => handleStartEditing(item.id)}
@@ -333,12 +372,18 @@ const styles = StyleSheet.create({
     flex: 1,
     position: 'relative',
   },
-  ledgerHeader: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 5, gap: 8 },
+  ledgerHeader: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 12, gap: 14 },
   dayRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  dayTitle: { fontSize: 19, fontWeight: '800', letterSpacing: -0.3 },
-  dayMeta: { fontSize: 11, marginTop: 1 },
-  percent: { fontSize: 14, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  progressTrack: { height: 4, borderRadius: 2, overflow: 'hidden' },
+  dayTitle: { fontSize: 24, lineHeight: 30, fontWeight: '700', letterSpacing: -0.6 },
+  dayMeta: { fontSize: 13, lineHeight: 20, marginTop: 4 },
+  percent: {
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: '600',
+    letterSpacing: -0.6,
+    fontVariant: ['tabular-nums'],
+  },
+  progressTrack: { height: 5, borderRadius: 3, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 2, backgroundColor: '#65c7c1' },
   container: {
     flex: 1,
@@ -374,6 +419,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 8,
   },
+  errorText: { fontSize: 13, lineHeight: 20 },
   emptySubtext: {
     fontSize: 13,
     textAlign: 'center',

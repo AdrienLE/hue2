@@ -17,7 +17,7 @@ interface HabitFilterBarProps {
 
 export function HabitFilterBar({ mode, onChange }: HabitFilterBarProps) {
   const surface = useThemeColor({ light: '#f5f6f7', dark: '#0d0f12' }, 'background');
-  const selected = useThemeColor({ light: '#e9edf0', dark: '#242930' }, 'background');
+  const selected = useThemeColor({}, 'surfaceElevated');
   const muted = useThemeColor({ light: '#69727d', dark: '#929aa5' }, 'text');
   const border = useThemeColor({ light: '#dfe3e8', dark: '#2d323a' }, 'border');
 
@@ -48,7 +48,7 @@ export function HabitFilterBar({ mode, onChange }: HabitFilterBarProps) {
 }
 
 const styles = StyleSheet.create({
-  container: { flexDirection: 'row', borderRadius: 8, borderWidth: 1, padding: 2, gap: 2 },
-  tab: { flex: 1, minHeight: 31, alignItems: 'center', justifyContent: 'center', borderRadius: 5 },
-  label: { fontSize: 12, fontWeight: '700' },
+  container: { flexDirection: 'row', borderRadius: 10, borderWidth: 1, padding: 3, gap: 3 },
+  tab: { flex: 1, minHeight: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 7 },
+  label: { fontSize: 13, lineHeight: 20, fontWeight: '600' },
 });

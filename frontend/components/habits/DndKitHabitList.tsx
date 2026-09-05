@@ -168,9 +168,10 @@ export function DndKitHabitList({
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
 
-    if (reorderEnabled && active.id !== over?.id) {
+    if (reorderEnabled && over && active.id !== over.id) {
       const oldIndex = habits.findIndex(habit => habit.id === active.id);
       const newIndex = habits.findIndex(habit => habit.id === over?.id);
+      if (oldIndex < 0 || newIndex < 0) return;
 
       const reorderedHabits = arrayMove(habits, oldIndex, newIndex);
       onReorder(reorderedHabits);
@@ -224,13 +225,13 @@ const styles = StyleSheet.create({
   sortableItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 1,
+    marginVertical: 3,
   },
   dragHandle: {
     padding: 7,
     marginRight: 5,
     borderRadius: 4,
-    borderWidth: 1,
+    borderWidth: 0,
     justifyContent: 'center',
     alignItems: 'center',
   },

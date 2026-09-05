@@ -291,7 +291,7 @@ function RootLayoutNav() {
           flex: 1,
           alignItems: 'center',
           width: '100%',
-          backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : '#f5f5f5',
+          backgroundColor: Colors[colorScheme ?? 'light'].background,
         }}
       >
         <View style={{ flex: 1, width: '100%', maxWidth: 800 }}>

@@ -120,7 +120,13 @@ Notes:
 
 #### Fast iOS setup and build-only commands
 
-Download signing credentials once from `frontend` with `eas credentials --platform ios`.
+Download signing credentials once by running this from the repository root (the
+subshell keeps your terminal in the root directory afterwards):
+
+```bash
+(cd frontend && eas credentials --platform ios)
+```
+
 Choose the production profile and the option to download credentials to `credentials.json`.
 The file must include both native targets, `Hue2` and `Hue2WidgetExtension`, with separate
 ad hoc provisioning profiles and a shared distribution certificate. Expo documents this

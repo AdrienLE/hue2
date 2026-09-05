@@ -147,8 +147,9 @@ def validate_profile(profile, bundle_id, required_entitlements):
 def load_credentials(app, file, config):
     if not file.exists():
         raise BuildError(
-            f"Local iOS credentials not found: {file}. From frontend, run "
-            "'eas credentials --platform ios' and download credentials.json for both targets. "
+            f"Local iOS credentials not found: {file}. Download credentials with:\n"
+            f"  (cd {shlex.quote(str(app))} && eas credentials --platform ios)\n"
+            "Download credentials.json for both targets. "
             "Alternatively use the Diawi helper's --eas-build fallback."
         )
     result = {}

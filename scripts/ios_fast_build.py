@@ -136,6 +136,10 @@ def validate_profile(profile, bundle_id, required_entitlements):
     for key, value in required_entitlements.items():
         allowed = entitlements.get(key)
         if isinstance(value, list):
+            # Apple can encode an unrestricted array entitlement (notably
+            # associated domains) as the scalar "*" in a provisioning profile.
+            if allowed == "*":
+                continue
             if not isinstance(allowed, list) or (
                 "*" not in allowed and not set(value) <= set(allowed)
             ):

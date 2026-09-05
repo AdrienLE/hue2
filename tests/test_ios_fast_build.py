@@ -95,6 +95,37 @@ def test_invalid_signing_profile_is_rejected(invalid):
         )
 
 
+@pytest.mark.parametrize("allowed", ["*", ["*"], ["applinks:example.com"]])
+def test_profile_accepts_associated_domains_permission_formats(allowed):
+    data = profile()
+    data["Entitlements"]["com.apple.developer.associated-domains"] = allowed
+    build.validate_profile(
+        data,
+        "com.adrienle.hue2",
+        {"com.apple.developer.associated-domains": ["applinks:example.com"]},
+    )
+
+
+@pytest.mark.parametrize("allowed", [None, False, ["applinks:other.example"]])
+def test_profile_rejects_missing_or_incompatible_associated_domains(allowed):
+    data = profile()
+    data["Entitlements"]["com.apple.developer.associated-domains"] = allowed
+    with pytest.raises(build.BuildError, match="associated-domains"):
+        build.validate_profile(
+            data,
+            "com.adrienle.hue2",
+            {"com.apple.developer.associated-domains": ["applinks:example.com"]},
+        )
+
+
+def test_signed_app_still_requires_concrete_associated_domains():
+    with pytest.raises(build.BuildError, match="associated-domains"):
+        build.verify_signed_entitlements(
+            {"com.apple.developer.associated-domains": "*"},
+            {"com.apple.developer.associated-domains": ["applinks:example.com"]},
+        )
+
+
 def test_export_maps_both_profiles_by_bundle_id():
     credentials = {
         name: {"profile": {**profile(identifier), "UUID": name}}

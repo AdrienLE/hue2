@@ -182,10 +182,12 @@ fi
   if (( SKIP_BUILD )); then DIAWI_CMD+=(--skip-build); fi
   if [[ -n "$ARTIFACT_FILE" ]]; then DIAWI_CMD+=(--file "$ARTIFACT_FILE"); fi
   # Force local/cloud
+  DIAWI_BUILD_ARGS=(--profile "$PROFILE")
   if [[ "$BUILD_MODE" == "local" ]]; then
-    DIAWI_CMD+=(-- --local)
+    DIAWI_BUILD_ARGS+=(--local)
   else
-    DIAWI_CMD+=(-- --non-interactive)
+    DIAWI_CMD+=(--eas-build)
+    DIAWI_BUILD_ARGS+=(--non-interactive)
   fi
   # Respect interactive preference for the Diawi helper (which then forwards to build script)
   if (( FORCE_INTERACTIVE )); then
@@ -197,14 +199,13 @@ fi
   if [[ -n "$DIAWI_TOKEN_IN" ]]; then
     export DIAWI_TOKEN="$DIAWI_TOKEN_IN"
   fi
-  # Pass profile to underlying build script
-  DIAWI_CMD+=(-- --profile "$PROFILE")
   # Increase logging in Diawi helper when requested
   if (( VERBOSE )); then
     DIAWI_CMD=("${DIAWI_CMD[@]:0:1}" --verbose "${DIAWI_CMD[@]:1}")
   fi
   # Ensure production env hits prod server by default (eas.json already sets this for 'production')
-  if [[ ${#EXTRA_EAS_ARGS[@]} -gt 0 ]]; then DIAWI_CMD+=(-- "${EXTRA_EAS_ARGS[@]}"); fi
+  if [[ ${#EXTRA_EAS_ARGS[@]} -gt 0 ]]; then DIAWI_BUILD_ARGS+=("${EXTRA_EAS_ARGS[@]}"); fi
+  DIAWI_CMD+=(-- "${DIAWI_BUILD_ARGS[@]}")
   "${DIAWI_CMD[@]}"
 else
   # Build only

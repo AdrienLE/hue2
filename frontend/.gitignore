@@ -18,6 +18,9 @@ package-lock.json
 *.p12
 *.key
 *.mobileprovision
+/credentials.json
+/.signing/
+/builds/
 
 # Metro
 .metro-health-check*

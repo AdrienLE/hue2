@@ -21,6 +21,8 @@
     "build:ios:staging": "eas build --platform ios --profile staging",
     "build:ios:preview": "eas build --platform ios --profile production",
     "build:ios:production": "eas build --platform ios --profile app-store",
+    "build:ios:fast": "../scripts/build-ios-ipa-fast.sh",
+    "diawi:ios": "../scripts/build_and_upload_diawi.sh ios",
     "build:android:dev": "eas build --platform android --profile development",
     "build:android:staging": "eas build --platform android --profile staging",
     "build:android:production": "eas build --platform android --profile production",

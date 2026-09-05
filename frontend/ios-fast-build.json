@@ -1,0 +1,13 @@
+{
+  "workspace": "ios/Hue2.xcworkspace",
+  "scheme": "Hue2",
+  "appTarget": "Hue2",
+  "targets": {
+    "Hue2": "com.adrienle.hue2",
+    "Hue2WidgetExtension": "com.adrienle.hue2.Hue2Widget"
+  },
+  "entitlements": {
+    "Hue2": "ios/Hue2/Hue2.entitlements",
+    "Hue2WidgetExtension": "ios/Hue2Widget/Hue2Widget.entitlements"
+  }
+}

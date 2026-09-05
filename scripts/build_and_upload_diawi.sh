@@ -15,7 +15,9 @@ set -euo pipefail
 #
 # Notes:
 # - Requires DIAWI_TOKEN env var or --token <token>.
-# - Uses ./scripts/build-prod.sh under the hood for building.
+# - iOS reuses the native Xcode cache; --eas-build uses the original EAS local builder.
+# - Android continues to use ./scripts/build-prod.sh.
+# - Fast iOS profile/API options can be passed after -- (for example -- --profile staging).
 # - Prints an ANSI QR code with `qrencode` if available; otherwise prints install instructions.
 # - Use --verbose to print structured debug logs (masked by default); does not change build type.
 # - Non-interactive by default; use --interactive to allow prompts.
@@ -30,6 +32,7 @@ ARTIFACT_FILE=""
 TOKEN="${DIAWI_TOKEN:-}"
 TOKEN_FILE=""
 SKIP_BUILD=0
+EAS_BUILD=0
 VERBOSE=0
 # Whether to pass --auto-yes to build script (disabled by default)
 AUTO_YES=0
@@ -63,6 +66,8 @@ while [[ $# -gt 0 ]]; do
       TOKEN="${2:-}"; shift 2;;
     --skip-build)
       SKIP_BUILD=1; shift;;
+    --eas-build)
+      EAS_BUILD=1; shift;;
     --auto-yes)
       AUTO_YES=1; shift;;
     --interactive)
@@ -238,6 +243,25 @@ pick_latest() {
 
 build_if_needed() {
   if (( SKIP_BUILD )); then return 0; fi
+  if [[ "$PLATFORM" == "ios" ]] && (( ! EAS_BUILD )); then
+    local argument
+    for argument in "${EXTRA_BUILD_ARGS[@]-}"; do
+      case "$argument" in
+        --archive-only|--check|--output|--output=*)
+          err "Use build-ios-ipa-fast.sh directly for $argument; Diawi needs a fresh signed IPA."
+          exit 1;;
+      esac
+    done
+    local output="$FRONTEND_DIR/builds/swoosh-ios-fast.ipa"
+    local fast_args=(--output "$output")
+    if (( ${#EXTRA_BUILD_ARGS[@]} > 0 )); then
+      fast_args+=("${EXTRA_BUILD_ARGS[@]}")
+    fi
+    info "Building iOS with the persistent Xcode cache..."
+    "$SCRIPT_DIR/build-ios-ipa-fast.sh" "${fast_args[@]}"
+    ARTIFACT_FILE="$output"
+    return 0
+  fi
   if [[ ! -x "$BUILD_SCRIPT" ]]; then
     err "Build script not found: $BUILD_SCRIPT"; exit 1
   fi

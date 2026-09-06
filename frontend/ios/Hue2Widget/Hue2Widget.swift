@@ -1498,7 +1498,9 @@ fileprivate enum Hue2WidgetLoader {
       for habit in habits {
         group.addTask {
           do {
-            return (habit.id, try await client.fetchSubHabits(habitId: habit.id))
+            // Keep the await outside the tuple: optimized builds can otherwise zero its habit ID.
+            let subHabits = try await client.fetchSubHabits(habitId: habit.id)
+            return (habit.id, subHabits)
           } catch {
             return (habit.id, [])
           }

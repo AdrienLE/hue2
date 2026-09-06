@@ -35,6 +35,11 @@ jobs:
         working-directory: frontend
         run: yarn install --frozen-lockfile
 
+      # Backend integration tests serve the exported SPA and its static assets.
+      - name: Build frontend for integration tests
+        working-directory: frontend
+        run: yarn build:production
+
       - name: Run test suite
         env:
           DISABLE_WATCHMAN: "1"

@@ -844,78 +844,118 @@ private struct WidgetSubHabitRow: View {
     )
 
     if !selection.subHabits.isEmpty {
-      HStack(spacing: 3) {
-        HStack(spacing: family == .systemMedium ? 3 : 4) {
-          ForEach(selection.subHabits) { subHabit in
-            Button(
-              intent: ToggleSubHabitIntent(
-                parentHabitId: habit.id,
-                subHabitId: subHabit.id,
-                currentlyChecked: false
-              )
-            ) {
-              HStack(spacing: family == .systemMedium ? 3 : 5) {
-                RoundedRectangle(cornerRadius: 3, style: .continuous)
-                  .stroke(accentColor, lineWidth: 1.5)
-                  .frame(width: subHabitCheckSize, height: subHabitCheckSize)
+      GeometryReader { geometry in
+        let columns = family == .systemSmall ? 1 : 2
+        let columnSpacing: CGFloat = family == .systemMedium ? 3 : 4
+        let controlsWidth = family == .systemSmall && selection.totalPages == 1
+          ? 0 : pageControlsWidth
+        let controlsSpacing: CGFloat = controlsWidth > 0 ? 3 : 0
+        let columnWidth = max(
+          0,
+          (geometry.size.width - controlsWidth - controlsSpacing
+            - CGFloat(columns - 1) * columnSpacing) / CGFloat(columns)
+        )
 
-                Text(subHabit.name)
-                  .lineLimit(1)
-                  .minimumScaleFactor(0.7)
+        HStack(spacing: controlsSpacing) {
+          HStack(spacing: columnSpacing) {
+            ForEach(0..<columns, id: \.self) { index in
+              if selection.subHabits.indices.contains(index) {
+                subHabitButton(selection.subHabits[index])
+                  .frame(width: columnWidth, height: controlHeight, alignment: .leading)
+              } else {
+                Color.clear
+                  .frame(width: columnWidth, height: controlHeight)
+                  .accessibilityHidden(true)
               }
-              .font(.caption2)
-              .foregroundStyle(.primary)
-              .frame(height: controlHeight)
-              .frame(maxWidth: .infinity, alignment: .leading)
-              .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Check \(subHabit.name)")
           }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
 
-        if selection.totalPages > 1 {
-          HStack(spacing: 3) {
-            Button(
-              intent: PageSubHabitsIntent(
-                habitId: habit.id, direction: -1, totalPages: selection.totalPages
-              )
-            ) {
-              Image(systemName: "chevron.left")
-                .frame(width: controlHeight, height: controlHeight)
-                .contentShape(Rectangle())
+          if controlsWidth > 0 {
+            if selection.totalPages > 1 {
+              pageControls(selection)
+                .frame(width: controlsWidth, height: controlHeight)
+            } else {
+              Color.clear
+                .frame(width: controlsWidth, height: controlHeight)
+                .accessibilityHidden(true)
             }
-            .buttonStyle(.plain)
-            .disabled(selection.page <= 0)
-            .accessibilityLabel("Previous subhabits for \(habit.name)")
-
-            if family != .systemSmall {
-              Text("\(selection.page + 1)/\(selection.totalPages)")
-                .font(.caption2.monospacedDigit())
-                .foregroundStyle(.secondary)
-            }
-
-            Button(
-              intent: PageSubHabitsIntent(
-                habitId: habit.id, direction: 1, totalPages: selection.totalPages
-              )
-            ) {
-              Image(systemName: "chevron.right")
-                .frame(width: controlHeight, height: controlHeight)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(selection.page >= selection.totalPages - 1)
-            .accessibilityLabel("Next subhabits for \(habit.name)")
           }
-          .font(.caption2.weight(.semibold))
-          .foregroundStyle(.secondary)
-          .fixedSize()
         }
       }
-      .fixedSize(horizontal: false, vertical: true)
+      .frame(height: controlHeight)
     }
+  }
+
+  private func subHabitButton(_ subHabit: WidgetSubHabit) -> some View {
+    Button(
+      intent: ToggleSubHabitIntent(
+        parentHabitId: habit.id,
+        subHabitId: subHabit.id,
+        currentlyChecked: false
+      )
+    ) {
+      HStack(spacing: family == .systemMedium ? 3 : 5) {
+        RoundedRectangle(cornerRadius: 3, style: .continuous)
+          .stroke(accentColor, lineWidth: 1.5)
+          .frame(width: subHabitCheckSize, height: subHabitCheckSize)
+
+        Text(subHabit.name)
+          .lineLimit(1)
+          .minimumScaleFactor(0.7)
+      }
+      .font(.caption2)
+      .foregroundStyle(.primary)
+      .frame(height: controlHeight)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel("Check \(subHabit.name)")
+  }
+
+  private func pageControls(_ selection: WidgetSubHabitPage) -> some View {
+    HStack(spacing: 3) {
+      Button(
+        intent: PageSubHabitsIntent(
+          habitId: habit.id, direction: -1, totalPages: selection.totalPages
+        )
+      ) {
+        Image(systemName: "chevron.left")
+          .frame(width: controlHeight, height: controlHeight)
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .disabled(selection.page <= 0)
+      .accessibilityLabel("Previous subhabits for \(habit.name)")
+
+      if family != .systemSmall {
+        Text("\(selection.page + 1)/\(selection.totalPages)")
+          .font(.caption2.monospacedDigit())
+          .foregroundStyle(.secondary)
+          .lineLimit(1)
+          .minimumScaleFactor(0.6)
+          .frame(width: 28)
+      }
+
+      Button(
+        intent: PageSubHabitsIntent(
+          habitId: habit.id, direction: 1, totalPages: selection.totalPages
+        )
+      ) {
+        Image(systemName: "chevron.right")
+          .frame(width: controlHeight, height: controlHeight)
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .disabled(selection.page >= selection.totalPages - 1)
+      .accessibilityLabel("Next subhabits for \(habit.name)")
+    }
+    .font(.caption2.weight(.semibold))
+    .foregroundStyle(.secondary)
+  }
+
+  private var pageControlsWidth: CGFloat {
+    controlHeight * 2 + (family == .systemSmall ? 3 : 34)
   }
 
   private var controlHeight: CGFloat {
